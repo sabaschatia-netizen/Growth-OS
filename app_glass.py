@@ -3631,6 +3631,17 @@ else:
 
 flag_html = '<img class="flag-img" src="https://flagcdn.com/w80/ar.png">'
 
+# ── Glass tokens (solo Dark Mode) ────────────────────────────────────────────
+# Light Mode usa superficies blancas (#FFFFFF) como antes.
+# Dark Mode usa glassmorphism: vidrio semitransparente sobre el fondo navy/World Cup.
+GLASS_BG      = "rgba(255,255,255,0.06)"   if not LIGHT else "#FFFFFF"
+GLASS_BORDER  = "rgba(255,255,255,0.12)"   if not LIGHT else "rgba(0,0,0,0.07)"
+GLASS_BLUR    = "blur(12px)"               if not LIGHT else "none"
+GLASS_SHADOW  = "0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10)" if not LIGHT else "0 10px 30px rgba(0,0,0,0.05)"
+# Texto sobre vidrio oscuro — mint suave; sobre blanco — navy
+GLASS_TEXT    = PALETTE["mint_soft"]       if not LIGHT else "#1A1F36"
+GLASS_MUTED   = "rgba(255,255,255,0.52)"   if not LIGHT else "#6B7280"
+
 
 # =========================
 # CSS
@@ -3699,12 +3710,14 @@ section[data-testid="stSidebar"] * {{
 
 /* ===== APP HEADER ===== */
 .app-header {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 28px;
     padding: 30px 38px;
     margin-bottom: 32px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -3713,7 +3726,7 @@ section[data-testid="stSidebar"] * {{
 .header-title {{
     font-size: 44px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     display: flex;
     align-items: center;
     line-height: 1;
@@ -3723,7 +3736,7 @@ section[data-testid="stSidebar"] * {{
     margin-top: 12px;
     font-size: 18px;
     font-weight: 600;
-    color: #6B7280;
+    color: {GLASS_MUTED};
 }}
 
 .period-pill {{
@@ -3739,23 +3752,27 @@ section[data-testid="stSidebar"] * {{
     margin: 32px 0 20px;
 }}
 
-/* ===== BASE CARD (Neumorphism) ===== */
+/* ===== BASE CARD (Glassmorphism / Light Neumorphism) ===== */
 .panel {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 24px;
     padding: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     margin-bottom: 20px;
 }}
 
 .metric-card {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 24px;
     padding: 18px;
     min-height: 176px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     overflow: hidden;
     transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s cubic-bezier(.22,1,.36,1);
 }}
@@ -3782,7 +3799,7 @@ section[data-testid="stSidebar"] * {{
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
-    color: #6B7280;
+    color: {GLASS_MUTED};
     min-height: 34px;
     line-height: 1.15;
 }}
@@ -3828,10 +3845,12 @@ section[data-testid="stSidebar"] * {{
 .bucket-card,
 .update-card,
 .agenda-card {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     box-sizing: border-box;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
 }}
 
 .brand-card {{
@@ -3847,7 +3866,7 @@ section[data-testid="stSidebar"] * {{
     font-size: 46px;
     font-weight: 800;
     line-height: 1.08;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin-bottom: 18px;
 }}
 
@@ -3904,7 +3923,7 @@ section[data-testid="stSidebar"] * {{
 .status-value {{
     font-size: 23px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     line-height: 1.12;
 }}
 
@@ -3921,7 +3940,7 @@ section[data-testid="stSidebar"] * {{
 .metric-title {{
     font-size: 30px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
 }}
 
 .money-card {{
@@ -3970,20 +3989,22 @@ section[data-testid="stSidebar"] * {{
 }}
 
 .info-card {{
-    background: #FFFFFF;
-    color: #1A1F36;
-    border: none;
+    background: {GLASS_BG};
+    color: {GLASS_TEXT};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 30px;
     padding: 34px 38px;
     min-height: 430px;
     margin-top: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
 }}
 
 .info-card h3 {{
     font-size: 30px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin: 0 0 24px 0;
 }}
 
@@ -3991,17 +4012,19 @@ section[data-testid="stSidebar"] * {{
     border-bottom: 1px solid rgba(180,180,180,.20);
     padding: 12px 0;
     font-size: 18px;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     line-height: 1.3;
 }}
 
 .comments-card {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 30px;
     padding: 30px;
     margin-top: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
 }}
 .comments-card:hover {{
@@ -4031,7 +4054,7 @@ section[data-testid="stSidebar"] * {{
 .kpi-title {{
     font-size: 26px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin-bottom: 22px;
     text-align: center;
 }}
@@ -4130,7 +4153,7 @@ section[data-testid="stSidebar"] * {{
 .bucket-title {{
     font-size: 18px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin-bottom: 14px;
     min-height: 48px;
 }}
@@ -4152,7 +4175,7 @@ section[data-testid="stSidebar"] * {{
 .salary-value {{
     font-size: 21px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin-top: 10px;
     line-height: 1.15;
     white-space: normal;
@@ -4233,10 +4256,10 @@ section[data-testid="stSidebar"] * {{
 
 /* ===== INPUTS ===== */
 input, textarea, select {{
-    background: #FFFFFF !important;
-    color: #1A1F36 !important;
+    background: {"#FFFFFF" if LIGHT else "rgba(255,255,255,0.08)"} !important;
+    color: {"#1A1F36" if LIGHT else PALETTE["mint_soft"]} !important;
     border-radius: 14px !important;
-    border: 1px solid rgba(0, 0, 0, 0.10) !important;
+    border: 1px solid {"rgba(0,0,0,0.10)" if LIGHT else "rgba(255,255,255,0.15)"} !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
 }}
 
@@ -4256,7 +4279,7 @@ div[data-testid="column"] {{
 .mgmt-title {{
     font-size: 30px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin: 48px 0 16px;
 }}
 
@@ -4266,18 +4289,20 @@ div[data-testid="column"] {{
 .mgmt-row.line4 {{ grid-template-columns: 1fr 1fr 2.35fr; }}
 
 .mgmt-section {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 28px;
     padding: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     min-height: 250px;
 }}
 
 .mgmt-section-title {{
     font-size: 24px;
     font-weight: 800;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     margin-bottom: 18px;
 }}
 
@@ -4285,12 +4310,14 @@ div[data-testid="column"] {{
 .mgmt-subgrid.three {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
 
 .mgmt-card {{
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 24px;
     padding: 22px;
     min-height: 178px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     overflow: hidden;
     transition: transform .20s, box-shadow .20s;
 }}
@@ -4345,11 +4372,13 @@ div[data-testid="column"] {{
 .hero-card {{
     position: relative;
     overflow: hidden;
-    background: #FFFFFF;
-    border: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 34px;
     padding: 28px 34px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     margin-bottom: 22px;
     transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
 }}
@@ -4364,7 +4393,7 @@ div[data-testid="column"] {{
     font-size: clamp(30px, 3.3vw, 52px);
     font-weight: 900;
     line-height: 1.02;
-    color: #1A1F36;
+    color: {GLASS_TEXT};
     letter-spacing: -0.04em;
 }}
 
@@ -4398,38 +4427,42 @@ div[data-testid="column"] {{
 
 .sticker-grid {{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }}
 .sticker {{
-    background: #FFFFFF;
-    border: 1px solid rgba(0,0,0,0.07);
-    color: #1A1F36;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
+    color: {GLASS_TEXT};
     border-radius: 18px;
     padding: 12px 14px;
     min-height: 70px;
-    box-shadow: none;
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
 }}
 .sticker:hover {{
     box-shadow: 0 0 0 2px #4E63D9, 0 6px 18px rgba(78,99,217,.18);
     transform: translateY(-1px);
 }}
-.sticker-label {{ font-size: 11px; text-transform: uppercase; font-weight: 900; color: #6B7280; }}
-.sticker-value {{ font-size: 18px; font-weight: 900; margin-top: 7px; line-height:1.08; }}
+.sticker-label {{ font-size: 11px; text-transform: uppercase; font-weight: 900; color: {GLASS_MUTED}; }}
+.sticker-value {{ font-size: 18px; font-weight: 900; margin-top: 7px; line-height:1.08; color: {GLASS_TEXT}; }}
 
 /* Hero card bottom row — General Information merged */
 .hero-divider {{ border:none; border-top: 1px solid rgba(0,0,0,0.07); margin: 22px 0 18px; }}
 .hero-info-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:14px 20px; }}
 .hero-info-item {{ display:flex; flex-direction:column; gap:4px; }}
 .hero-info-label {{ font-size:11px; text-transform:uppercase; font-weight:900; color:#6B7280; opacity:.90; }}
-.hero-info-value {{ font-size:15px; font-weight:800; color:#1A1F36; line-height:1.25; overflow-wrap:anywhere; }}
+.hero-info-value {{ font-size:15px; font-weight:800; color:{GLASS_TEXT}; line-height:1.25; overflow-wrap:anywhere; }}
 
 .stack-card {{
     position: relative;
     overflow: hidden;
-    background: #FFFFFF;
-    border: 1px solid rgba(0,0,0,0.07);
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 28px;
     padding: 24px;
     min-height: 190px;
-    box-shadow: none;
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: box-shadow .22s, transform .22s;
 }}
 .stack-card:hover {{
@@ -4448,13 +4481,15 @@ div[data-testid="column"] {{
 .wide-info-card {{
     position: relative;
     overflow: hidden;
-    background: #FFFFFF;
-    color: #1A1F36;
-    border: 1px solid rgba(0,0,0,0.07);
+    background: {GLASS_BG};
+    color: {GLASS_TEXT};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 30px;
     padding: 26px 30px;
     margin-top: 20px;
-    box-shadow: none;
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
 }}
 .wide-info-card:hover {{
@@ -4465,7 +4500,7 @@ div[data-testid="column"] {{
 .wide-info-title {{ font-size: 25px; font-weight: 900; margin-bottom: 18px; color: #6B7280; }}
 .wide-info-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; }}
 .info-mini-label {{ font-size: 11px; text-transform: uppercase; font-weight: 900; color:#6B7280; opacity:.90; }}
-.info-mini-value {{ font-size: 16px; font-weight: 900; margin-top: 6px; line-height:1.22; overflow-wrap:anywhere; color:#1A1F36; }}
+.info-mini-value {{ font-size: 16px; font-weight: 900; margin-top: 6px; line-height:1.22; overflow-wrap:anywhere; color:{GLASS_TEXT}; }}
 
 .chip-line {{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }}
 .category-chip {{
@@ -4491,12 +4526,14 @@ div[data-testid="column"] {{
 /* ===== ACTION CARDS (Hover Invertido Semántico) ===== */
 .action-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; }}
 .action-card {{
-    background: #FFFFFF;
-    border: 1px solid rgba(0,0,0,0.07);
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 22px;
     padding: 18px;
     min-height: 178px;
-    box-shadow: none;
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: none;
 }}
 
@@ -4517,12 +4554,14 @@ div[data-testid="column"] {{
 .tactical-flow-card {{ margin-top: 18px; }}
 .tactical-grid {{ display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:14px; }}
 .tactical-card {{
-    background: #FFFFFF;
-    border: 1px solid rgba(0,0,0,0.07);
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
     border-radius: 22px;
     padding: 16px 17px;
     min-height: 156px;
-    box-shadow: none;
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: none;
 }}
 
@@ -4578,16 +4617,18 @@ label[data-baseweb="form-control-label"] {{
 
 /* ===== EXPANDERS ===== */
 div[data-testid="stExpander"] {{
-    background: #FFFFFF !important;
-    border: 1px solid rgba(0,0,0,0.07) !important;
+    background: {GLASS_BG} !important;
+    border: 1px solid {GLASS_BORDER} !important;
     border-radius: 14px !important;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.05) !important;
+    box-shadow: {GLASS_SHADOW} !important;
+    -webkit-backdrop-filter: {GLASS_BLUR} !important;
+    backdrop-filter: {GLASS_BLUR} !important;
     overflow: hidden !important;
 }}
 div[data-testid="stExpander"] details,
 div[data-testid="stExpander"] summary {{
-    background: #FFFFFF !important;
-    color: #1A1F36 !important;
+    background: transparent !important;
+    color: {GLASS_TEXT} !important;
 }}
 div[data-testid="stExpander"] *,
 div[data-testid="stExpander"] summary *,
@@ -4597,25 +4638,25 @@ div[data-testid="stExpander"] span,
 div[data-testid="stExpander"] label,
 div[data-testid="stExpander"] div,
 div[data-testid="stExpander"] strong {{
-    color: #1A1F36 !important;
-    -webkit-text-fill-color: #1A1F36 !important;
+    color: {GLASS_TEXT} !important;
+    -webkit-text-fill-color: {GLASS_TEXT} !important;
     text-shadow: none !important;
     opacity: 1 !important;
 }}
 details > summary, details > summary *,
 div[data-testid="stExpander"] summary svg,
 div[data-testid="stExpander"] summary svg * {{
-    color: #1A1F36 !important;
-    -webkit-text-fill-color: #1A1F36 !important;
-    fill: #1A1F36 !important;
-    stroke: #1A1F36 !important;
+    color: {GLASS_TEXT} !important;
+    -webkit-text-fill-color: {GLASS_TEXT} !important;
+    fill: {GLASS_TEXT} !important;
+    stroke: {GLASS_TEXT} !important;
     text-shadow: none !important;
 }}
 div[data-testid="stExpander"] textarea,
 div[data-testid="stExpander"] input {{
-    color: #1A1F36 !important;
-    -webkit-text-fill-color: #1A1F36 !important;
-    background: #FFFFFF !important;
+    color: {"#1A1F36" if LIGHT else PALETTE["mint_soft"]} !important;
+    -webkit-text-fill-color: {"#1A1F36" if LIGHT else PALETTE["mint_soft"]} !important;
+    background: {"#FFFFFF" if LIGHT else "rgba(255,255,255,0.08)"} !important;
 }}
 div[data-testid="stExpander"] .stButton > button,
 div[data-testid="stExpander"] .stButton > button *,
@@ -4674,9 +4715,11 @@ div[data-testid="stDataFrame"] *, div[data-testid="stTable"] * {{
     border-radius: 24px;
     padding: 18px;
     min-height: 116px;
-    background: #FFFFFF;
-    border: 1px solid rgba(0,0,0,0.07);
-    box-shadow: none;
+    background: {GLASS_BG};
+    border: 1px solid {GLASS_BORDER};
+    box-shadow: {GLASS_SHADOW};
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     transition: background .22s, box-shadow .22s, transform .22s;
 }}
 
@@ -4685,7 +4728,7 @@ div[data-testid="stDataFrame"] *, div[data-testid="stTable"] * {{
 }}
 .priority-overview-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
 .card-label {{ font-size:11px; text-transform:uppercase; font-weight:1000; letter-spacing:.04em; color:#6B7280; }}
-.card-value {{ font-size:22px; font-weight:1000; color:#1A1F36; margin-top:8px; line-height:1.12; overflow-wrap:anywhere; }}
+.card-value {{ font-size:22px; font-weight:1000; color:{GLASS_TEXT}; margin-top:8px; line-height:1.12; overflow-wrap:anywhere; }}
 .card-copy {{ font-size:13px; color:#6B7280; margin-top:8px; line-height:1.35; }}
 .card-chipline {{ margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }}
 .card-chip {{ border-radius:999px; padding:5px 9px; font-size:11px; font-weight:900; background:rgba(191,255,0,.14); color:#1A1F36; border:1px solid rgba(191,255,0,.36); }}
@@ -4694,46 +4737,46 @@ div[data-testid="stDataFrame"] *, div[data-testid="stTable"] * {{
 
 /* MENU */
 .lever-menu, .menu-card {{
-    background: #FFFFFF !important;
-    border-color: rgba(0,0,0,0.07) !important;
+    background: {GLASS_BG} !important;
+    border-color: {GLASS_BORDER} !important;
     box-shadow: none !important;
     transition: none !important;
 }}
 
 /* MD (Markdown) */
 .lever-md, .md-card {{
-    background: #FFFFFF !important;
-    border-color: rgba(0,0,0,0.07) !important;
+    background: {GLASS_BG} !important;
+    border-color: {GLASS_BORDER} !important;
     box-shadow: none !important;
     transition: none !important;
 }}
 .lever-md *, .md-card * {{
-    color: #1A1F36 !important;
+    color: {GLASS_TEXT} !important;
 }}
 
 /* PRO (Markdown PRO) */
 .lever-pro, .pro-card {{
-    background: #FFFFFF !important;
-    border-color: rgba(0,0,0,0.07) !important;
+    background: {GLASS_BG} !important;
+    border-color: {GLASS_BORDER} !important;
     box-shadow: none !important;
     transition: none !important;
 }}
 .lever-pro *, .pro-card * {{
-    color: #1A1F36 !important;
+    color: {GLASS_TEXT} !important;
 }}
 
 /* ADS */
 .lever-ads, .ads-card {{
-    background: #FFFFFF !important;
-    border-color: rgba(0,0,0,0.07) !important;
+    background: {GLASS_BG} !important;
+    border-color: {GLASS_BORDER} !important;
     box-shadow: none !important;
     transition: none !important;
 }}
 
 /* OPS */
 .lever-ops, .ops-card {{
-    background: #FFFFFF !important;
-    border-color: rgba(0,0,0,0.07) !important;
+    background: {GLASS_BG} !important;
+    border-color: {GLASS_BORDER} !important;
     box-shadow: none !important;
     transition: none !important;
 }}
@@ -4797,7 +4840,7 @@ div[data-testid="stDataFrame"] *, div[data-testid="stTable"] * {{
 .health-dot.red {{ background:#E5332A; }}
 
 /* Management Dashboard: mgmt-stack-card */
-.mgmt-stack-card {{ background: #FFFFFF !important; border: none !important; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px !important; }}
+.mgmt-stack-card {{ background: {GLASS_BG} !important; border: 1px solid {GLASS_BORDER} !important; -webkit-backdrop-filter: {GLASS_BLUR}; backdrop-filter: {GLASS_BLUR}; box-shadow: {GLASS_SHADOW}; margin-bottom: 20px !important; }}
 .mgmt-stack-card:hover {{ box-shadow: 0 0 0 3px #4E63D9, 0 8px 28px rgba(78,99,217,.22) !important; transform: translateY(-2px); }}
 .mgmt-stack-card .stack-main {{ color: #8B9DFF !important; }}
 .mgmt-stack-card .mgmt-ars {{ color: #BFFF00 !important; }}
@@ -4806,15 +4849,17 @@ div[data-testid="stDataFrame"] *, div[data-testid="stTable"] * {{
 
 /* Section title card */
 .mgmt-section-title-card {{
-    background: #FFFFFF !important;
-    border: none !important;
+    background: {GLASS_BG} !important;
+    border: 1px solid {GLASS_BORDER} !important;
     border-radius: 26px;
     padding: 22px 26px;
     margin: 18px 0 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+    box-shadow: {GLASS_SHADOW} !important;
+    -webkit-backdrop-filter: {GLASS_BLUR};
+    backdrop-filter: {GLASS_BLUR};
     border-top: 4px solid #FF8A3D !important;
 }}
-.mgmt-section-title-copy {{ font-size: 28px; font-weight: 900; color: #1A1F36; letter-spacing: -0.02em; }}
+.mgmt-section-title-copy {{ font-size: 28px; font-weight: 900; color: {GLASS_TEXT}; letter-spacing: -0.02em; }}
 
 /* Wide-info section title */
 .section-title, .update-title, .comments-card h1, .comments-card h2, .comments-card h3 {{
@@ -4861,7 +4906,7 @@ input, textarea, [data-baseweb="select"] *, [data-baseweb="input"] * {{
     color: #1A1F36 !important;
 }}
 
-/* Preserve Net Total card */
+/* Preserve Net Total card — override glass with green tint */
 .net-card {{
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
