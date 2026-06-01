@@ -47,53 +47,52 @@ CONTACTS_START_DATE = date(2026, 5, 16)
 # Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
 # Core: Space Indigo #1D2659 · Slate Indigo #4E63D9 · Neon Tangerine #FF8A3D · Laser Green #6FF24B · Soft Mint #DDFBCF
 PALETTE = {
-    # New identity
-    "space_indigo": "#1D2659",
-    "slate_indigo": "#4E63D9",
-    "laser_green": "#6FF24B",
-    "soft_mint": "#DDFBCF",
-    "neon_tangerine": "#FF8A3D",
+    # ── 6 tokens de identidad — los únicos que importan ──────
+    "space_indigo":   "#1D2659",   # fondo dark profundo
+    "slate_indigo":   "#4E63D9",   # azul primario / intel
+    "laser_green":    "#6FF24B",   # acento éxito / highlight
+    "soft_mint":      "#DDFBCF",   # texto sobre dark
+    "neon_tangerine": "#FF8A3D",   # acento comercial / ADS
 
-    # Seasonal World Cup skin accents. Used only as subtle texture/accent colors.
-    "world_red": "#E5332A",
-    "world_cyan": "#55C8FF",
-    "world_yellow": "#FFF100",
-    "world_green": "#00A86B",
+    # ── Scales derivadas ─────────────────────────────────────
+    "navy_dark":      "#10163A",   # dark más profundo
+    "blue_soft":      "#6F82EF",   # slate_indigo atenuado
+    "laser_soft":     "#B9FF9C",   # laser_green atenuado
+    "mint_soft":      "#F4FFF0",   # soft_mint muy claro
+    "tangerine_dark": "#FF5F1F",   # neon_tangerine oscuro
+    "tangerine_soft": "#FFD7C2",   # neon_tangerine claro
+    "emerald_dark":   "#009175",   # éxito alternativo (heatmap)
 
-    "emerald_dark": "#009175",
-    "tangerine_dark": "#FF5F1F",
-    "tangerine_soft": "#FFD7C2",
+    # ── World Cup seasonal accents (solo texturas/fondo) ─────
+    "world_red":      "#E5332A",
+    "world_cyan":     "#55C8FF",
+    "world_yellow":   "#FFF100",
+    "world_green":    "#00A86B",
 
-    # Structural tones derived from the palette
-    "navy": "#1D2659",
-    "navy_dark": "#10163A",
-    "navy_soft": "#27316A",
-    "blue": "#4E63D9",
-    "blue_soft": "#6F82EF",
-    "blue_mist": "#EEF2FF",
-    "laser": "#6FF24B",
-    "laser_soft": "#B9FF9C",
-    "mint": "#DDFBCF",
-    "mint_soft": "#F4FFF0",
-    "mint_muted": "#BFE8AC",
-    "white": "#FFFFFF",
-
-    # Backward-compatible keys used across the app.
-    # Warm/commercial keys now map to Neon Tangerine so the UI has a real third color.
-    "cream": "#FFFFFF",
-    "cream_soft": "#F4FFF0",
+    # ── Alias backward-compat — no eliminar ──────────────────
+    # El código existente sigue funcionando sin tocar nada.
+    "navy":        "#1D2659",   # → space_indigo
+    "navy_soft":   "#27316A",
+    "blue":        "#4E63D9",   # → slate_indigo
+    "blue_mist":   "#EEF2FF",
+    "laser":       "#6FF24B",   # → laser_green
+    "mint":        "#DDFBCF",   # → soft_mint
+    "mint_muted":  "#BFE8AC",
+    "white":       "#FFFFFF",
+    "cream":       "#FFFFFF",
+    "cream_soft":  "#F4FFF0",
     "cream_muted": "#BFE8AC",
-    "coral": "#FF8A3D",
-    "coral_soft": "#FFD7C2",
-    "gold": "#FF8A3D",
-    "gold_soft": "#FFD7C2",
-    "orange_dark": "#FF5F1F",
-    "orange": "#FF8A3D",
+    "coral":       "#FF8A3D",   # → neon_tangerine
+    "coral_soft":  "#FFD7C2",
+    "gold":        "#FF8A3D",   # → neon_tangerine
+    "gold_soft":   "#FFD7C2",
+    "orange_dark": "#FF5F1F",   # → tangerine_dark
+    "orange":      "#FF8A3D",   # → neon_tangerine
     "orange_soft": "#FFD7C2",
-    "red": "#FF5F1F",
-    "red_soft": "#FFD7C2",
-    "sky": "#4E63D9",
-    "sky_soft": "#6F82EF",
+    "red":         "#FF5F1F",   # → tangerine_dark
+    "red_soft":    "#FFD7C2",
+    "sky":         "#4E63D9",   # → slate_indigo
+    "sky_soft":    "#6F82EF",
 }
 
 
@@ -3571,33 +3570,33 @@ LIGHT = theme == "Light Mode"
 
 if LIGHT:
     COLORS = {
-        "bg": "#F4F6F8",
-        "card": "#FFFFFF",
-        "card2": "#FFFFFF",
-        "text": "#1A1F36",
-        "muted": "#6B7280",
-        "label": "#1A1F36",
-        "border": "rgba(0, 0, 0, 0)",
-        "sidebar": "#FFFFFF",
-        "sidebar_text": "#1A1F36",
-        "active": "#BFFF00",
-        "active_text": "#1A1F36",
-        "blue": "#8B9DFF",
-        "blue_text": "#1A1F36",
-        "input_bg": "#FFFFFF",
-        "accent": "#FF8A3D",
-        "accent_dark": "#E06B1A",
-        "accent_soft": "#FFE4CC",
-        "commercial": "#FF8A3D",
-        "commercial_dark": "#E06B1A",
-        "commercial_soft": "#FFE4CC",
-        "intel": "#8B9DFF",
-        "intel_soft": "#8B9DFF",
-        "success": "#BFFF00",
-        "warning": "#FF8A3D",
-        "danger": "#E5332A",
-        "info_bg": "#FFFFFF",
-        "info_text": "#1A1F36",
+        "bg":              "#F0F2FF",   # era #F4F6F8 — ahora tiene ADN de la paleta
+        "card":            "#FFFFFF",
+        "card2":           "#FFFFFF",
+        "text":            "#1A1F36",
+        "muted":           "#6B7280",
+        "label":           "#1A1F36",
+        "border":          "rgba(78, 99, 217, 0.10)",  # era transparente
+        "sidebar":         "#FFFFFF",
+        "sidebar_text":    "#1A1F36",
+        "active":          "#6FF24B",
+        "active_text":     "#1A1F36",
+        "blue":            "#4E63D9",
+        "blue_text":       "#FFFFFF",
+        "input_bg":        "#FFFFFF",
+        "accent":          "#FF8A3D",
+        "accent_dark":     "#FF5F1F",
+        "accent_soft":     "#FFD7C2",
+        "commercial":      "#FF8A3D",
+        "commercial_dark": "#FF5F1F",
+        "commercial_soft": "#FFD7C2",
+        "intel":           "#4E63D9",
+        "intel_soft":      "#6F82EF",
+        "success":         "#6FF24B",
+        "warning":         "#FF8A3D",
+        "danger":          "#E5332A",
+        "info_bg":         "#EEF2FF",
+        "info_text":       "#1A1F36",
     }
 else:
     COLORS = {
@@ -3646,7 +3645,7 @@ st.markdown(f"""
 }}
 
 .stApp {{
-    background: {COLORS["bg"] if not LIGHT else "#F4F6F8"};
+    background: {COLORS["bg"]};
     color: {COLORS["text"]};
 }}
 
@@ -3675,14 +3674,14 @@ st.markdown(f"""
 
 .block-container {{
     max-width: 1400px;
-    padding-top: 1.4rem;
-    padding-bottom: 4rem;
+    padding-top: 2rem;
+    padding-bottom: 5rem;
 }}
 
 section[data-testid="stSidebar"] {{
     background: {COLORS["sidebar"]};
-    border-right: {"1px solid rgba(0,0,0,0.06)" if LIGHT else f"1px solid {COLORS['border']}"};
-    box-shadow: {"4px 0 24px rgba(0,0,0,0.06)" if LIGHT else "none"};
+    border-right: {"1px solid rgba(78,99,217,0.18)" if LIGHT else f"1px solid {COLORS['border']}"};
+    box-shadow: none;
 }}
 
 section[data-testid="stSidebar"] * {{
@@ -3704,7 +3703,7 @@ section[data-testid="stSidebar"] * {{
     border: none;
     border-radius: 28px;
     padding: 30px 38px;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
     display: flex;
     justify-content: space-between;
@@ -3737,7 +3736,7 @@ section[data-testid="stSidebar"] * {{
     font-size: 22px;
     font-weight: 800;
     color: {COLORS["text"]};
-    margin: 12px 0 18px;
+    margin: 32px 0 20px;
 }}
 
 /* ===== BASE CARD (Neumorphism) ===== */
@@ -3747,7 +3746,7 @@ section[data-testid="stSidebar"] * {{
     border-radius: 24px;
     padding: 24px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 }}
 
 .metric-card {{
@@ -4217,7 +4216,7 @@ section[data-testid="stSidebar"] * {{
 .update-card {{
     border-radius: 24px;
     padding: 24px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 }}
 
 .update-title {{
@@ -4258,10 +4257,10 @@ div[data-testid="column"] {{
     font-size: 30px;
     font-weight: 800;
     color: #1A1F36;
-    margin: 28px 0 14px;
+    margin: 48px 0 16px;
 }}
 
-.mgmt-row {{ display: grid; gap: 18px; margin-bottom: 22px; align-items: stretch; }}
+.mgmt-row {{ display: grid; gap: 20px; margin-bottom: 32px; align-items: stretch; }}
 .mgmt-row.three {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
 .mgmt-row.two {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
 .mgmt-row.line4 {{ grid-template-columns: 1fr 1fr 2.35fr; }}
