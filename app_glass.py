@@ -483,6 +483,7 @@ def load_asignacion_junio():
     return out.reset_index(drop=True)
 
 
+@st.cache_data(ttl=120)
 def get_turbo_info(brand_id):
     """
     Devuelve True si la marca es STORE TURBO según 'Asignacion Junio'.
@@ -570,6 +571,7 @@ def load_current_churn_per_brand():
         return {}
 
 
+@st.cache_data(ttl=120)
 def get_churn_status(brand_id):
     """
     Devuelve el Churn Status (peor estado) de una marca desde Current Churn, con emoji incluido.
@@ -1864,46 +1866,35 @@ def find_brand_row(ws, headers, brand_id):
     return None
 
 
+@st.cache_data(ttl=120)
 def get_brand_ranking_from_excel(brand_id):
     """
-    Fast ranking reader. Reads only portfolio rows 4:253.
+    Reads ranking from the already-cached Growth OS dataframe.
     First tries the Ranking column. If blank, calculates rank from Last GMV ARS.
+    Avoids opening openpyxl on every call.
     """
     try:
-        wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=False)
-        ws = wb[GROWTH_SHEET]
+        df = load_growth_data()
+        if df.empty:
+            return "-"
 
-        headers = get_sheet_headers(ws, HEADER_ROW)
-
-        id_col = find_column(headers, ["id"])
-        rank_col = find_column(headers, ["ranking", "rank", "top gmv rank", "top gmv ranking", "gmv ranking"])
-        gmv_col = find_column(headers, ["last gmv ARS", "last gmv ars", "gmv ARS", "gmv ars"])
+        id_col   = get_id_column_name(df)
+        rank_col = _first_existing_col(df, ["ranking", "rank", "top gmv rank", "top gmv ranking", "gmv ranking"])
+        gmv_col  = _first_existing_col(df, ["last gmv ars", "gmv ars"])
 
         if not id_col:
-            wb.close()
             return "-"
 
         target = normalize_brand_id(brand_id)
-        target_row = None
+        match = df[df[id_col].apply(normalize_brand_id) == target]
 
-        # IMPORTANT: Only scan the real portfolio range, not ws.max_row.
-        # Some formatted Excel sheets have a huge max_row and that can freeze the app.
-        for r in range(HEADER_ROW + 1, 254):
-            value = ws.cell(r, id_col).value
-            if value is not None and normalize_brand_id(value) == target:
-                target_row = r
-                break
-
-        if not target_row:
-            wb.close()
+        if match.empty:
             return "-"
 
-        # 1) Try direct Ranking value.
+        # 1) Try direct Ranking value
         if rank_col:
-            rank_value = ws.cell(target_row, rank_col).value
-            rank_text = clean(rank_value, "-")
+            rank_text = clean(match.iloc[0].get(rank_col, "-"), "-")
             if rank_text not in ["", "-", "nan", "None"]:
-                wb.close()
                 rank_text = str(rank_text).strip()
                 if rank_text.endswith(".0"):
                     rank_text = rank_text[:-2]
@@ -1911,26 +1902,16 @@ def get_brand_ranking_from_excel(brand_id):
                     return "#" + str(int(float(rank_text)))
                 return rank_text
 
-        # 2) Fallback: calculate rank from Last GMV ARS.
+        # 2) Fallback: calculate rank from Last GMV ARS
         if not gmv_col:
-            wb.close()
             return "-"
 
-        target_gmv = to_number(ws.cell(target_row, gmv_col).value, None)
+        target_gmv = to_number(match.iloc[0].get(gmv_col, None), None)
         if target_gmv is None:
-            wb.close()
             return "-"
 
-        higher_count = 0
-        for r in range(HEADER_ROW + 1, 254):
-            row_id = ws.cell(r, id_col).value
-            if row_id is None:
-                continue
-            gmv = to_number(ws.cell(r, gmv_col).value, None)
-            if gmv is not None and gmv > target_gmv:
-                higher_count += 1
-
-        wb.close()
+        all_gmv = df[gmv_col].apply(lambda x: to_number(x, None))
+        higher_count = int((all_gmv > target_gmv).sum())
         return f"#{higher_count + 1}"
 
     except Exception:
