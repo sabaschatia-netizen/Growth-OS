@@ -3903,7 +3903,7 @@ div[data-testid="stTextArea"] label {{
     letter-spacing: .06em;
 }}
 
-div[data-testid="column"] {{ padding: 0 8px !important; }}
+div[data-testid="column"] {{ padding: 0 10px !important; }}
 
 /* ── FLAG ── */
 .flag-img {{
@@ -4238,7 +4238,6 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
 .signal-stack {{ display: flex; flex-direction: column; gap: 8px; }}
 .sticker-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
 
-.wide-info-title {{ font-size: 14px; font-weight: 800; margin-bottom: 14px; color: rgba(219,187,167,0.45); text-transform: uppercase; letter-spacing: .08em; }}
 .wide-info-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 16px; }}
 .info-mini-label {{ font-size: 10px; text-transform: uppercase; font-weight: 800; color: rgba(219,187,167,0.4); }}
 .info-mini-value {{ font-size: 14px; font-weight: 700; margin-top: 5px; line-height: 1.22; overflow-wrap: anywhere; color: #E8DFD5; }}
@@ -4262,12 +4261,86 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
 }}
 .info-card h3 {{ font-size: 26px; font-weight: 800; color: #E8DFD5; margin: 0 0 20px 0; }}
 
-/* ── STACK CARDS GMV / AOV ── */
-.stack-card:not(.mgmt-stack-card) .stack-main {{ color: #8B9ED4 !important; }}
-.stack-main {{ font-size: clamp(26px, 2.8vw, 40px); font-weight: 900; color: #FF7124; margin-top: 10px; line-height: 1.05; letter-spacing: -0.04em; }}
-.stack-sub {{ font-size: 15px; font-weight: 700; color: #8B9ED4; margin-top: 8px; }}
-.stack-foot {{ font-size: 13px; color: rgba(219,187,167,0.5); font-weight: 700; margin-top: 10px; }}
-.stack-label {{ font-size: 12px; font-weight: 800; text-transform: uppercase; color: rgba(219,187,167,0.45); letter-spacing: .08em; }}
+/* ── SECTION CARD PADDING (wide-info, stack, panel) ── */
+.wide-info-card {{
+    padding: 28px 28px !important;
+}}
+.stack-card {{
+    padding: 22px 24px !important;
+}}
+.panel {{
+    padding: 24px 26px !important;
+}}
+.update-card {{
+    padding: 22px 24px !important;
+}}
+.info-card {{
+    padding: 24px 26px !important;
+}}
+.comments-card {{
+    padding: 22px 24px !important;
+}}
+
+/* ── INNER SPACING: titles, grids, sub-sections ── */
+.wide-info-title {{
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 20px !important;
+    color: rgba(219,187,167,0.55);
+    text-transform: uppercase;
+    letter-spacing: .10em;
+}}
+.action-grid {{
+    gap: 16px !important;
+    margin-top: 16px !important;
+}}
+.business-card-grid {{
+    gap: 14px !important;
+    margin-top: 8px !important;
+}}
+.priority-top-grid {{
+    gap: 14px !important;
+    margin-bottom: 20px !important;
+}}
+.sticker-grid {{
+    gap: 10px !important;
+}}
+.hero-info-grid {{
+    gap: 16px 20px !important;
+    margin-top: 4px !important;
+}}
+
+/* ── STACK CARD INTERNAL SPACING ── */
+.stack-label {{
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: rgba(219,187,167,0.5);
+    letter-spacing: .08em;
+    margin-bottom: 6px !important;
+}}
+.stack-main {{
+    font-size: clamp(26px, 2.8vw, 40px);
+    font-weight: 900;
+    color: #FF7124;
+    margin-top: 12px !important;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+}}
+.stack-sub {{
+    font-size: 15px;
+    font-weight: 700;
+    color: #8B9ED4;
+    margin-top: 10px !important;
+}}
+.stack-foot {{
+    font-size: 13px;
+    color: rgba(219,187,167,0.5);
+    font-weight: 700;
+    margin-top: 12px !important;
+}}
+
+
 
 /* ── PRIORITY LAYOUT ── */
 .priority-top-grid {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }}
@@ -4497,8 +4570,8 @@ div[data-testid=\"column\"] {{ padding: 0 10px !important; }}
 .priority-overview-grid {{ gap: 14px !important; }}
 /* Extra gap between Streamlit column rows */
 div[data-testid=\"stHorizontalBlock\"] {{
-    gap: 18px !important;
-    margin-bottom: 18px !important;
+    gap: 20px !important;
+    margin-bottom: 22px !important;
 }}
 
 /* ── SCROLLBAR ── */
@@ -4881,7 +4954,7 @@ def page_management_dashboard():
 
     def stack_money(label, ars, usd, cop, foot=""):
         st.markdown(f"""
-<div class="stack-card mgmt-stack-card">
+<div class="stack-card mgmt-stack-card" style="padding:26px 28px;">
     <div class="stack-label">{label}</div>
     <div class="stack-main mgmt-ars">{fmt_ars(ars)}</div>
     <div class="stack-sub mgmt-conv">{fmt_usd(usd)} · {fmt_cop(cop)}</div>
@@ -4892,7 +4965,7 @@ def page_management_dashboard():
     def simple_card(label, value, foot="", tone="blue"):
         # Management Dashboard cards stay visually uniform; KPI meaning comes from the label, not card color.
         st.markdown(f"""
-<div class="stack-card mgmt-stack-card">
+<div class="stack-card mgmt-stack-card" style="padding:26px 28px;">
     <div class="stack-label">{label}</div>
     <div class="stack-main">{value}</div>
     <div class="stack-foot">{foot if foot else '&nbsp;'}</div>
@@ -4905,7 +4978,7 @@ def page_management_dashboard():
         ratio_text = fmt_percent0(ratio) if ratio is not None else "-"
         main = ratio_text if kind == "progress" else fmt_signed_percent(ratio)
         st.markdown(f"""
-<div class="stack-card mgmt-stack-card">
+<div class="stack-card mgmt-stack-card" style="padding:26px 28px;">
     <div class="stack-label">{label}</div>
     <div class="stack-main">{main}</div>
     <div class="stack-foot">Reference: {value_formatter(goal)}</div>
