@@ -12013,6 +12013,127 @@ def render_brand_profile(row, brand_id):
 
 
 
+    # ── Pitch calculation (must happen before Analytics render) ──────────────
+    _pi_category = category.split("·")[0].strip() if "·" in category else category.strip()
+    _pi_lever = "Ads" if md_current.get("active", False) else "MD"
+    _pi_gmv = current_gmv_ars
+    _pi_aov = current_aov_ars
+    _pi_orders = current["orders"] if current else 0
+    mctx = get_market_context(_pi_category, _pi_lever, _pi_gmv, _pi_orders)
+
+    # ── Reasoning paragraph (same logic as render_campaign_designer_html) ──
+    _cd = campaign_design  # shorthand
+    _rp_strategy  = clean(_cd.get("strategy"), "")
+    _rp_focus     = clean(_cd.get("focus"), "")
+    _rp_ads       = clean(_cd.get("ads_action"), "")
+    _rp_md        = clean(_cd.get("md_reco"), "")
+    _rp_promo     = clean(_cd.get("promo_action"), "")
+    _rp_event     = clean(_cd.get("event"), "")
+    _rp_cross     = clean(_cd.get("cross_sell_reco"), "")
+    _rp_pro_extra = int(to_number(_cd.get("pro_extra"), 0))
+    _rp_impact_low  = int(_cd.get("impact_low", 0))
+    _rp_impact_high = int(_cd.get("impact_high", 0))
+    _rp_risk      = clean(_cd.get("risk"), "Medium")
+    _rp_pressure  = _cd.get("partner_pressure", 0)
+    _rp_budget    = _format_budget_range(_cd.get("budget_low_ars", 0), _cd.get("budget_high_ars", 0))
+    _rp_raw_reasons = list(_cd.get("reasons", []))
+    if _cd.get("cross_sell_reason") not in ["", "-"]:
+        _rp_raw_reasons.append(_cd.get("cross_sell_reason"))
+    if _cd.get("pro_reason") not in ["", "-"]:
+        _rp_raw_reasons.append(_cd.get("pro_reason"))
+
+    _rp_parts = []
+    if _rp_strategy and _rp_strategy != "-":
+        _rp_lead = f"Estrategia <strong>{html.escape(_rp_strategy)}</strong>"
+        if _rp_focus and _rp_focus != "-":
+            _rp_lead += f" con foco en <em>{html.escape(_rp_focus)}</em>"
+        _rp_parts.append(_rp_lead)
+    _rp_levers = []
+    if _rp_ads and _rp_ads != "-":
+        _rp_levers.append(f"Ads → {html.escape(_rp_ads)} ({_rp_budget})")
+    if _rp_md and _rp_md != "-":
+        _rp_md_detail = f"{html.escape(_rp_promo)}" if _rp_promo and _rp_promo != "-" else ""
+        _rp_pro_detail = f" +{_rp_pro_extra}% PRO" if _rp_pro_extra > 0 else ""
+        _rp_levers.append(f"MD → {html.escape(_rp_md)}{(' · ' + _rp_md_detail) if _rp_md_detail else ''}{_rp_pro_detail}")
+    if _rp_cross and _rp_cross not in ["-", ""]:
+        _rp_levers.append(f"Cross-sell: {html.escape(_rp_cross)}")
+    if _rp_levers:
+        _rp_parts.append(". ".join(_rp_levers))
+    if _rp_event and _rp_event not in ["-", "", "No seasonal event priority"]:
+        _rp_parts.append(f"Booster estacional disponible: <strong>{html.escape(_rp_event)}</strong>")
+    if _rp_raw_reasons:
+        _rp_signals = "; ".join([clean(r, "") for r in _rp_raw_reasons[:3] if clean(r, "")])
+        if _rp_signals:
+            _rp_parts.append(f"Señales clave: {html.escape(_rp_signals)}")
+    _rp_parts.append(
+        f"Impacto proyectado <strong>+{_rp_impact_low}%–+{_rp_impact_high}% GMV</strong> · "
+        f"Riesgo <strong>{html.escape(_rp_risk)}</strong> · Presión aliado {int(_rp_pressure * 100)}%."
+    )
+    reasoning_paragraph = ". ".join(_rp_parts) + "." if _rp_parts else ""
+
+    _bullets = []
+
+    # 1. Posición en la categoría
+    if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
+        pct_val = mctx["brand_percentile"].replace("%", "").strip()
+        try:
+            pct_num = float(pct_val)
+            if pct_num >= 75:
+                _bullets.append(f"Esta marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} en CABA — ya es de las que más venden en su categoría.")
+            elif pct_num >= 50:
+                _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — por encima de la mitad de la categoría, con espacio real para subir.")
+            else:
+                _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — hay marcas similares vendiendo mucho más en la misma categoría.")
+        except Exception:
+            pass
+
+    # 2. GMV vs promedio de categoría
+    if _pi_gmv > 0 and mctx.get("market_gmv_avg"):
+        try:
+            avg_raw = mctx["market_gmv_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
+            avg_num = float(avg_raw)
+            if avg_num > 0:
+                ratio = _pi_gmv / avg_num
+                if ratio >= 1.5:
+                    _bullets.append(f"Su GMV actual ({fmt_ars(_pi_gmv)}) es <strong>{ratio:.1f}x el promedio</strong> de la categoría ({mctx['market_gmv_avg']}) — argumento sólido para escalar inversión.")
+                elif ratio >= 0.8:
+                    _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está cerca del promedio de la categoría ({mctx['market_gmv_avg']}) — ya tiene la base, le falta el empujón.")
+                else:
+                    _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está por debajo del promedio de la categoría ({mctx['market_gmv_avg']}) — hay un gap concreto para trabajar con {_pi_lever}.")
+        except Exception:
+            pass
+
+    # 3. AOV vs promedio de categoría
+    if _pi_aov > 0 and mctx.get("market_aov_avg"):
+        try:
+            aov_avg_raw = mctx["market_aov_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
+            aov_avg_num = float(aov_avg_raw)
+            if aov_avg_num > 0:
+                aov_ratio = _pi_aov / aov_avg_num
+                if aov_ratio >= 1.2:
+                    _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está <strong>{((aov_ratio-1)*100):.0f}% por encima</strong> del AOV de la categoría ({mctx['market_aov_avg']}) — cliente de mayor valor, más razón para darle visibilidad.")
+                elif aov_ratio < 0.85:
+                    _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está por debajo del AOV de la categoría ({mctx['market_aov_avg']}) — MD puede ayudar a mover volumen y compensar el ticket bajo.")
+        except Exception:
+            pass
+
+    # 4. Palanca activa / inactiva
+    if _pi_lever == "Ads":
+        if not ads_current.get("active", False):
+            _bullets.append(f"No tiene Ads activo — en {_pi_category}, las marcas con Ads capturan tráfico que esta marca hoy está regalando a la competencia.")
+        elif ads_roi > 0:
+            _bullets.append(f"Ads activo con ROI de <strong>{ads_roi:.1f}x</strong> — ya está probado que funciona, el argumento es escalar, no empezar.")
+    else:
+        if not md_current.get("active", False):
+            _bullets.append(f"Sin MD activo — en {_pi_category}, el markdown es la palanca más directa para aumentar frecuencia de pedido y subir en el ranking.")
+        elif md_roi > 0:
+            _bullets.append(f"MD activo con ROI de <strong>{md_roi:.1f}x</strong> — base para proponer un upgrade de descuento o ampliar el alcance.")
+
+    # 5. Top de la categoría
+    if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
+        _bullets.append(f"El top de {_pi_category} en CABA es <strong>{html.escape(mctx['market_top_brand'])}</strong> con {mctx.get('market_top_gmv','N/D')} — ese es el benchmark real de la categoría.")
+
+
     # ── Analytics — single wide-info-card with 4 inner cards + pitch ────────
     # Build pitch html first (pure Python, no st calls)
     _items_html = ""
