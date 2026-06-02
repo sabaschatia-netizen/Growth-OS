@@ -12013,445 +12013,107 @@ def render_brand_profile(row, brand_id):
 
 
 
-    # ── Analytics section wrapper ─────────────────────────────────────────────
-    st.markdown("<div class='wide-info-card'><div class='wide-info-title'>Analytics</div>", unsafe_allow_html=True)
-
-    # ── Render 4 analytics cards as pure HTML grid inside the wide-info-card ─
-    st.markdown(f""":grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
-  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
-    <div style="font-size:26px;font-weight:900;color:#6FF24B;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
-    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
-    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Cuantos más pedidos, más rápido empieza la ganancia real."</div>
-    </div>
-  </div>
-  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>
-    <div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{'es' if _be_orders != 1 else ''}</div>
-    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>
-    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
-    </div>
-  </div>
-  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">📈 GMV incremental si CR llega al benchmark</div>
-    <div style="font-size:26px;font-weight:900;color:{_inc_color};line-height:1.1;">{_c3_main}</div>
-    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_c3_sub}</div>
-    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_c3_pitch}"</div>
-    </div>
-  </div>
-  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">🔍 Diagnóstico Traffic &amp; CVR</div>
-    <div style="font-size:26px;font-weight:900;color:{_d4_color};line-height:1.1;">{_d4_main}</div>
-    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_d4_sub}</div>
-    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_d4_pitch}"</div>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-
-    # Tactical Flow lives after General Information.
-    # It uses Smart Priorities as its only input source for call guidance.
-    booster = booster_for_badge
-    actions = actions_for_badge
-
-
-    campaign_design = design_campaign_for_brand(
-        name,
-        category,
-        current_gmv_ars,
-        current_aov_ars,
-        get_from_row(row, ["cr %", "conversion rate", "conversion"], 0),
-        get_from_row(row, ["pro users %", "pro %", "pro users", "prime users %"], 0),
-        get_from_row(row, ["comm. rate", "commission rate", "commission"], 0),
-        ads_current,
-        md_current,
-        md_pro_current,
-        booster,
-        actions,
-        brand_id=brand_id,
-    )
-
-    # MD action must show both the recommended booster and the promo suggested by Campaign Designer.
-    for _a in actions:
-        if "MD" in clean(_a.get("area"), ""):
-            _secondary = list(_a.get("secondary", []))
-            _promo = clean(campaign_design.get("md_reco"), "") if campaign_design else ""
-            _booster = clean(booster.get("event"), "-") if isinstance(booster, dict) else "-"
-            if _promo and _promo not in ["", "-"]:
-                _secondary.append(f"Promo { _promo }")
-            if _booster not in ["", "-"]:
-                _secondary.append(f"Booster { _booster }")
-            _a["secondary"] = list(dict.fromkeys([clean(x, "") for x in _secondary if clean(x, "")]))
-
-    tactical_flow = build_tactical_flow(
-        brand_id,
-        name,
-        row,
-        category,
-        current,
-        ads_current,
-        md_current,
-        md_pro_current,
-        booster,
-        actions,
-        campaign_design,
-    )
-
-    # ── Build lever→tactical mapping so each 360 card gets its priority content ──
-    # Map lever_class → list of tactical items from priority
-    # Items with no lever_class (e.g. "general") fall into OPS as a catch-all.
-    _lever_tactical_map = {}
-    for _item in tactical_flow.get("items", []):
-        _lc = clean(_item.get("lever_class"), "") or "lever-ops"
-        _lever_tactical_map.setdefault(_lc, []).append(_item)
-
-    booster = booster_for_badge
-    actions = actions_for_badge
-
-    fill_colors_map = {
-        'health-green':  '#6FF24B',
-        'health-yellow': '#8B9ED4',
-        'health-orange': '#FF7124',
-        'health-red':    '#E5332A',
-    }
-    pct_colors_map = {
-        'health-green':  '#6FF24B',
-        'health-yellow': '#D95A10',
-        'health-orange': '#D95A10',
-        'health-red':    '#E5332A',
-    }
-    area_emojis_map = {
-        'lever-ops':  '⚙️',
-        'lever-menu': '🍔',
-        'lever-md':   '🏷️',
-        'lever-pro':  '👑',
-        'lever-ads':  '🚀',
-    }
-
-    def _merged_action_card(a):
-        area_raw      = clean(a.get('area'), '')
-        lever_cls     = _action_area_lever_class(area_raw)
-        health_cls    = clean(a.get('health_class'), 'health-green')
-        action_text   = clean(a.get('action'), 'Following')
-        reason_text   = clean(a.get('reason'), '')
-        secondary_text = ' · '.join([clean(x, '') for x in a.get('secondary', []) if clean(x, '')])
-
-        badge_raw   = clean(a.get('health_badge'), '100')
-        score_match = re.search(r'(\d+(?:\.\d+)?)', badge_raw)
-        score_pct   = float(score_match.group(1)) if score_match else 100.0
-        score_pct   = max(0.0, min(100.0, score_pct))
-
-        ring_color = '#272D4E' if lever_cls == 'lever-menu' else '#6FF24B'
-        pct_color  = pct_colors_map.get(health_cls, '#6FF24B')
-        emoji      = area_emojis_map.get(lever_cls, '📊')
-
-        r     = 22
-        circ  = 2 * 3.14159 * r
-        filled = round(circ * score_pct / 100, 2)
-        gap    = round(circ - filled, 2)
-
-        ring_svg = (
-            f'<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
-            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5"/>'
-            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="{ring_color}" stroke-width="5" '
-            f'stroke-linecap="round" stroke-dasharray="{filled} {gap}" transform="rotate(-90 30 30)"/>'
-            f'<text x="30" y="35" text-anchor="middle" font-size="18">{emoji}</text>'
-            f'</svg>'
-        )
-
-        # ── Top half: ring + health data ──────────────────────────────────────
-        top_html = (
-            f"<div style='display:flex;align-items:center;gap:10px;'>"
-            f"{ring_svg}"
-            f"<div style='display:flex;flex-direction:column;gap:1px;'>"
-            f"<span style='font-size:28px;font-weight:900;color:{pct_color};line-height:1;'>{score_pct:.0f}%</span>"
-            f"<span class='action-area'>{html.escape(area_raw)}</span>"
-            f"</div>"
-            f"</div>"
-            f"<div class='action-main'>{html.escape(action_text)}</div>"
-            + (f"<div class='action-reason'>{html.escape(reason_text)}</div>" if reason_text else "")
-            + (f"<div class='action-secondary'>{html.escape(secondary_text)}</div>" if secondary_text else "")
-        )
-
-        # ── Bottom half: priority tactical items for this lever ───────────────
-        tactical_items = _lever_tactical_map.get(lever_cls, [])
-        if tactical_items:
-            divider = (
-                "<div style='margin:14px 0 10px;border-top:1px solid rgba(78,99,217,0.18);'></div>"
-                "<div style='font-size:10px;font-weight:900;text-transform:uppercase;"
-                "letter-spacing:.06em;color:#8B9ED4;margin-bottom:8px;'>🎯 Priority Signal</div>"
-            )
-            items_html = ""
-            for ti in tactical_items:
-                t_main = clean(ti.get('main'), '')
-                t_cue  = clean(ti.get('cue') or ti.get('argument'), '')
-                t_cls  = clean(ti.get('class'), 'health-yellow')
-                t_color_map = {
-                    'health-green': '#6FF24B', 'health-yellow': '#D95A10',
-                    'health-orange': '#D95A10', 'health-red': '#E5332A',
-                }
-                t_col = t_color_map.get(t_cls, '#D95A10')
-                items_html += (
-                    f"<div style='margin-bottom:8px;'>"
-                    f"<div style='font-size:13px;font-weight:900;color:{t_col};line-height:1.15;'>{html.escape(t_main)}</div>"
-                    + (f"<div style='font-size:11px;color:#DBBBA7;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
-                    + "</div>"
-                )
-            bottom_html = divider + items_html
-        else:
-            bottom_html = ""
-
-        return (
-            f"<div class='action-card {html.escape(health_cls)} {html.escape(lever_cls)}'>"
-            + top_html
-            + bottom_html
-            + "</div>"
-        )
-
-    # ── Priority metadata header ──────────────────────────────────────────────
-    flow = tactical_flow
-    score_text = _priority_score_display(flow.get("priority_score")) if flow.get("found_priority") else "—"
-    rank_text  = '#' + str(int(flow.get('rank'))) if flow.get('rank') not in [None, '', '-'] and not pd.isna(flow.get('rank')) else '—'
-    last_contact_text = clean(flow.get('last_contact'), '—')
-    coinv_text = clean(flow.get('coinversion'), 'No')
-    expired_n  = int(flow.get('promo_vencida') or 0)
-    expiring_n = int(flow.get('promo_por_vencer') or 0)
-    levers     = flow.get('lever_texts', [])
-    lever_chips = "".join([f"<span class='priority-chip'>{html.escape(clean(x,'-'))}</span>" for x in levers[:10]]) or "<span class='priority-chip'>✅ Sin palancas priority activas</span>"
-
-    meta_html = (
-        f"<div class='priority-top-grid' style='margin-bottom:14px;'>"
-        f"<div><div class='info-mini-label'>🔥 Priority Score</div><div class='info-mini-value'>{html.escape(score_text)}</div></div>"
-        f"<div><div class='info-mini-label'># Contacto</div><div class='info-mini-value'>{html.escape(rank_text)}</div></div>"
-        f"<div><div class='info-mini-label'>Último Contacto</div><div class='info-mini-value'>{html.escape(last_contact_text)}</div></div>"
-        f"<div><div class='info-mini-label'>Coinversión MD</div><div class='info-mini-value'>{html.escape(coinv_text)}</div></div>"
-        f"<div><div class='info-mini-label'>Vencida / Por vencer</div><div class='info-mini-value'>{expired_n} / {expiring_n}</div></div>"
-        f"<div class='priority-levers' style='grid-column:1/-1;'>{lever_chips}</div>"
-        f"</div>"
-    )
-
-    # ── Business Information ──────────────────────────────────────────────────
-    campaign_names = get_md_campaign_names_for_brand(name)
-    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
-    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
-    _cvr_bench = get_cvr_category_benchmark(category)
-    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
-
-    # ── 360° Action ───────────────────────────────────────────────────────────
-    actions_html = "".join([_merged_action_card(a) for a in actions])
-    st.markdown(f"""
-<div class="wide-info-card tactical-flow-card">
-    <div class="wide-info-title">360° Action</div>
-    {meta_html}
-    <div class="action-grid">{actions_html}</div>
-</div>
-""", unsafe_allow_html=True)
-
-    campaign_design = design_campaign_for_brand(
-        name,
-        category,
-        current_gmv_ars,
-        current_aov_ars,
-        get_from_row(row, ["cr %", "conversion rate", "conversion"], 0),
-        get_from_row(row, ["pro users %", "pro %", "pro users", "prime users %"], 0),
-        get_from_row(row, ["comm. rate", "commission rate", "commission"], 0),
-        ads_current,
-        md_current,
-        md_pro_current,
-        booster,
-        actions,
-        brand_id=brand_id,
-    )
-    # [Campaign Designer moved after Analytics — rendered later]
-
-    # ── 💡 DATOS PARA EL PITCH — cuadro fijo, rule-based, sin API ────────────
-    _pi_category = category.split("·")[0].strip() if "·" in category else category.strip()
-    _pi_lever = "Ads" if md_current.get("active", False) else "MD"
-    _pi_gmv = current_gmv_ars
-    _pi_aov = current_aov_ars
-    _pi_orders = current["orders"] if current else 0
-    mctx = get_market_context(_pi_category, _pi_lever, _pi_gmv, _pi_orders)
-
-    # ── Reasoning paragraph (same logic as render_campaign_designer_html) ──
-    _cd = campaign_design  # shorthand
-    _rp_strategy  = clean(_cd.get("strategy"), "")
-    _rp_focus     = clean(_cd.get("focus"), "")
-    _rp_ads       = clean(_cd.get("ads_action"), "")
-    _rp_md        = clean(_cd.get("md_reco"), "")
-    _rp_promo     = clean(_cd.get("promo_action"), "")
-    _rp_event     = clean(_cd.get("event"), "")
-    _rp_cross     = clean(_cd.get("cross_sell_reco"), "")
-    _rp_pro_extra = int(to_number(_cd.get("pro_extra"), 0))
-    _rp_impact_low  = int(_cd.get("impact_low", 0))
-    _rp_impact_high = int(_cd.get("impact_high", 0))
-    _rp_risk      = clean(_cd.get("risk"), "Medium")
-    _rp_pressure  = _cd.get("partner_pressure", 0)
-    _rp_budget    = _format_budget_range(_cd.get("budget_low_ars", 0), _cd.get("budget_high_ars", 0))
-    _rp_raw_reasons = list(_cd.get("reasons", []))
-    if _cd.get("cross_sell_reason") not in ["", "-"]:
-        _rp_raw_reasons.append(_cd.get("cross_sell_reason"))
-    if _cd.get("pro_reason") not in ["", "-"]:
-        _rp_raw_reasons.append(_cd.get("pro_reason"))
-
-    _rp_parts = []
-    if _rp_strategy and _rp_strategy != "-":
-        _rp_lead = f"Estrategia <strong>{html.escape(_rp_strategy)}</strong>"
-        if _rp_focus and _rp_focus != "-":
-            _rp_lead += f" con foco en <em>{html.escape(_rp_focus)}</em>"
-        _rp_parts.append(_rp_lead)
-    _rp_levers = []
-    if _rp_ads and _rp_ads != "-":
-        _rp_levers.append(f"Ads → {html.escape(_rp_ads)} ({_rp_budget})")
-    if _rp_md and _rp_md != "-":
-        _rp_md_detail = f"{html.escape(_rp_promo)}" if _rp_promo and _rp_promo != "-" else ""
-        _rp_pro_detail = f" +{_rp_pro_extra}% PRO" if _rp_pro_extra > 0 else ""
-        _rp_levers.append(f"MD → {html.escape(_rp_md)}{(' · ' + _rp_md_detail) if _rp_md_detail else ''}{_rp_pro_detail}")
-    if _rp_cross and _rp_cross not in ["-", ""]:
-        _rp_levers.append(f"Cross-sell: {html.escape(_rp_cross)}")
-    if _rp_levers:
-        _rp_parts.append(". ".join(_rp_levers))
-    if _rp_event and _rp_event not in ["-", "", "No seasonal event priority"]:
-        _rp_parts.append(f"Booster estacional disponible: <strong>{html.escape(_rp_event)}</strong>")
-    if _rp_raw_reasons:
-        _rp_signals = "; ".join([clean(r, "") for r in _rp_raw_reasons[:3] if clean(r, "")])
-        if _rp_signals:
-            _rp_parts.append(f"Señales clave: {html.escape(_rp_signals)}")
-    _rp_parts.append(
-        f"Impacto proyectado <strong>+{_rp_impact_low}%–+{_rp_impact_high}% GMV</strong> · "
-        f"Riesgo <strong>{html.escape(_rp_risk)}</strong> · Presión aliado {int(_rp_pressure * 100)}%."
-    )
-    reasoning_paragraph = ". ".join(_rp_parts) + "." if _rp_parts else ""
-
-    _bullets = []
-
-    # 1. Posición en la categoría
-    if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
-        pct_val = mctx["brand_percentile"].replace("%", "").strip()
-        try:
-            pct_num = float(pct_val)
-            if pct_num >= 75:
-                _bullets.append(f"Esta marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} en CABA — ya es de las que más venden en su categoría.")
-            elif pct_num >= 50:
-                _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — por encima de la mitad de la categoría, con espacio real para subir.")
-            else:
-                _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — hay marcas similares vendiendo mucho más en la misma categoría.")
-        except Exception:
-            pass
-
-    # 2. GMV vs promedio de categoría
-    if _pi_gmv > 0 and mctx.get("market_gmv_avg"):
-        try:
-            avg_raw = mctx["market_gmv_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
-            avg_num = float(avg_raw)
-            if avg_num > 0:
-                ratio = _pi_gmv / avg_num
-                if ratio >= 1.5:
-                    _bullets.append(f"Su GMV actual ({fmt_ars(_pi_gmv)}) es <strong>{ratio:.1f}x el promedio</strong> de la categoría ({mctx['market_gmv_avg']}) — argumento sólido para escalar inversión.")
-                elif ratio >= 0.8:
-                    _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está cerca del promedio de la categoría ({mctx['market_gmv_avg']}) — ya tiene la base, le falta el empujón.")
-                else:
-                    _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está por debajo del promedio de la categoría ({mctx['market_gmv_avg']}) — hay un gap concreto para trabajar con {_pi_lever}.")
-        except Exception:
-            pass
-
-    # 3. AOV vs promedio de categoría
-    if _pi_aov > 0 and mctx.get("market_aov_avg"):
-        try:
-            aov_avg_raw = mctx["market_aov_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
-            aov_avg_num = float(aov_avg_raw)
-            if aov_avg_num > 0:
-                aov_ratio = _pi_aov / aov_avg_num
-                if aov_ratio >= 1.2:
-                    _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está <strong>{((aov_ratio-1)*100):.0f}% por encima</strong> del AOV de la categoría ({mctx['market_aov_avg']}) — cliente de mayor valor, más razón para darle visibilidad.")
-                elif aov_ratio < 0.85:
-                    _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está por debajo del AOV de la categoría ({mctx['market_aov_avg']}) — MD puede ayudar a mover volumen y compensar el ticket bajo.")
-        except Exception:
-            pass
-
-    # 4. Palanca activa / inactiva
-    if _pi_lever == "Ads":
-        if not ads_current.get("active", False):
-            _bullets.append(f"No tiene Ads activo — en {_pi_category}, las marcas con Ads capturan tráfico que esta marca hoy está regalando a la competencia.")
-        elif ads_roi > 0:
-            _bullets.append(f"Ads activo con ROI de <strong>{ads_roi:.1f}x</strong> — ya está probado que funciona, el argumento es escalar, no empezar.")
-    else:
-        if not md_current.get("active", False):
-            _bullets.append(f"Sin MD activo — en {_pi_category}, el markdown es la palanca más directa para aumentar frecuencia de pedido y subir en el ranking.")
-        elif md_roi > 0:
-            _bullets.append(f"MD activo con ROI de <strong>{md_roi:.1f}x</strong> — base para proponer un upgrade de descuento o ampliar el alcance.")
-
-    # 5. Top de la categoría
-    if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
-        _bullets.append(f"El top de {_pi_category} en CABA es <strong>{html.escape(mctx['market_top_brand'])}</strong> con {mctx.get('market_top_gmv','N/D')} — ese es el benchmark real de la categoría.")
-
+    # ── Analytics — single wide-info-card with 4 inner cards + pitch ────────
+    # Build pitch html first (pure Python, no st calls)
+    _items_html = ""
+    _reasoning_html = ""
     if _bullets or reasoning_paragraph:
         _items_html = "".join(
             f"<div style='display:flex;gap:10px;margin-bottom:9px;'>"
-            f"<span style='color:{PALETTE['laser_green']};font-size:14px;line-height:1.5;flex-shrink:0;'>›</span>"
+            f"<span style='color:#6FF24B;font-size:14px;line-height:1.5;flex-shrink:0;'>›</span>"
             f"<span style='font-size:13px;line-height:1.6;'>{b}</span>"
             f"</div>"
             for b in _bullets
         )
-        _reasoning_html = (
-            f"<div style='font-size:13px;color:#DBBBA7;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
-            f"<hr style='border:none;border-top:1px solid rgba(0,0,0,0.08);margin:14px 0;'>"
-            if reasoning_paragraph else ""
-        )
-        st.markdown(
-            f"<div class='campaign-mini-card lever-ops' style='padding:20px 22px;margin-top:14px;'>"
-            f"<div class='card-label'>\U0001f4cb Datos para el pitch &middot; {html.escape(_pi_lever)} &middot; {html.escape(_pi_category)}</div>"
-            f"<div style='margin-top:12px;'>{_reasoning_html}{_items_html}</div>"
-            f"</div>",
-            unsafe_allow_html=True,
+        if reasoning_paragraph:
+            _reasoning_html = (
+                f"<div style='font-size:13px;color:#DBBBA7;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
+                f"<hr style='border:none;border-top:1px solid rgba(255,255,255,0.08);margin:14px 0;'>"
+            )
+
+    _pitch_block = ""
+    if _bullets or reasoning_paragraph:
+        _pitch_block = (
+            f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);"
+            f"border-radius:14px;padding:20px 22px;margin-top:16px;'>"
+            f"<div style='font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);"
+            f"letter-spacing:.06em;margin-bottom:12px;'>📋 Datos para el pitch · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>"
+            f"<div>{_reasoning_html}{_items_html}</div>"
+            f"</div>"
         )
 
-    # ── Cheat sheet de llamada ────────────────────────────────────────────────
+    # Build cheat sheet html
     _cs_lines = []
-
-    # Apertura
     _cs_lines.append(f"🗣️ <strong>Apertura:</strong> \"Hola, soy Sabas de Rappi. Te llamo porque vi que {name} tiene una oportunidad concreta de mejorar su posición en {_pi_category} esta semana.\"")
-
-    # Dato ancla de categoría
     if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
         _cs_lines.append(f"📊 <strong>Dato ancla:</strong> \"Estás en el percentil {mctx['brand_percentile']} de {_pi_category} en CABA. Hay marcas similares a la tuya que están vendiendo significativamente más con la palanca correcta.\"")
-
-    # Benchmark del top
     if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
         _cs_lines.append(f"🏆 <strong>Benchmark:</strong> \"El líder de {_pi_category} en CABA es {html.escape(mctx['market_top_brand'])} con {mctx.get('market_top_gmv','N/D')}. Eso es lo que podés apuntar con el stack correcto.\"")
-
-    # Pitch de palanca
     if _pi_lever == "MD" and not md_current.get("active", False):
         _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Sin MD activo, estás perdiendo frecuencia de pedido. En {_pi_category}, el markdown es la palanca más directa para subir en el ranking. ¿Arrancamos con {campaign_design.get('discount', 20)}% esta semana?\"")
     elif _pi_lever == "Ads" and not ads_current.get("active", False):
         _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Sin Ads activo, el tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata.\"")
     elif _pi_lever == "Ads" and ads_roi > 0:
         _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Eso significa que ya probaste que funciona. El paso lógico es escalar, no mantener el mismo presupuesto.\"")
-
-    # Cierre
     _cs_lines.append(f"✅ <strong>Cierre:</strong> \"Entonces quedamos en activar {campaign_design.get('ads_action','la palanca')} esta semana. ¿El martes a las 10 te va bien para confirmar que quedó activo?\"")
 
-    if _cs_lines:
-        with st.expander("📞 Cheat sheet de llamada — expandir para usar durante la llamada"):
-            _cs_html = "".join(
-                f"<div style='padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:13px;line-height:1.6;'>{line}</div>"
-                for line in _cs_lines
-            )
-            st.markdown(
-                f"<div style='padding:4px 0;'>{_cs_html}</div>",
-                unsafe_allow_html=True
-            )
+    _cs_items_html = "".join(
+        f"<div style='padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;line-height:1.6;'>{line}</div>"
+        for line in _cs_lines
+    )
+    _cheat_block = (
+        f"<details style='margin-top:12px;'>"
+        f"<summary style='cursor:pointer;font-size:13px;font-weight:600;color:#DBBBA7;padding:10px 0;"
+        f"list-style:none;display:flex;align-items:center;gap:8px;'>📞 Cheat sheet de llamada — expandir para usar durante la llamada</summary>"
+        f"<div style='padding:8px 0 4px 0;'>{_cs_items_html}</div>"
+        f"</details>"
+    )
 
-    # ── Close Analytics wrapper ───────────────────────────────────────────────
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(f"""
+<div class="wide-info-card">
+  <div class="wide-info-title">Analytics</div>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
+      <div style="font-size:26px;font-weight:900;color:#6FF24B;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
+      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Cuantos más pedidos, más rápido empieza la ganancia real."</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>
+      <div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{'es' if _be_orders != 1 else ''}</div>
+      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">📈 GMV incremental si CR llega al benchmark</div>
+      <div style="font-size:26px;font-weight:900;color:{_inc_color};line-height:1.1;">{_c3_main}</div>
+      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_c3_sub}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_c3_pitch}"</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">🔍 Diagnóstico Traffic &amp; CVR</div>
+      <div style="font-size:26px;font-weight:900;color:{_d4_color};line-height:1.1;">{_d4_main}</div>
+      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_d4_sub}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_d4_pitch}"</div>
+      </div>
+    </div>
+  </div>
+  {_pitch_block}
+  {_cheat_block}
+</div>
+""", unsafe_allow_html=True)
 
     # ── Campaign Designer (after Analytics) ───────────────────────────────────
     st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
