@@ -11857,26 +11857,6 @@ def render_brand_profile(row, brand_id):
         )
         st.markdown(_aov_card, unsafe_allow_html=True)
 
-    # ── Business Information (before Analytics) ──────────────────────────────
-    campaign_names = get_md_campaign_names_for_brand(name)
-    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
-    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
-    _cvr_bench = get_cvr_category_benchmark(category)
-    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
-
-    # ── 360° Action (before Analytics) ───────────────────────────────────────
-    actions_html = "".join([_merged_action_card(a) for a in actions])
-    st.markdown(f"""
-<div class="wide-info-card tactical-flow-card">
-    <div class="wide-info-title">360° Action</div>
-    {meta_html}
-    <div class="action-grid">{actions_html}</div>
-</div>
-""", unsafe_allow_html=True)
-
-    # ── Analytics section wrapper ─────────────────────────────────────────────
-    st.markdown("<div class='wide-info-card'><div class='wide-info-title'>Analytics</div>", unsafe_allow_html=True)
-
     # ── Calculadora Consultiva · 4 métricas financieras automáticas ──────────
     # Estas tarjetas cruzan los datos ya disponibles del aliado para generar
     # los 4 argumentos financieros listos para usar en la reunión con el dueño.
@@ -12031,9 +12011,30 @@ def render_brand_profile(row, brand_id):
         else:
             _d4_pitch = f"Traffic en {_tw_disp}/sem y CVR en {_cr_display} — ambas métricas sobre el benchmark de tu categoría. Estás en condiciones de escalar: más presupuesto en ads se convierte directo en GMV."
 
-    # ── Render 4 analytics cards as pure HTML grid inside the wide-info-card ─
+
+
+    # ── Business Information ──────────────────────────────────────────────────
+    campaign_names = get_md_campaign_names_for_brand(name)
+    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
+    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
+    _cvr_bench = get_cvr_category_benchmark(category)
+    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
+
+    # ── 360° Action ───────────────────────────────────────────────────────────
+    actions_html = "".join([_merged_action_card(a) for a in actions])
     st.markdown(f"""
-<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
+<div class="wide-info-card tactical-flow-card">
+    <div class="wide-info-title">360° Action</div>
+    {meta_html}
+    <div class="action-grid">{actions_html}</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Analytics section wrapper ─────────────────────────────────────────────
+    st.markdown("<div class='wide-info-card'><div class='wide-info-title'>Analytics</div>", unsafe_allow_html=True)
+
+    # ── Render 4 analytics cards as pure HTML grid inside the wide-info-card ─
+    st.markdown(f""":grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
   <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
     <div style="font-size:26px;font-weight:900;color:#6FF24B;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
@@ -12252,8 +12253,6 @@ def render_brand_profile(row, brand_id):
         f"<div class='priority-levers' style='grid-column:1/-1;'>{lever_chips}</div>"
         f"</div>"
     )
-
-    # [360 and Business Info moved before Analytics — rendered earlier]
 
     campaign_design = design_campaign_for_brand(
         name,
