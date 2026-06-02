@@ -5551,9 +5551,9 @@ def page_management_dashboard():
     _pcol1, _pcol2, _pcol3 = st.columns(3)
     with _pcol1:
         st.markdown(f"""
-        <div style="background:rgba(78,99,217,.06);border:1.5px solid rgba(78,99,217,.25);border-radius:16px;padding:16px 18px;height:100%;">
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px 18px;height:100%;">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Proyección GMV al ritmo actual</div>
-          <div style="font-size:24px;font-weight:900;color:#3B4883;line-height:1;">{fmt_usd(_projected_gmv)}</div>
+          <div style="font-size:24px;font-weight:900;color:#E8DFD5;line-height:1;">{fmt_usd(_projected_gmv)}</div>
           <div style="font-size:12px;color:#DBBBA7;margin-top:6px;">{fmt_ars(_projected_gmv * ARS_PER_USD)} estimado</div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
             <span style="font-size:22px;color:{_proj_color};font-weight:900;">{_proj_arrow}</span>
@@ -5564,9 +5564,9 @@ def page_management_dashboard():
         """, unsafe_allow_html=True)
     with _pcol2:
         st.markdown(f"""
-        <div style="background:rgba(255,138,61,.06);border:1.5px solid rgba(255,138,61,.25);border-radius:16px;padding:16px 18px;height:100%;">
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px 18px;height:100%;">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Proyección ADS Revenue</div>
-          <div style="font-size:24px;font-weight:900;color:#FF7124;line-height:1;">{fmt_usd(_projected_ads)}</div>
+          <div style="font-size:24px;font-weight:900;color:#E8DFD5;line-height:1;">{fmt_usd(_projected_ads)}</div>
           <div style="font-size:12px;color:#DBBBA7;margin-top:6px;">Target: {fmt_usd(ADS_REVENUE_TARGET_USD)} &middot; {_ads_proj_pct:.0f}% cubierto</div>
           <div style="margin-top:10px;font-size:13px;font-weight:800;color:{_ads_status_color};">{_ads_status_label}</div>
           <div style="margin-top:6px;font-size:12px;color:#DBBBA7;">Necesitás generar {fmt_usd(_ads_needed_daily)}/día los próximos {_remain_days}d para llegar</div>
@@ -5574,10 +5574,10 @@ def page_management_dashboard():
         """, unsafe_allow_html=True)
     with _pcol3:
         st.markdown(f"""
-        <div style="background:rgba(111,242,75,.06);border:1.5px solid rgba(111,242,75,.30);border-radius:16px;padding:16px 18px;height:100%;">
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px 18px;height:100%;">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Ritmo diario actual</div>
-          <div style="font-size:24px;font-weight:900;color:#6FF24B;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#DBBBA7;font-weight:700;">/día GMV</span></div>
-          <div style="font-size:14px;font-weight:900;color:#FF7124;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#DBBBA7;font-weight:700;">/día ADS Rev.</span></div>
+          <div style="font-size:24px;font-weight:900;color:#E8DFD5;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#DBBBA7;font-weight:700;">/día GMV</span></div>
+          <div style="font-size:14px;font-weight:900;color:#E8DFD5;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#DBBBA7;font-weight:700;">/día ADS Rev.</span></div>
           <div style="margin-top:10px;font-size:12px;color:#DBBBA7;">Corte semanal: dom. {_last_sunday.strftime("%d/%m")} · {_elapsed_days} días acumulados</div>
           <div style="font-size:12px;color:#DBBBA7;margin-top:4px;">Datos actualizados desde Current sheets.</div>
         </div>
@@ -10241,19 +10241,19 @@ def render_campaign_designer_html(design):
         f"<div class='card-label'>🏅 Top Products Pyramid</div>"
         f"<div style='margin-top:16px;display:flex;flex-direction:column;align-items:center;gap:10px;flex:1'>"
         # Level 1 — Hero
-        f"<div style='background:linear-gradient(135deg,#272D4E,#3B4883);color:#fff;border-radius:16px;"
+        f"<div style='background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);backdrop-filter:blur(12px);color:#E8DFD5;border-radius:16px;"
         f"padding:18px 22px;font-size:16px;font-weight:900;text-align:center;width:62%;"
         f"line-height:1.3'>"
-        f"🥇 Hero<br><span style='font-size:13px;font-weight:700;opacity:.9'>{p1_name}</span>"
+        f"🥇 Hero<br><span style='font-size:13px;font-weight:700;opacity:.75'>{p1_name}</span>"
         f"</div>"
         # Level 2 — Backup
-        f"<div style='background:linear-gradient(135deg,#FF7124,#D95A10);color:#fff;border-radius:16px;"
+        f"<div style='background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(12px);color:#E8DFD5;border-radius:16px;"
         f"padding:16px 22px;font-size:15px;font-weight:900;text-align:center;width:81%;"
         f"line-height:1.3'>"
-        f"🥈 Backup<br><span style='font-size:12px;font-weight:700;opacity:.9'>{p2_name}</span>"
+        f"🥈 Backup<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p2_name}</span>"
         f"</div>"
         # Level 3 — Tactical
-        f"<div style='background:linear-gradient(135deg,#6FF24B,#6FF24B);color:#272D4E;border-radius:16px;"
+        f"<div style='background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px);color:#E8DFD5;border-radius:16px;"
         f"padding:14px 22px;font-size:14px;font-weight:900;text-align:center;width:100%;"
         f"line-height:1.3'>"
         f"🥉 Tactical<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p3_name}</span>"
