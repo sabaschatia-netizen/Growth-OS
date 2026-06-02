@@ -12013,6 +12013,9 @@ def render_brand_profile(row, brand_id):
 
 
 
+    booster = booster_for_badge
+    actions = actions_for_badge
+
     campaign_design = design_campaign_for_brand(
         name,
         category,
@@ -12062,10 +12065,6 @@ def render_brand_profile(row, brand_id):
     for _item in tactical_flow.get("items", []):
         _lc = clean(_item.get("lever_class"), "") or "lever-ops"
         _lever_tactical_map.setdefault(_lc, []).append(_item)
-
-
-    booster = booster_for_badge
-    actions = actions_for_badge
 
     fill_colors_map = {
         'health-green':  '#6FF24B',
