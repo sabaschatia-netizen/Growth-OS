@@ -12013,6 +12013,199 @@ def render_brand_profile(row, brand_id):
 
 
 
+    campaign_design = design_campaign_for_brand(
+        name,
+        category,
+        current_gmv_ars,
+        current_aov_ars,
+        get_from_row(row, ["cr %", "conversion rate", "conversion"], 0),
+        get_from_row(row, ["pro users %", "pro %", "pro users", "prime users %"], 0),
+        get_from_row(row, ["comm. rate", "commission rate", "commission"], 0),
+        ads_current,
+        md_current,
+        md_pro_current,
+        booster,
+        actions,
+        brand_id=brand_id,
+    )
+
+    # MD action must show both the recommended booster and the promo suggested by Campaign Designer.
+    for _a in actions:
+        if "MD" in clean(_a.get("area"), ""):
+            _secondary = list(_a.get("secondary", []))
+            _promo = clean(campaign_design.get("md_reco"), "") if campaign_design else ""
+            _booster = clean(booster.get("event"), "-") if isinstance(booster, dict) else "-"
+            if _promo and _promo not in ["", "-"]:
+                _secondary.append(f"Promo { _promo }")
+            if _booster not in ["", "-"]:
+                _secondary.append(f"Booster { _booster }")
+            _a["secondary"] = list(dict.fromkeys([clean(x, "") for x in _secondary if clean(x, "")]))
+
+    tactical_flow = build_tactical_flow(
+        brand_id,
+        name,
+        row,
+        category,
+        current,
+        ads_current,
+        md_current,
+        md_pro_current,
+        booster,
+        actions,
+        campaign_design,
+    )
+
+    # ── Build lever→tactical mapping so each 360 card gets its priority content ──
+    # Map lever_class → list of tactical items from priority
+    # Items with no lever_class (e.g. "general") fall into OPS as a catch-all.
+    _lever_tactical_map = {}
+    for _item in tactical_flow.get("items", []):
+        _lc = clean(_item.get("lever_class"), "") or "lever-ops"
+        _lever_tactical_map.setdefault(_lc, []).append(_item)
+
+
+    booster = booster_for_badge
+    actions = actions_for_badge
+
+    fill_colors_map = {
+        'health-green':  '#6FF24B',
+        'health-yellow': '#8B9ED4',
+        'health-orange': '#FF7124',
+        'health-red':    '#E5332A',
+    }
+    pct_colors_map = {
+        'health-green':  '#6FF24B',
+        'health-yellow': '#D95A10',
+        'health-orange': '#D95A10',
+        'health-red':    '#E5332A',
+    }
+    area_emojis_map = {
+        'lever-ops':  '⚙️',
+        'lever-menu': '🍔',
+        'lever-md':   '🏷️',
+        'lever-pro':  '👑',
+        'lever-ads':  '🚀',
+    }
+
+    def _merged_action_card(a):
+        area_raw      = clean(a.get('area'), '')
+        lever_cls     = _action_area_lever_class(area_raw)
+        health_cls    = clean(a.get('health_class'), 'health-green')
+        action_text   = clean(a.get('action'), 'Following')
+        reason_text   = clean(a.get('reason'), '')
+        secondary_text = ' · '.join([clean(x, '') for x in a.get('secondary', []) if clean(x, '')])
+
+        badge_raw   = clean(a.get('health_badge'), '100')
+        score_match = re.search(r'(\d+(?:\.\d+)?)', badge_raw)
+        score_pct   = float(score_match.group(1)) if score_match else 100.0
+        score_pct   = max(0.0, min(100.0, score_pct))
+
+        ring_color = '#272D4E' if lever_cls == 'lever-menu' else '#6FF24B'
+        pct_color  = pct_colors_map.get(health_cls, '#6FF24B')
+        emoji      = area_emojis_map.get(lever_cls, '📊')
+
+        r     = 22
+        circ  = 2 * 3.14159 * r
+        filled = round(circ * score_pct / 100, 2)
+        gap    = round(circ - filled, 2)
+
+        ring_svg = (
+            f'<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
+            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5"/>'
+            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="{ring_color}" stroke-width="5" '
+            f'stroke-linecap="round" stroke-dasharray="{filled} {gap}" transform="rotate(-90 30 30)"/>'
+            f'<text x="30" y="35" text-anchor="middle" font-size="18">{emoji}</text>'
+            f'</svg>'
+        )
+
+        # ── Top half: ring + health data ──────────────────────────────────────
+        top_html = (
+            f"<div style='display:flex;align-items:center;gap:10px;'>"
+            f"{ring_svg}"
+            f"<div style='display:flex;flex-direction:column;gap:1px;'>"
+            f"<span style='font-size:28px;font-weight:900;color:{pct_color};line-height:1;'>{score_pct:.0f}%</span>"
+            f"<span class='action-area'>{html.escape(area_raw)}</span>"
+            f"</div>"
+            f"</div>"
+            f"<div class='action-main'>{html.escape(action_text)}</div>"
+            + (f"<div class='action-reason'>{html.escape(reason_text)}</div>" if reason_text else "")
+            + (f"<div class='action-secondary'>{html.escape(secondary_text)}</div>" if secondary_text else "")
+        )
+
+        # ── Bottom half: priority tactical items for this lever ───────────────
+        tactical_items = _lever_tactical_map.get(lever_cls, [])
+        if tactical_items:
+            divider = (
+                "<div style='margin:14px 0 10px;border-top:1px solid rgba(78,99,217,0.18);'></div>"
+                "<div style='font-size:10px;font-weight:900;text-transform:uppercase;"
+                "letter-spacing:.06em;color:#8B9ED4;margin-bottom:8px;'>🎯 Priority Signal</div>"
+            )
+            items_html = ""
+            for ti in tactical_items:
+                t_main = clean(ti.get('main'), '')
+                t_cue  = clean(ti.get('cue') or ti.get('argument'), '')
+                t_cls  = clean(ti.get('class'), 'health-yellow')
+                t_color_map = {
+                    'health-green': '#6FF24B', 'health-yellow': '#D95A10',
+                    'health-orange': '#D95A10', 'health-red': '#E5332A',
+                }
+                t_col = t_color_map.get(t_cls, '#D95A10')
+                items_html += (
+                    f"<div style='margin-bottom:8px;'>"
+                    f"<div style='font-size:13px;font-weight:900;color:{t_col};line-height:1.15;'>{html.escape(t_main)}</div>"
+                    + (f"<div style='font-size:11px;color:#DBBBA7;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
+                    + "</div>"
+                )
+            bottom_html = divider + items_html
+        else:
+            bottom_html = ""
+
+        return (
+            f"<div class='action-card {html.escape(health_cls)} {html.escape(lever_cls)}'>"
+            + top_html
+            + bottom_html
+            + "</div>"
+        )
+
+    # ── Priority metadata header ──────────────────────────────────────────────
+    flow = tactical_flow
+    score_text = _priority_score_display(flow.get("priority_score")) if flow.get("found_priority") else "—"
+    rank_text  = '#' + str(int(flow.get('rank'))) if flow.get('rank') not in [None, '', '-'] and not pd.isna(flow.get('rank')) else '—'
+    last_contact_text = clean(flow.get('last_contact'), '—')
+    coinv_text = clean(flow.get('coinversion'), 'No')
+    expired_n  = int(flow.get('promo_vencida') or 0)
+    expiring_n = int(flow.get('promo_por_vencer') or 0)
+    levers     = flow.get('lever_texts', [])
+    lever_chips = "".join([f"<span class='priority-chip'>{html.escape(clean(x,'-'))}</span>" for x in levers[:10]]) or "<span class='priority-chip'>✅ Sin palancas priority activas</span>"
+
+    meta_html = (
+        f"<div class='priority-top-grid' style='margin-bottom:14px;'>"
+        f"<div><div class='info-mini-label'>🔥 Priority Score</div><div class='info-mini-value'>{html.escape(score_text)}</div></div>"
+        f"<div><div class='info-mini-label'># Contacto</div><div class='info-mini-value'>{html.escape(rank_text)}</div></div>"
+        f"<div><div class='info-mini-label'>Último Contacto</div><div class='info-mini-value'>{html.escape(last_contact_text)}</div></div>"
+        f"<div><div class='info-mini-label'>Coinversión MD</div><div class='info-mini-value'>{html.escape(coinv_text)}</div></div>"
+        f"<div><div class='info-mini-label'>Vencida / Por vencer</div><div class='info-mini-value'>{expired_n} / {expiring_n}</div></div>"
+        f"<div class='priority-levers' style='grid-column:1/-1;'>{lever_chips}</div>"
+        f"</div>"
+    )
+
+    actions_html = "".join([_merged_action_card(a) for a in actions])
+    st.markdown(f"""
+<div class="wide-info-card tactical-flow-card">
+    <div class="wide-info-title">360° Action</div>
+    {meta_html}
+    <div class="action-grid">{actions_html}</div>
+</div>
+""", unsafe_allow_html=True)
+
+    campaign_names = get_md_campaign_names_for_brand(name)
+    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
+
+    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
+    _cvr_bench = get_cvr_category_benchmark(category)
+    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
+
+
     # ── Pitch calculation (must happen before Analytics render) ──────────────
     _pi_category = category.split("·")[0].strip() if "·" in category else category.strip()
     _pi_lever = "Ads" if md_current.get("active", False) else "MD"
