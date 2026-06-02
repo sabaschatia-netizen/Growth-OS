@@ -3559,28 +3559,199 @@ def page_day_queue():
 # THEME
 # =========================
 
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "Management Dashboard",
-        "Opportunity List",
-        "Follow-Up List",
-        "Brand Finder",
-        "Day Queue",
-        "Acquisition Tracker",
-        "Campaign Weekly Tracker",
-        "Weekly Calendar",
-        "Brand Update",
-        "Earnings Calculator",
-        "Productivity HeatMap",
-        "Call Quality Trainer",
-        "Role Play Trainer",
-    ],
-    index=0,
-    label_visibility="collapsed",
-)
+# ── Sidebar collapsible nav via session_state ─────────────────────────────
+if "nav_collapsed" not in st.session_state:
+    st.session_state["nav_collapsed"] = False
+if "active_page" not in st.session_state:
+    st.session_state["active_page"] = "Management Dashboard"
+
+NAV_GROUPS = [
+    ("Principal", [
+        ("Management Dashboard", "📊"),
+        ("Opportunity List",     "🎯"),
+        ("Follow-Up List",       "🔁"),
+        ("Brand Finder",         "🔍"),
+        ("Day Queue",            "📋"),
+    ]),
+    ("Tracking", [
+        ("Acquisition Tracker",      "🚀"),
+        ("Campaign Weekly Tracker",  "📣"),
+        ("Weekly Calendar",          "📅"),
+        ("Brand Update",             "✏️"),
+    ]),
+    ("Análisis", [
+        ("Earnings Calculator",   "💰"),
+        ("Productivity HeatMap",  "🌡️"),
+        ("Call Quality Trainer",  "🎙️"),
+        ("Role Play Trainer",     "🥊"),
+    ]),
+]
+
+collapsed = st.session_state["nav_collapsed"]
+
+# ── CSS for collapsible sidebar ───────────────────────────────────────────
+st.markdown("""
+<style>
+/* Hide native Streamlit sidebar toggle button on small screens to avoid conflict */
+[data-testid="collapsedControl"] { display: none !important; }
+
+/* Force sidebar width based on collapse state */
+section[data-testid="stSidebar"] > div:first-child {
+    transition: width 0.25s cubic-bezier(.4,0,.2,1) !important;
+}
+
+.nav-toggle-btn {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    color: #E8DFD5;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 7px 10px;
+    transition: background 0.18s, border-color 0.18s;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 4px;
+}
+.nav-toggle-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.22);
+}
+
+.nav-section-label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: rgba(219,187,167,0.4);
+    padding: 10px 4px 4px 4px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(232,223,213,0.65);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    overflow: hidden;
+    border: 1px solid transparent;
+    margin-bottom: 2px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+}
+.nav-item:hover {
+    background: rgba(255,255,255,0.07);
+    color: #E8DFD5;
+}
+.nav-item.active {
+    background: rgba(59,72,131,0.35);
+    color: #E8DFD5;
+    border-color: rgba(111,242,75,0.22);
+}
+.nav-item .nav-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    width: 22px;
+    text-align: center;
+}
+.nav-item .nav-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-logo-full {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 2px 12px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 8px;
+}
+.nav-logo-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+.nav-logo-text {
+    font-size: 15px;
+    font-weight: 800;
+    color: #E8DFD5;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+}
+.nav-logo-sub {
+    font-size: 10px;
+    color: rgba(219,187,167,0.5);
+    font-weight: 600;
+}
+.nav-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 6px 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Sidebar content ───────────────────────────────────────────────────────
+with st.sidebar:
+    # Toggle button
+    toggle_label = "◀" if not collapsed else "▶"
+    if st.button(toggle_label, key="nav_toggle", help="Colapsar / expandir navegación",
+                 use_container_width=True):
+        st.session_state["nav_collapsed"] = not st.session_state["nav_collapsed"]
+        st.rerun()
+
+    collapsed = st.session_state["nav_collapsed"]
+
+    if not collapsed:
+        # Logo expanded
+        st.markdown(f"""
+        <div class="nav-logo-full">
+            <div class="nav-logo-icon">🇦🇷</div>
+            <div>
+                <div class="nav-logo-text">Growth OS</div>
+                <div class="nav-logo-sub">Commercial Excellence</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">🇦🇷</div>', unsafe_allow_html=True)
+
+    # Nav groups
+    current_page = st.session_state["active_page"]
+    for group_label, items in NAV_GROUPS:
+        if not collapsed:
+            st.markdown(f'<div class="nav-section-label">{group_label}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="nav-divider"></div>', unsafe_allow_html=True)
+
+        for page_name, icon in items:
+            is_active = (current_page == page_name)
+            active_class = "active" if is_active else ""
+            label_html = f'<span class="nav-label">{page_name}</span>' if not collapsed else ""
+            btn_key = f"nav_{page_name.replace(' ', '_').lower()}"
+            if st.button(
+                f"{icon}  {page_name}" if not collapsed else icon,
+                key=btn_key,
+                use_container_width=True,
+            ):
+                st.session_state["active_page"] = page_name
+                st.rerun()
+
+    if not collapsed:
+        st.markdown('<div class="nav-divider" style="margin-top:12px;"></div>', unsafe_allow_html=True)
+        st.caption(f"📁 {EXCEL_FILE}")
+
+page = st.session_state["active_page"]
 
 LIGHT = False   # dark-only, no toggle
+
 
 COLORS = {
     # Backgrounds
@@ -4309,12 +4480,7 @@ def option_index(options, current):
     return 0
 
 
-# =========================
-# SIDEBAR
-# =========================
-
-st.sidebar.markdown(f"## 🇦🇷 Growth OS")
-st.sidebar.caption(f"Excel: {EXCEL_FILE}")
+# (sidebar handled in THEME block above)
 
 
 
