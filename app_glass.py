@@ -3529,7 +3529,7 @@ def page_day_queue():
             st.markdown(
                 f"<div style='font-size:12px;font-weight:700;color:#DBBBA7;text-transform:uppercase;"
                 f"margin:12px 0 4px;'>Palanca recomendada</div>"
-                f"<div style='font-size:14px;font-weight:600;color:#272D4E;margin-bottom:12px;'>"
+                f"<div style='font-size:14px;font-weight:600;color:#E8DFD5;margin-bottom:12px;'>"
                 f"{_lever_label}</div>",
                 unsafe_allow_html=True
             )
@@ -4123,13 +4123,14 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
 .sticker-value {{ font-size: 16px; font-weight: 800; margin-top: 6px; color: #E8DFD5 !important; }}
 
 /* ── ACTION CARDS ── */
-.action-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }}
+.action-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }}
 .action-card {{
     background: rgba(255,255,255,0.05) !important;
     border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 18px; padding: 16px; min-height: 160px;
+    border-radius: 18px; padding: 20px 18px; min-height: 180px;
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     transition: border-color .2s, background .2s, transform .25s cubic-bezier(.34,1.56,.64,1);
+    display: flex; flex-direction: column;
 }}
 .action-card:hover {{
     transform: scale(1.04) !important;
@@ -4344,8 +4345,8 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
     -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
     border: 1px solid rgba(255,255,255,0.12) !important;
     border-radius: 16px !important;
-    padding: 16px 18px !important;
-    min-height: 110px !important;
+    padding: 20px 20px !important;
+    min-height: 120px !important;
     position: relative !important;
     overflow: hidden !important;
     transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
@@ -4366,22 +4367,22 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .08em;
-    color: rgba(219,187,167,0.45);
-    margin-bottom: 6px;
+    color: rgba(219,187,167,0.65);
+    margin-bottom: 8px;
 }}
 .card-value {{
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 900;
     color: #E8DFD5;
     line-height: 1.1;
     letter-spacing: -0.02em;
 }}
 .card-copy {{
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    color: rgba(219,187,167,0.55);
-    margin-top: 5px;
-    line-height: 1.35;
+    color: rgba(219,187,167,0.65);
+    margin-top: 6px;
+    line-height: 1.4;
     overflow-wrap: anywhere;
 }}
 .card-chipline {{
@@ -4460,30 +4461,32 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: rgba(219,187,167,0.55);
+    color: rgba(219,187,167,0.65);
     margin-top: 3px;
 }}
 .action-main {{
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 900;
     color: #E8DFD5;
-    margin-top: 10px;
+    margin-top: 12px;
     line-height: 1.15;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
 }}
 .action-reason {{
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: rgba(219,187,167,0.65);
-    margin-top: 6px;
-    line-height: 1.4;
+    color: rgba(219,187,167,0.75);
+    margin-top: 8px;
+    line-height: 1.45;
 }}
 .action-secondary {{
     font-size: 11px;
     font-weight: 700;
-    color: rgba(219,187,167,0.45);
-    margin-top: 8px;
-    line-height: 1.35;
+    color: rgba(219,187,167,0.55);
+    margin-top: 10px;
+    line-height: 1.4;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
 }}
 
 /* ── SPACING OVERRIDES: more breathing room between cards ── */
@@ -7528,7 +7531,7 @@ def page_call_quality_trainer():
         display:flex; align-items:center; justify-content:center;
         font-size:13px; font-weight:700; flex-shrink:0;
     }
-    .qt-dim-label { font-size:14px; font-weight:600; color:#272D4E; flex:1; }
+    .qt-dim-label { font-size:14px; font-weight:600; color:#E8DFD5; flex:1; }
     .qt-score-pill {
         font-size:13px; font-weight:600; padding:3px 10px;
         border-radius:20px; flex-shrink:0;
@@ -7548,7 +7551,7 @@ def page_call_quality_trainer():
     .qt-tip-box {
         background:rgba(59,72,131,0.10); border-left:3px solid #3B4883;
         border-radius:0 6px 6px 0; padding:8px 12px;
-        font-size:12px; color:#272D4E; line-height:1.6;
+        font-size:12px; color:#DBBBA7; line-height:1.6;
     }
     .qt-example {
         background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:6px;
@@ -7675,7 +7678,7 @@ def page_call_quality_trainer():
         </div>
       </div>
       <div class="qt-score-card">
-        <div class="qt-score-val" style="color:#272D4E">{n_calls}</div>
+        <div class="qt-score-val" style="color:#E8DFD5">{n_calls}</div>
         <div class="qt-score-lbl">Llamadas analizadas</div>
         <div class="qt-score-trend" style="color:#888">Período cargado</div>
       </div>
@@ -8461,7 +8464,7 @@ def page_earnings_calculator():
     <div style="flex:1;min-width:0;">
       <div style="background:rgba(191,255,0,.07);border:1.5px solid rgba(191,255,0,.35);border-radius:14px;padding:10px 12px;margin-bottom:10px;">
         <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">Target</div>
-        <div style="font-size:15px;font-weight:900;color:#272D4E;margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{target_formatter(target)}</div>
+        <div style="font-size:15px;font-weight:900;color:#E8DFD5;margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{target_formatter(target)}</div>
       </div>
       <div style="background:rgba(139,157,255,.07);border:1.5px solid rgba(139,157,255,.35);border-radius:14px;padding:10px 12px;">
         <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">Result</div>
@@ -8552,7 +8555,7 @@ def page_earnings_calculator():
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div>
             <div style="font-size:22px;font-weight:900;color:{_next_color};">{_next_bucket_name}</div>
-            <div style="font-size:15px;font-weight:800;color:#272D4E;margin-top:4px;">
+            <div style="font-size:15px;font-weight:800;color:#E8DFD5;margin-top:4px;">
                 {"Faltan " + fmt_usd(_gap_to_next) + " de ADS Revenue" if _gap_to_next > 0 else "¡Máximo nivel alcanzado!"}
             </div>
         </div>
@@ -10082,7 +10085,7 @@ def render_campaign_designer_html(design):
             f"<div style='margin-bottom:10px'>"
             f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:3px'>"
             f"<span style='text-transform:uppercase;letter-spacing:.04em'>{html.escape(label)}</span>"
-            f"<span style='color:#272D4E'>{int(pct*100)}%</span></div>"
+            f"<span style='color:#E8DFD5'>{int(pct*100)}%</span></div>"
             f"<div style='background:rgba(255,255,255,0.06);border-radius:999px;height:8px;overflow:hidden'>"
             f"<div style='width:{fill}%;height:100%;background:{color};border-radius:999px;transition:width .4s'></div>"
             f"</div></div>"
@@ -10119,7 +10122,7 @@ def render_campaign_designer_html(design):
         sub_cards_html += (
             f"<div class='campaign-mini-card {sub_cls}' style='flex:1 1 170px;min-width:155px;min-height:0;padding:12px 14px;border-radius:14px'>"
             f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.05em;color:rgba(219,187,167,0.5);margin-bottom:4px'>{html.escape(sub_label)}</div>"
-            f"<div style='font-size:14px;font-weight:900;color:#272D4E;line-height:1.2;overflow-wrap:anywhere'>{html.escape(sub_val)}</div>"
+            f"<div style='font-size:14px;font-weight:900;color:#E8DFD5;line-height:1.2;overflow-wrap:anywhere'>{html.escape(sub_val)}</div>"
             f"<div style='font-size:11px;color:#DBBBA7;margin-top:4px;line-height:1.3'>{html.escape(sub_copy)}</div>"
             f"</div>"
         )
@@ -10239,7 +10242,7 @@ def render_campaign_designer_html(design):
         f"<div style='margin-bottom:10px'>"
         f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:6px'>"
         f"<span style='text-transform:uppercase;letter-spacing:.04em'>Partner Pressure</span>"
-        f"<span style='color:#272D4E'>{int(pressure_pct * 100)}%</span></div>"
+        f"<span style='color:#E8DFD5'>{int(pressure_pct * 100)}%</span></div>"
         f"<div style='display:flex;flex-wrap:wrap;gap:3px'>{pressure_dots_html}</div>"
         f"<div style='display:flex;justify-content:space-between;font-size:9px;color:rgba(219,187,167,0.5);margin-top:4px'>"
         f"<span>LOW</span><span>MID</span><span>HIGH</span></div>"
@@ -11566,7 +11569,7 @@ def render_brand_profile(row, brand_id):
                     f"<span style='font-size:11px;color:rgba(219,187,167,0.5);white-space:nowrap;min-width:110px;'>{html.escape(str(r.get('datetime',''))[:16])}</span>"
                     f"<span style='font-size:12px;color:#DBBBA7;min-width:120px;'>{html.escape(str(r.get('field','')))}</span>"
                     f"<span style='font-size:12px;color:rgba(219,187,167,0.5);text-decoration:line-through;margin-right:6px;'>{html.escape(str(r.get('old_value','')))}</span>"
-                    f"<span style='font-size:12px;font-weight:700;color:#272D4E;'>{html.escape(str(r.get('new_value','')))}</span>"
+                    f"<span style='font-size:12px;font-weight:700;color:#E8DFD5;'>{html.escape(str(r.get('new_value','')))}</span>"
                     f"</div>"
                     for _, r in _cl_brand.iterrows()
                 ])
