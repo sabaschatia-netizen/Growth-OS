@@ -3988,6 +3988,7 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
     backdrop-filter: blur(24px) saturate(160%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
     border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 20px !important;
     box-shadow: none !important;
     transition: transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
 }}
@@ -4326,6 +4327,86 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
 
 /* ── BRAND FINDER HERO ── */
 .hero-card {{ border-radius: 20px; padding: 24px 28px; margin-bottom: 18px; }}
+
+/* ── BUSINESS INFORMATION CARDS (Brand Finder) ── */
+.business-card-grid {{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 4px;
+}}
+@media (max-width: 1100px) {{
+    .business-card-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+}}
+.business-mini-card {{
+    background: rgba(255,255,255,0.06) !important;
+    backdrop-filter: blur(16px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 16px !important;
+    padding: 16px 18px !important;
+    min-height: 110px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
+}}
+.business-mini-card:hover {{
+    transform: scale(1.03) !important;
+    border-color: rgba(255,255,255,0.22) !important;
+    background: rgba(255,255,255,0.09) !important;
+}}
+/* Lever accent borders */
+.business-mini-card.lever-ads   {{ border-left: 3px solid #FF7124 !important; }}
+.business-mini-card.lever-md    {{ border-left: 3px solid #8B9ED4 !important; }}
+.business-mini-card.lever-menu  {{ border-left: 3px solid #3B4883 !important; }}
+.business-mini-card.lever-pro   {{ border-left: 3px solid #6FF24B !important; }}
+
+.card-label {{
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(219,187,167,0.45);
+    margin-bottom: 6px;
+}}
+.card-value {{
+    font-size: 20px;
+    font-weight: 900;
+    color: #E8DFD5;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}}
+.card-copy {{
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(219,187,167,0.55);
+    margin-top: 5px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}}
+.card-chipline {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+}}
+
+/* ── CAMPAIGN MINI-CARDS ── */
+.campaign-mini-card {{
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    min-height: 90px !important;
+    transition: border-color .2s, background .2s !important;
+}}
+.campaign-mini-card:hover {{
+    border-color: rgba(255,255,255,0.20) !important;
+    background: rgba(255,255,255,0.08) !important;
+}}
+.campaign-mini-card.lever-menu  {{ border-left: 3px solid #3B4883 !important; }}
+.campaign-mini-card.lever-ops   {{ border-left: 3px solid #8B9ED4 !important; }}
+.campaign-mini-card.lever-pro   {{ border-left: 3px solid #6FF24B !important; }}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
