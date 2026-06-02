@@ -6285,8 +6285,8 @@ def page_opportunity_list():
             active_usd=active_md_gmv_usd,
             pipeline_usd=min(md_pipeline_usd, md_gap_usd),
             target_usd=md_gmv_target_usd,
-            color_active="#8B9DFF",
-            color_pipeline="#FF8A3D",
+            color_active="#8B9ED4",
+            color_pipeline="#FF7124",
         )
         st.markdown(
             f"<div style='font-size:12px; color:{COLORS['muted']}; margin-bottom:10px;'>"
@@ -6683,13 +6683,13 @@ def page_follow_up_list():
         score_color = "#6FF24B"
         score_label = "SANA"
     elif health_score >= 45:
-        score_color = "#FFD600"
+        score_color = "#FF7124"
         score_label = "MODERADA"
     elif health_score >= 25:
-        score_color = "#FF8A3D"
+        score_color = "#FF7124"
         score_label = "EN ALERTA"
     else:
-        score_color = "#FF3D3D"
+        score_color = "#E5332A"
         score_label = "CRÍTICA"
 
     bw_activo   = pct_activo
@@ -6709,11 +6709,11 @@ def page_follow_up_list():
         if d <= 10:
             color = "#6FF24B"
         elif d <= 15:
-            color = "#C8FF00"
+            color = "#6FF24B"
         elif d <= 21:
-            color = "#FF8A3D"
+            color = "#FF7124"
         else:
-            color = "#FF3D3D"
+            color = "#E5332A"
         return (
             f'<span style="background:{color}22; color:{color}; '
             f'font-weight:700; padding:2px 8px; border-radius:6px; '
@@ -6728,7 +6728,7 @@ def page_follow_up_list():
         """
         ts = pd.to_datetime(last_dt, errors="coerce")
         if pd.isna(ts):
-            return '<span style="color:#FF3D3D; font-weight:700;">Sin contacto</span>'
+            return '<span style="color:#E5332A; font-weight:700;">Sin contacto</span>'
         ideal_dt  = ts + timedelta(days=15)
         limite_dt = ts + timedelta(days=21)
         days_to_ideal  = (ideal_dt.date()  - date.today()).days
@@ -6738,19 +6738,19 @@ def page_follow_up_list():
             # Ya venció el límite de 21 días
             overdue = abs(days_to_limite)
             return (
-                f'<span style="color:#FF3D3D; font-weight:700;">'
+                f'<span style="color:#E5332A; font-weight:700;">'
                 f'Vencido hace {overdue}d</span>'
             )
         elif days_to_ideal <= 0:
             # Pasó los 15d, todavía dentro del límite → amarillo
             return (
-                f'<span style="color:#FFD600; font-weight:700;">'
+                f'<span style="color:#FF7124; font-weight:700;">'
                 f'Llamar ya · vence en {days_to_limite}d</span>'
             )
         else:
             # Dentro del ciclo ideal
             return (
-                f'<span style="color:#6F82EF;">'
+                f'<span style="color:#8B9ED4;">'
                 f'en {days_to_ideal}d · {ideal_dt.strftime("%d/%m")}</span>'
             )
 
@@ -6804,8 +6804,8 @@ def page_follow_up_list():
     st.markdown(f"""
     <style>
     .hm-card {{
-        background: #1D2659;
-        border: 1px solid #27316A;
+        background: #272D4E;
+        border: 1px solid #272D4E;
         border-radius: 16px;
         padding: 20px 24px 16px 24px;
         margin-bottom: 18px;
@@ -6815,7 +6815,7 @@ def page_follow_up_list():
         font-weight: 700;
         letter-spacing: 2px;
         text-transform: uppercase;
-        color: #6F82EF;
+        color: #8B9ED4;
         margin-bottom: 14px;
     }}
     .hm-score-ring {{
@@ -6828,7 +6828,7 @@ def page_follow_up_list():
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        background: conic-gradient({score_color} {health_score}%, #27316A {health_score}%);
+        background: conic-gradient({score_color} {health_score}%, #272D4E {health_score}%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -6839,7 +6839,7 @@ def page_follow_up_list():
         width: 58px;
         height: 58px;
         border-radius: 50%;
-        background: #1D2659;
+        background: #272D4E;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -6866,7 +6866,7 @@ def page_follow_up_list():
     }}
     .hm-score-desc {{
         font-size: 13px;
-        color: #6F82EF;
+        color: #8B9ED4;
         margin-top: 2px;
     }}
     .hm-zones {{
@@ -6878,7 +6878,7 @@ def page_follow_up_list():
     .hm-zone {{
         flex: 1;
         min-width: 100px;
-        background: #27316A;
+        background: #272D4E;
         border-radius: 10px;
         padding: 10px 12px;
         position: relative;
@@ -6891,14 +6891,14 @@ def page_follow_up_list():
         border-radius: 10px 0 0 10px;
     }}
     .hm-zone-emoji {{ font-size: 16px; }}
-    .hm-zone-name {{ font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #8899CC; text-transform: uppercase; margin-top: 4px; }}
-    .hm-zone-count {{ font-size: 24px; font-weight: 900; color: #FFFFFF; line-height: 1.1; }}
-    .hm-zone-pct {{ font-size: 11px; color: #8899CC; }}
-    .hm-zone-range {{ font-size: 10px; color: #556688; margin-top: 2px; }}
+    .hm-zone-name {{ font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #8B9ED4; text-transform: uppercase; margin-top: 4px; }}
+    .hm-zone-count {{ font-size: 24px; font-weight: 900; color: rgba(255,255,255,0.9); line-height: 1.1; }}
+    .hm-zone-pct {{ font-size: 11px; color: #8B9ED4; }}
+    .hm-zone-range {{ font-size: 10px; color: #5B6FA8; margin-top: 2px; }}
     .hm-bar-wrap {{ border-radius: 8px; overflow: hidden; height: 10px; display: flex; margin-top: 4px; }}
     .hm-bar-seg {{ height: 10px; transition: width 0.3s; }}
     .hm-legend {{ display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; }}
-    .hm-legend-item {{ display: flex; align-items: center; gap: 5px; font-size: 11px; color: #8899CC; }}
+    .hm-legend-item {{ display: flex; align-items: center; gap: 5px; font-size: 11px; color: #8B9ED4; }}
     .hm-legend-dot {{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }}
     </style>
     <div class="hm-card">
@@ -6925,7 +6925,7 @@ def page_follow_up_list():
                 <div class="hm-zone-range">0 – 10 días</div>
             </div>
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#C8FF00;"></div>
+                <div class="hm-zone-accent" style="background:#6FF24B;"></div>
                 <div class="hm-zone-emoji">🟡</div>
                 <div class="hm-zone-name">Cadencia ideal</div>
                 <div class="hm-zone-count">{n_cadencia}</div>
@@ -6933,7 +6933,7 @@ def page_follow_up_list():
                 <div class="hm-zone-range">11 – 15 días</div>
             </div>
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#FF8A3D;"></div>
+                <div class="hm-zone-accent" style="background:#FF7124;"></div>
                 <div class="hm-zone-emoji">🟠</div>
                 <div class="hm-zone-name">Alerta</div>
                 <div class="hm-zone-count">{n_alerta}</div>
@@ -6941,7 +6941,7 @@ def page_follow_up_list():
                 <div class="hm-zone-range">16 – 21 días</div>
             </div>
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#FF3D3D;"></div>
+                <div class="hm-zone-accent" style="background:#E5332A;"></div>
                 <div class="hm-zone-emoji">🔴</div>
                 <div class="hm-zone-name">Fría</div>
                 <div class="hm-zone-count">{n_fria_total}</div>
@@ -6951,31 +6951,31 @@ def page_follow_up_list():
         </div>
         <div class="hm-bar-wrap">
             <div class="hm-bar-seg" style="width:{bw_activo}%; background:#6FF24B;"></div>
-            <div class="hm-bar-seg" style="width:{bw_cadencia}%; background:#C8FF00;"></div>
-            <div class="hm-bar-seg" style="width:{bw_alerta}%; background:#FF8A3D;"></div>
-            <div class="hm-bar-seg" style="width:{bw_fria}%; background:#FF3D3D;"></div>
+            <div class="hm-bar-seg" style="width:{bw_cadencia}%; background:#6FF24B;"></div>
+            <div class="hm-bar-seg" style="width:{bw_alerta}%; background:#FF7124;"></div>
+            <div class="hm-bar-seg" style="width:{bw_fria}%; background:#E5332A;"></div>
         </div>
         <div class="hm-legend">
             <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#6FF24B;"></div> Activo (0–10d)</div>
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#C8FF00;"></div> Cadencia (11–15d)</div>
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF8A3D;"></div> Alerta (16–21d)</div>
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF3D3D;"></div> Fría (&gt;21d · sin contacto)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#6FF24B;"></div> Cadencia (11–15d)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF7124;"></div> Alerta (16–21d)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#E5332A;"></div> Fría (&gt;21d · sin contacto)</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     _showing = len(follow_df_filtered)
-    _wk_color = "#6FF24B" if _contacts_this_week >= 15 else ("#FF8A3D" if _contacts_this_week >= 8 else "#E5332A")
+    _wk_color = "#6FF24B" if _contacts_this_week >= 15 else ("#FF7124" if _contacts_this_week >= 8 else "#E5332A")
     st.markdown(f"""
 <div style="display:inline-flex;align-items:center;gap:12px;background:rgba(78,99,217,.07);
     border:1.5px solid rgba(78,99,217,.25);border-radius:12px;padding:10px 18px;margin-bottom:12px;">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;">📞 Contactos esta semana</div>
+    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">📞 Contactos esta semana</div>
     <div style="font-size:26px;font-weight:900;color:{_wk_color};line-height:1;">{_contacts_this_week}</div>
-    <div style="font-size:11px;color:#6B7280;">{_week_label} &nbsp;·&nbsp;
+    <div style="font-size:11px;color:#DBBBA7;">{_week_label} &nbsp;·&nbsp;
         <span style="color:#6FF24B;">🟢 {n_activo}</span> &nbsp;·&nbsp;
-        <span style="color:#C8FF00;">🟡 {n_cadencia}</span> &nbsp;·&nbsp;
-        <span style="color:#FF8A3D;">🟠 {n_alerta}</span> &nbsp;·&nbsp;
-        <span style="color:#FF3D3D;">🔴 {n_fria_total}</span>
+        <span style="color:#6FF24B;">🟡 {n_cadencia}</span> &nbsp;·&nbsp;
+        <span style="color:#FF7124;">🟠 {n_alerta}</span> &nbsp;·&nbsp;
+        <span style="color:#E5332A;">🔴 {n_fria_total}</span>
     </div>
 </div>
     """, unsafe_allow_html=True)
@@ -7167,16 +7167,16 @@ def page_call_quality_trainer():
     st.markdown("""
     <style>
     .qt-score-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:1.5rem; }
-    .qt-score-card { background:#f7f8fc; border-radius:8px; padding:12px 14px; }
+    .qt-score-card { background:rgba(255,255,255,0.05); border-radius:8px; padding:12px 14px; }
     .qt-score-val  { font-size:22px; font-weight:600; line-height:1.1; }
     .qt-score-lbl  { font-size:11px; color:#888; margin-top:3px; }
     .qt-score-trend{ font-size:11px; margin-top:2px; }
-    .qt-ok  { color:#2e7d32; }
-    .qt-warn{ color:#e65100; }
-    .qt-bad { color:#c62828; }
+    .qt-ok  { color:#6FF24B; }
+    .qt-warn{ color:#D95A10; }
+    .qt-bad { color:#E5332A; }
 
     .qt-trainer-card {
-        border: 1px solid #e8e8e8;
+        border: 1px solid rgba(255,255,255,0.12);
         border-radius:10px;
         margin-bottom: 1.2rem;
         overflow: hidden;
@@ -7184,14 +7184,14 @@ def page_call_quality_trainer():
     .qt-card-header {
         display: flex; align-items: center; gap: 12px;
         padding: 14px 18px 10px;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .qt-rank-badge {
         width:30px; height:30px; border-radius:50%;
         display:flex; align-items:center; justify-content:center;
         font-size:13px; font-weight:700; flex-shrink:0;
     }
-    .qt-dim-label { font-size:14px; font-weight:600; color:#1a1f36; flex:1; }
+    .qt-dim-label { font-size:14px; font-weight:600; color:#272D4E; flex:1; }
     .qt-score-pill {
         font-size:13px; font-weight:600; padding:3px 10px;
         border-radius:20px; flex-shrink:0;
@@ -7204,17 +7204,17 @@ def page_call_quality_trainer():
     }
     .qt-section-title:first-child { margin-top:0; }
     .qt-impact-box {
-        background:#fff8f5; border-left:3px solid #e65100;
+        background:rgba(255,113,36,0.06); border-left:3px solid #D95A10;
         border-radius:0 6px 6px 0; padding:8px 12px;
-        font-size:12px; color:#5d3417; line-height:1.6;
+        font-size:12px; color:#D95A10; line-height:1.6;
     }
     .qt-tip-box {
-        background:#f0f7ff; border-left:3px solid #1976d2;
+        background:rgba(59,72,131,0.10); border-left:3px solid #3B4883;
         border-radius:0 6px 6px 0; padding:8px 12px;
-        font-size:12px; color:#0d3b66; line-height:1.6;
+        font-size:12px; color:#272D4E; line-height:1.6;
     }
     .qt-example {
-        background:#fafafa; border:1px solid #f0f0f0; border-radius:6px;
+        background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:6px;
         padding:8px 10px; font-size:11px; color:#666; line-height:1.55;
         margin-bottom:6px; font-style:italic;
     }
@@ -7226,10 +7226,10 @@ def page_call_quality_trainer():
     }
     .qt-above-section {
         margin-top:1.5rem; padding:12px 16px; border-radius:8px;
-        border:1px solid #e8f5e9; background:#f1f8e9;
-        font-size:12px; color:#2e7d32; line-height:1.7;
+        border:1px solid rgba(111,242,75,0.08); background:rgba(111,242,75,0.08);
+        font-size:12px; color:#6FF24B; line-height:1.7;
     }
-    .qt-above-section b { color:#1b5e20; }
+    .qt-above-section b { color:#6FF24B; }
     .qt-separator {
         font-size:11px; font-weight:700; letter-spacing:.08em;
         text-transform:uppercase; color:#bbb;
@@ -7289,7 +7289,7 @@ def page_call_quality_trainer():
                 _pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(_hist_scores))
                 _last  = _hist_scores[-1]
                 _first = _hist_scores[0]
-                _line_color = "#2e7d32" if _last >= _first else "#c62828"
+                _line_color = "#6FF24B" if _last >= _first else "#E5332A"
                 _dot_x = _sx(len(_hist_scores)-1)
                 _dot_y = _sy(_last)
                 _spark_svg = (
@@ -7299,10 +7299,10 @@ def page_call_quality_trainer():
                     f'</svg>'
                 )
                 _trend_label = f"+{_last-_first:.1f}pp" if _last >= _first else f"{_last-_first:.1f}pp"
-                _trend_color = "#2e7d32" if _last >= _first else "#c62828"
+                _trend_color = "#6FF24B" if _last >= _first else "#E5332A"
                 st.markdown(
-                    f'''<div style="display:flex;align-items:center;gap:14px;background:#f9f9f9;
-                    border:1px solid #e5e5e5;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#555;">
+                    f'''<div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.04);
+                    border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#555;">
                     <span style="font-weight:700;color:#333;">Historial Call Quality Score</span>
                     {_spark_svg}
                     <span style="font-weight:700;color:{_trend_color};">{_trend_label} ({_hist_weeks[0]} → {_hist_weeks[-1]})</span>
@@ -7318,7 +7318,7 @@ def page_call_quality_trainer():
 
     st.markdown(f"""
     <div class="qt-score-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">
-      <div class="qt-score-card" style="border:2px solid {"#2e7d32" if _composite_score and _composite_score >= 80 else ("#e65100" if _composite_score and _composite_score >= 65 else "#c62828")};background:{"#f1f8e9" if _composite_score and _composite_score >= 80 else ("#fff8f5" if _composite_score and _composite_score >= 65 else "#fde8e8")};">
+      <div class="qt-score-card" style="border:2px solid {"#6FF24B" if _composite_score and _composite_score >= 80 else ("#D95A10" if _composite_score and _composite_score >= 65 else "#E5332A")};background:{"rgba(111,242,75,0.08)" if _composite_score and _composite_score >= 80 else ("rgba(255,113,36,0.06)" if _composite_score and _composite_score >= 65 else "rgba(229,51,42,0.10)")};">
         <div class="qt-score-val {_composite_color}" style="font-size:28px;">{f"{_composite_score:.1f}%" if _composite_score is not None else "—"}</div>
         <div class="qt-score-lbl" style="font-weight:800;">⭐ Call Quality Score</div>
         <div class="qt-score-trend {_composite_color}">{_composite_label}</div>
@@ -7338,7 +7338,7 @@ def page_call_quality_trainer():
         </div>
       </div>
       <div class="qt-score-card">
-        <div class="qt-score-val" style="color:#1a1f36">{n_calls}</div>
+        <div class="qt-score-val" style="color:#272D4E">{n_calls}</div>
         <div class="qt-score-lbl">Llamadas analizadas</div>
         <div class="qt-score-trend" style="color:#888">Período cargado</div>
       </div>
@@ -7364,24 +7364,24 @@ def page_call_quality_trainer():
         pct   = round(score * 100, 1)
 
         if pct < 40:
-            rank_bg, rank_fg, pill_bg, pill_fg = "#fde8e8", "#c62828", "#fde8e8", "#c62828"
+            rank_bg, rank_fg, pill_bg, pill_fg = "rgba(229,51,42,0.10)", "#E5332A", "rgba(229,51,42,0.10)", "#E5332A"
         elif pct < 60:
-            rank_bg, rank_fg, pill_bg, pill_fg = "#fff3e0", "#e65100", "#fff3e0", "#e65100"
+            rank_bg, rank_fg, pill_bg, pill_fg = "rgba(255,113,36,0.10)", "#D95A10", "rgba(255,113,36,0.10)", "#D95A10"
         else:
-            rank_bg, rank_fg, pill_bg, pill_fg = "#fff8e1", "#f57f17", "#fff8e1", "#f57f17"
+            rank_bg, rank_fg, pill_bg, pill_fg = "rgba(255,113,36,0.08)", "#D95A10", "rgba(255,113,36,0.08)", "#D95A10"
 
         spark = sparkline_data(col)
         spark_html = ""
         if spark:
             for i, v in enumerate(spark):
                 if v is None:
-                    dot_bg, dot_txt = "#f0f0f0", "#bbb"
+                    dot_bg, dot_txt = "rgba(255,255,255,0.08)", "#bbb"
                 elif v >= 80:
-                    dot_bg, dot_txt = "#e8f5e9", "#2e7d32"
+                    dot_bg, dot_txt = "rgba(111,242,75,0.08)", "#6FF24B"
                 elif v >= 60:
-                    dot_bg, dot_txt = "#fff3e0", "#e65100"
+                    dot_bg, dot_txt = "rgba(255,113,36,0.10)", "#D95A10"
                 else:
-                    dot_bg, dot_txt = "#fde8e8", "#c62828"
+                    dot_bg, dot_txt = "rgba(229,51,42,0.10)", "#E5332A"
                 wlabel = f"W{i+1}"
                 val_str = f"{round(v)}%" if v is not None else "—"
                 spark_html += f'<div class="qt-spark-dot" style="background:{dot_bg};color:{dot_txt}" title="{wlabel}: {val_str}">{val_str}</div>'
@@ -7494,10 +7494,10 @@ def page_productivity_heatmap():
         {
             "label": "🟢 Comercial",
             "color_header": PALETTE["slate_indigo"],
-            "color_cell_lo": "#ddeaf8",
+            "color_cell_lo": "rgba(59,72,131,0.15)",
             "color_cell_hi": PALETTE["slate_indigo"],
             "color_text_lo": PALETTE["slate_indigo"],
-            "color_text_hi": "#ffffff",
+            "color_text_hi": "rgba(255,255,255,0.9)",
             "palancas": [
                 ("Markdown",          freq("Markdown")),
                 ("Ads",               freq("Ads")),
@@ -7514,10 +7514,10 @@ def page_productivity_heatmap():
         {
             "label": "🟡 Operativo",
             "color_header": PALETTE["emerald_dark"],
-            "color_cell_lo": "#d8f0e8",
+            "color_cell_lo": "rgba(111,242,75,0.06)",
             "color_cell_hi": PALETTE["emerald_dark"],
             "color_text_lo": PALETTE["emerald_dark"],
-            "color_text_hi": "#ffffff",
+            "color_text_hi": "rgba(255,255,255,0.9)",
             "palancas": [
                 ("Catálogo general", freq("Catálogo")),
                 ("Cancelaciones",    freq("Cancelaciones")),
@@ -7528,10 +7528,10 @@ def page_productivity_heatmap():
         {
             "label": "🔴 Incendios",
             "color_header": PALETTE["tangerine_dark"],
-            "color_cell_lo": "#faece7",
+            "color_cell_lo": "rgba(255,113,36,0.10)",
             "color_cell_hi": PALETTE["tangerine_dark"],
             "color_text_lo": PALETTE["tangerine_dark"],
-            "color_text_hi": "#ffffff",
+            "color_text_hi": "rgba(255,255,255,0.9)",
             "palancas": [
                 ("Pains del aliado", freq("Pains del aliado")),
                 ("Churn",            freq("Churn")),
@@ -7595,7 +7595,7 @@ def page_productivity_heatmap():
 
     def cell_style(pct, lo_bg, hi_bg, lo_text, hi_text):
         if pct is None:
-            return "background:#f5f5f5;color:#aaa;"
+            return "background:rgba(255,255,255,0.05);color:#aaa;"
         t = min(pct / 100, 1.0)
         bg   = _lerp_hex(lo_bg, hi_bg, t)
         text = hi_text if t > 0.45 else lo_text
@@ -7603,15 +7603,15 @@ def page_productivity_heatmap():
 
     # ── Conversion lookup: maps palanca name → (conv_label, conv_data, hi_bg, lo_bg) ──
     CONV_MAP = {
-        "Markdown":  ("↳ Conversión MD",   md_conv(),    PALETTE["slate_indigo"],   "#ddeaf8"),
-        "Ads":       ("↳ Activación Ads",   ads_conv(),   PALETTE["slate_indigo"],   "#ddeaf8"),
-        "Churn":     ("↳ Retención churn",  churn_conv(), PALETTE["tangerine_dark"], "#faece7"),
+        "Markdown":  ("↳ Conversión MD",   md_conv(),    PALETTE["slate_indigo"],   "rgba(59,72,131,0.15)"),
+        "Ads":       ("↳ Activación Ads",   ads_conv(),   PALETTE["slate_indigo"],   "rgba(59,72,131,0.15)"),
+        "Churn":     ("↳ Retención churn",  churn_conv(), PALETTE["tangerine_dark"], "rgba(255,113,36,0.10)"),
     }
 
     CONV_BADGE = {
-        "Markdown": ("conv →", "#ddeaf8", PALETTE["slate_indigo"]),
-        "Ads":      ("conv →", "#ddeaf8", PALETTE["slate_indigo"]),
-        "Churn":    ("retención →", "#faece7", PALETTE["tangerine_dark"]),
+        "Markdown": ("conv →", "rgba(59,72,131,0.15)", PALETTE["slate_indigo"]),
+        "Ads":      ("conv →", "rgba(59,72,131,0.15)", PALETTE["slate_indigo"]),
+        "Churn":    ("retención →", "rgba(255,113,36,0.10)", PALETTE["tangerine_dark"]),
     }
 
     # ── CSS ───────────────────────────────────────────────────────────────────
@@ -7621,20 +7621,20 @@ def page_productivity_heatmap():
     .hm-table { width: 100%; border-collapse: collapse; }
     .hm-table th {
         font-size: 11px; font-weight: 500; color: #888;
-        text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid #e5e5e5;
+        text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.12);
     }
     .hm-table th.hm-lh { text-align: left; min-width: 150px; }
     .hm-table td.hm-label {
         font-size: 12px; color: #555; padding: 3px 6px 3px 2px;
-        border-bottom: 1px solid #f0f0f0; white-space: nowrap;
+        border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
     }
     .hm-table td.hm-label-sub {
         font-size: 11px; color: #888; padding: 3px 6px 3px 20px;
-        border-bottom: 1px solid #f0f0f0; white-space: nowrap;
+        border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
     }
     .hm-table td.hm-c {
         text-align: center; padding: 3px 3px;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .hm-cell-inner {
         display: flex; flex-direction: column; align-items: center;
@@ -7664,7 +7664,7 @@ def page_productivity_heatmap():
     }
     .hm-insight {
         margin-top: 1.5rem; padding: 12px 16px; border-radius: 8px;
-        border: 1px solid #e5e5e5; background: #fafafa;
+        border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
         font-size: 12px; color: #666; line-height: 1.6;
     }
     .hm-insight b { color: #333; font-weight: 600; }
@@ -7672,9 +7672,9 @@ def page_productivity_heatmap():
         display: flex; flex-direction: column; align-items: center;
         justify-content: center; border-radius: 6px;
         padding: 3px 4px; min-height: 30px; min-width: 60px;
-        border: 1.5px dashed #C8FF00;
+        border: 1.5px dashed #6FF24B;
     }
-    .hm-rec-val { font-size: 11px; font-weight: 700; color: #3d5200; }
+    .hm-rec-val { font-size: 11px; font-weight: 700; color: #6FF24B; }
     .hm-rec-lbl { font-size: 9px; color: #888; opacity: .8; }
     </style>
     """, unsafe_allow_html=True)
@@ -7689,7 +7689,7 @@ def page_productivity_heatmap():
     def conv_row(label, values, hi_bg, lo_bg):
         row = f'<td class="hm-label-sub">{label}</td>'
         for pct, n, d in values:
-            sty = cell_style(pct, lo_bg, hi_bg, hi_bg, "#ffffff")
+            sty = cell_style(pct, lo_bg, hi_bg, hi_bg, "rgba(255,255,255,0.9)")
             inner_pct = f'<span class="hm-pct-sub">{pct}%</span>' if pct is not None else '<span class="hm-pct-sub" style="opacity:.35">—</span>'
             inner_frac = f'<span class="hm-frac">{n}/{d}</span>' if d else '<span class="hm-frac" style="opacity:.35">sin datos</span>'
             row += (
@@ -7731,7 +7731,7 @@ def page_productivity_heatmap():
             for i, (pct, (c, t)) in enumerate(zip(pcts, freqs)):
                 # Highlight the best week with a dashed lime border
                 is_best = (i == best_widx and best_pct > 0)
-                border_style = "outline:2px dashed #C8FF00;outline-offset:-2px;" if is_best else ""
+                border_style = "outline:2px dashed #6FF24B;outline-offset:-2px;" if is_best else ""
                 sty = cell_style(pct, g["color_cell_lo"], g["color_cell_hi"],
                                  g["color_text_lo"], g["color_text_hi"])
                 trophy = '<span style="font-size:8px;opacity:.8">🏆</span>' if is_best else ""
@@ -7745,7 +7745,7 @@ def page_productivity_heatmap():
             html += f"<tr>{row}</tr>"
 
             # ── Benchmark subrow: "Tu récord" line ────────────────────────
-            rec_row = f'<td class="hm-label-sub" style="color:#8a9a00;font-size:10px;">📈 récord personal</td>'
+            rec_row = f'<td class="hm-label-sub" style="color:#8B9ED4;font-size:10px;">📈 récord personal</td>'
             for i, pct in enumerate(pcts):
                 is_best = (i == best_widx and best_pct > 0)
                 if is_best:
@@ -7759,7 +7759,7 @@ def page_productivity_heatmap():
                 else:
                     delta = pct - best_pct
                     delta_str = f"{delta:+d}pp" if best_pct > 0 else "—"
-                    delta_color = "#2e7d32" if delta >= 0 else "#aaa"
+                    delta_color = "#6FF24B" if delta >= 0 else "#aaa"
                     rec_row += (
                         f'<td class="hm-c">'
                         f'<div style="display:flex;align-items:center;justify-content:center;min-height:30px;">'
@@ -7787,16 +7787,16 @@ def page_productivity_heatmap():
     _bm_records.sort(key=lambda x: x[1], reverse=True)
     if _bm_records:
         _bm_items_html = "".join(
-            f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f0f0f0;">' 
+            f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.08);">' 
             f'<span style="font-size:12px;color:#555;min-width:130px;">{bm_name}</span>' 
-            f'<span style="font-size:13px;font-weight:700;color:#2e7d32;">{bm_pct}%</span>' 
+            f'<span style="font-size:13px;font-weight:700;color:#6FF24B;">{bm_pct}%</span>' 
             f'<span style="font-size:11px;color:#aaa;">mejor en {bm_wk}</span>' 
             f'🏆</div>'
             for bm_name, bm_pct, bm_wk in _bm_records[:6]
         )
         html += f'''
-        <div style="margin-top:1.2rem;background:#f9fff4;border:1px solid #c8ff00;border-radius:8px;padding:12px 16px;">
-        <div style="font-size:11px;font-weight:700;color:#5a7a00;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">
+        <div style="margin-top:1.2rem;background:rgba(111,242,75,0.06);border:1px solid #6FF24B;border-radius:8px;padding:12px 16px;">
+        <div style="font-size:11px;font-weight:700;color:#6FF24B;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">
             📈 Benchmark personal — tus récords por palanca
         </div>
         {_bm_items_html}
@@ -7915,15 +7915,15 @@ def page_productivity_heatmap():
                 delta_val = r["Delta %"]
                 if delta_val is None or (isinstance(delta_val, float) and pd.isna(delta_val)):
                     delta_cell = "<span style='color:#aaa'>—</span>"
-                    delta_bg   = "#f5f5f5"
+                    delta_bg   = "rgba(255,255,255,0.05)"
                 elif float(delta_val) >= 0:
                     _lg = PALETTE["laser_green"]
                     delta_cell = f"<b style='color:{_lg};filter:brightness(.65)'>+{delta_val}%</b>"
-                    delta_bg   = "#f2fff0"
+                    delta_bg   = "rgba(111,242,75,0.06)"
                 else:
                     _nt = PALETTE["neon_tangerine"]
                     delta_cell = f"<b style='color:{_nt}'>{delta_val}%</b>"
-                    delta_bg   = "#fff8f4"
+                    delta_bg   = "rgba(255,113,36,0.08)"
 
                 gmv_con  = fmt_ars(r["GMV prom. CON"])  if r["GMV prom. CON"]  else "—"
                 gmv_sin  = fmt_ars(r["GMV prom. SIN"])  if r["GMV prom. SIN"]  else "—"
@@ -7931,7 +7931,7 @@ def page_productivity_heatmap():
                 marcas   = int(r["Marcas c/ palanca"])
 
                 rows_html += (
-                    f"<tr style='border-bottom:1px solid #f0f0f0'>"
+                    f"<tr style='border-bottom:1px solid rgba(255,255,255,0.08)'>"
                     f"<td style='padding:5px 10px;color:#555;font-weight:600'>{semana}</td>"
                     f"<td style='padding:5px 10px;text-align:center;color:#333'>{marcas}</td>"
                     f"<td style='padding:5px 10px;text-align:center;color:#333'>{gmv_con}</td>"
@@ -8009,14 +8009,14 @@ def page_productivity_heatmap():
                 lever_col="Markdown",
                 lever_label="Markdown (MD)",
                 accent_color=PALETTE["slate_indigo"],
-                bg_lo="#ddeaf8",
+                bg_lo="rgba(59,72,131,0.15)",
             )
         with _col_ads:
             _render_corr_section(
                 lever_col="Ads",
                 lever_label="Ads",
                 accent_color=PALETTE["neon_tangerine"],
-                bg_lo="#fff0e6",
+                bg_lo="rgba(255,113,36,0.08)",
             )
 
 
@@ -8077,9 +8077,9 @@ def page_earnings_calculator():
         cx = cy   = size / 2
 
         if achievement >= 1.0:
-            arc_color = "#BFFF00"
+            arc_color = "#6FF24B"
         elif achievement >= 0.7:
-            arc_color = "#FF8A3D"
+            arc_color = "#FF7124"
         else:
             arc_color = "#E5332A"
 
@@ -8088,46 +8088,46 @@ def page_earnings_calculator():
 
         # Color accent per KPI
         accent_map = {
-            "Ads":         "#FF8A3D",
-            "MD":          "#8B9DFF",
+            "Ads":         "#FF7124",
+            "MD":          "#8B9ED4",
             "MD PRO":      "#6FF24B",
             "Churn":       "#E5332A",
-            "Productivity":"#BFFF00",
+            "Productivity":"#6FF24B",
         }
-        accent = accent_map.get(name, "#8B9DFF")
+        accent = accent_map.get(name, "#8B9ED4")
 
         donut_svg = (
             f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}">'
             # track
-            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#F0F0F0" stroke-width="{stroke}"/>'
+            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="{stroke}"/>'
             # progress arc
             f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{arc_color}" stroke-width="{stroke}" '
             f'stroke-dasharray="{filled} {gap}" stroke-dashoffset="{offset}" stroke-linecap="round"/>'
             # center % text
             f'<text x="{cx}" y="{cy - 6}" text-anchor="middle" font-size="20" font-weight="900" fill="{arc_color}">{pct_label}</text>'
-            f'<text x="{cx}" y="{cy + 12}" text-anchor="middle" font-size="9" fill="#9CA3AF">{over_label}</text>'
+            f'<text x="{cx}" y="{cy + 12}" text-anchor="middle" font-size="9" fill="rgba(219,187,167,0.5)">{over_label}</text>'
             f'</svg>'
         )
 
         st.markdown(f"""
 <div class="kpi-card" style="
-    background:#FFFFFF;
+    background:rgba(255,255,255,0.9);
     border:1px solid rgba(0,0,0,0.07);
     box-shadow:0 10px 30px rgba(0,0,0,0.05);
     transition:box-shadow .22s,transform .22s;
     min-height:0;
     padding:22px 20px 18px;
 ">
-  <div style="font-size:13px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:14px;letter-spacing:.04em;">{name}</div>
+  <div style="font-size:13px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:14px;letter-spacing:.04em;">{name}</div>
   <div style="display:flex;align-items:center;gap:16px;">
     <div style="flex-shrink:0;">{donut_svg}</div>
     <div style="flex:1;min-width:0;">
       <div style="background:rgba(191,255,0,.07);border:1.5px solid rgba(191,255,0,.35);border-radius:14px;padding:10px 12px;margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;">Target</div>
-        <div style="font-size:15px;font-weight:900;color:#1A1F36;margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{target_formatter(target)}</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">Target</div>
+        <div style="font-size:15px;font-weight:900;color:#272D4E;margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{target_formatter(target)}</div>
       </div>
       <div style="background:rgba(139,157,255,.07);border:1.5px solid rgba(139,157,255,.35);border-radius:14px;padding:10px 12px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;">Result</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">Result</div>
         <div style="font-size:15px;font-weight:900;color:{accent};margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{result_formatter(result)}</div>
       </div>
     </div>
@@ -8184,13 +8184,13 @@ def page_earnings_calculator():
         _next_bucket_name  = "Bucket 2 (100% del target)"
         _gap_to_next        = _b2_threshold - ads_result
         _comm_at_next       = (_b2_threshold - _b1_threshold) * 0.10
-        _next_color         = "#FF8A3D"
+        _next_color         = "#FF7124"
         _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 20% de comisión. Bucket 1 acumulado: {fmt_usd(bucket1)}."
     elif ads_result < _b3_threshold:
         _next_bucket_name  = "Bucket 3 (120% del target)"
         _gap_to_next        = _b3_threshold - ads_result
         _comm_at_next       = (_b3_threshold - _b2_threshold) * 0.20
-        _next_color         = "#FF8A3D"
+        _next_color         = "#FF7124"
         _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 30% de comisión. Buckets 1+2 acumulados: {fmt_usd(bucket1 + bucket2)}."
     else:
         _next_bucket_name  = "Superaste los 3 buckets 🏆"
@@ -8207,23 +8207,23 @@ def page_earnings_calculator():
         _bucket_pct = 100
 
     st.markdown(f"""
-<div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-bottom:16px;
+<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-bottom:16px;
     box-shadow:0 4px 14px rgba(0,0,0,0.05);">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:10px;">
         🎯 Próximo hito de comisión
     </div>
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div>
             <div style="font-size:22px;font-weight:900;color:{_next_color};">{_next_bucket_name}</div>
-            <div style="font-size:15px;font-weight:800;color:#1A1F36;margin-top:4px;">
+            <div style="font-size:15px;font-weight:800;color:#272D4E;margin-top:4px;">
                 {"Faltan " + fmt_usd(_gap_to_next) + " de ADS Revenue" if _gap_to_next > 0 else "¡Máximo nivel alcanzado!"}
             </div>
         </div>
         <div style="flex:1;min-width:200px;">
-            <div style="height:10px;border-radius:8px;background:#F0F0F0;overflow:hidden;margin-bottom:6px;">
+            <div style="height:10px;border-radius:8px;background:rgba(255,255,255,0.08);overflow:hidden;margin-bottom:6px;">
                 <div style="width:{_bucket_pct}%;height:100%;background:{_next_color};border-radius:8px;transition:width .4s;"></div>
             </div>
-            <div style="font-size:11px;color:#6B7280;">{_next_note}</div>
+            <div style="font-size:11px;color:#DBBBA7;">{_next_note}</div>
         </div>
     </div>
 </div>
@@ -8289,25 +8289,25 @@ def page_earnings_calculator():
             sim_bucket_label = "Bucket 3 (30%) — ya en máximo tier"
 
         st.markdown(f"""
-<div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-top:12px;margin-bottom:16px;">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:12px;">
+<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-top:12px;margin-bottom:16px;">
+    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:12px;">
         💡 Si cerrás este deal
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
         <div>
-            <div style="font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;margin-bottom:4px;">Deal</div>
-            <div style="font-size:22px;font-weight:900;color:#4E63D9;">{fmt_usd(sim_deal_usd)}</div>
-            <div style="font-size:11px;color:#9CA3AF;">ADS Revenue</div>
+            <div style="font-size:10px;font-weight:700;color:rgba(219,187,167,0.5);text-transform:uppercase;margin-bottom:4px;">Deal</div>
+            <div style="font-size:22px;font-weight:900;color:#3B4883;">{fmt_usd(sim_deal_usd)}</div>
+            <div style="font-size:11px;color:rgba(219,187,167,0.5);">ADS Revenue</div>
         </div>
         <div>
-            <div style="font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;margin-bottom:4px;">Comisión extra</div>
+            <div style="font-size:10px;font-weight:700;color:rgba(219,187,167,0.5);text-transform:uppercase;margin-bottom:4px;">Comisión extra</div>
             <div style="font-size:22px;font-weight:900;color:#6FF24B;">+{fmt_usd(sim_delta)}</div>
-            <div style="font-size:11px;color:#9CA3AF;">≈ {fmt_cop(sim_delta_cop)} COP</div>
+            <div style="font-size:11px;color:rgba(219,187,167,0.5);">≈ {fmt_cop(sim_delta_cop)} COP</div>
         </div>
         <div>
-            <div style="font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;margin-bottom:4px;">Bucket</div>
-            <div style="font-size:15px;font-weight:900;color:#FF8A3D;">{sim_bucket_label}</div>
-            <div style="font-size:11px;color:#9CA3AF;">Total comisión: {fmt_usd(sim_total)}</div>
+            <div style="font-size:10px;font-weight:700;color:rgba(219,187,167,0.5);text-transform:uppercase;margin-bottom:4px;">Bucket</div>
+            <div style="font-size:15px;font-weight:900;color:#FF7124;">{sim_bucket_label}</div>
+            <div style="font-size:11px;color:rgba(219,187,167,0.5);">Total comisión: {fmt_usd(sim_total)}</div>
         </div>
     </div>
 </div>
@@ -9731,7 +9731,7 @@ def render_campaign_designer_html(design):
 
     mundialista_ready = bool(design.get("mundialista_ready"))
     mundialista_status = "Aliado Mundialista ✅" if mundialista_ready else "Aliado Mundialista Candidate"
-    mundialista_status_color = "#00A86B" if mundialista_ready else "#FF8A3D"
+    mundialista_status_color = "#6FF24B" if mundialista_ready else "#FF7124"
 
     # ── helpers ──────────────────────────────────────────────────
     def chip(text):
@@ -9743,17 +9743,17 @@ def render_campaign_designer_html(design):
         fill = int(pct * width_pct)
         return (
             f"<div style='margin-bottom:10px'>"
-            f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:3px'>"
+            f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:3px'>"
             f"<span style='text-transform:uppercase;letter-spacing:.04em'>{html.escape(label)}</span>"
-            f"<span style='color:#1A1F36'>{int(pct*100)}%</span></div>"
-            f"<div style='background:#F3F4F6;border-radius:999px;height:8px;overflow:hidden'>"
+            f"<span style='color:#272D4E'>{int(pct*100)}%</span></div>"
+            f"<div style='background:rgba(255,255,255,0.06);border-radius:999px;height:8px;overflow:hidden'>"
             f"<div style='width:{fill}%;height:100%;background:{color};border-radius:999px;transition:width .4s'></div>"
             f"</div></div>"
         )
 
     def risk_badge(risk_label):
-        colors = {"Low": ("#00A86B", "#E6F9F2"), "Medium": ("#FF8A3D", "#FFF3EB"), "High": ("#E5332A", "#FEE9E8")}
-        fg, bg = colors.get(risk_label, ("#FF8A3D", "#FFF3EB"))
+        colors = {"Low": ("#6FF24B", "rgba(111,242,75,0.08)"), "Medium": ("#FF7124", "rgba(255,113,36,0.08)"), "High": ("#E5332A", "rgba(229,51,42,0.10)")}
+        fg, bg = colors.get(risk_label, ("#FF7124", "rgba(255,113,36,0.08)"))
         return (
             f"<span style='background:{bg};color:{fg};border:1px solid {fg};border-radius:999px;"
             f"padding:4px 12px;font-size:12px;font-weight:900'>{html.escape(risk_label)} Risk</span>"
@@ -9761,7 +9761,7 @@ def render_campaign_designer_html(design):
 
     def check_row(label, ok):
         icon = "✅" if ok else "⬜"
-        color = "#00A86B" if ok else "#9CA3AF"
+        color = "#6FF24B" if ok else "rgba(219,187,167,0.5)"
         return (
             f"<div style='display:flex;align-items:center;gap:8px;padding:5px 0;"
             f"border-bottom:1px solid rgba(0,0,0,.05);font-size:13px;color:{color};font-weight:700'>"
@@ -9781,9 +9781,9 @@ def render_campaign_designer_html(design):
     for (sub_label, sub_val, sub_copy, sub_cls) in strategy_sub_items:
         sub_cards_html += (
             f"<div class='campaign-mini-card {sub_cls}' style='flex:1 1 170px;min-width:155px;min-height:0;padding:12px 14px;border-radius:14px'>"
-            f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.05em;color:#9CA3AF;margin-bottom:4px'>{html.escape(sub_label)}</div>"
-            f"<div style='font-size:14px;font-weight:900;color:#1A1F36;line-height:1.2;overflow-wrap:anywhere'>{html.escape(sub_val)}</div>"
-            f"<div style='font-size:11px;color:#6B7280;margin-top:4px;line-height:1.3'>{html.escape(sub_copy)}</div>"
+            f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.05em;color:rgba(219,187,167,0.5);margin-bottom:4px'>{html.escape(sub_label)}</div>"
+            f"<div style='font-size:14px;font-weight:900;color:#272D4E;line-height:1.2;overflow-wrap:anywhere'>{html.escape(sub_val)}</div>"
+            f"<div style='font-size:11px;color:#DBBBA7;margin-top:4px;line-height:1.3'>{html.escape(sub_copy)}</div>"
             f"</div>"
         )
 
@@ -9812,7 +9812,7 @@ def render_campaign_designer_html(design):
         f"<div style='display:flex;align-items:center;gap:10px;margin:8px 0 12px'>"
         f"<span style='font-size:19px;font-weight:900;color:{mundialista_status_color}'>{html.escape(mundialista_status)}</span>"
         f"</div>"
-        f"<div style='font-size:11px;color:#6B7280;margin-bottom:10px;line-height:1.35'>{html.escape(mundialista_stack)}</div>"
+        f"<div style='font-size:11px;color:#DBBBA7;margin-bottom:10px;line-height:1.35'>{html.escape(mundialista_stack)}</div>"
         f"{checklist_html}"
         f"</div>"
     )
@@ -9827,42 +9827,42 @@ def render_campaign_designer_html(design):
         f"<div class='card-label'>🏅 Top Products Pyramid</div>"
         f"<div style='margin-top:16px;display:flex;flex-direction:column;align-items:center;gap:10px;flex:1'>"
         # Level 1 — Hero
-        f"<div style='background:linear-gradient(135deg,#1D2659,#4E63D9);color:#fff;border-radius:16px;"
+        f"<div style='background:linear-gradient(135deg,#272D4E,#3B4883);color:#fff;border-radius:16px;"
         f"padding:18px 22px;font-size:16px;font-weight:900;text-align:center;width:62%;"
         f"box-shadow:0 6px 18px rgba(78,99,217,.40);line-height:1.3'>"
         f"🥇 Hero<br><span style='font-size:13px;font-weight:700;opacity:.9'>{p1_name}</span>"
         f"</div>"
         # Level 2 — Backup
-        f"<div style='background:linear-gradient(135deg,#FF8A3D,#FF5F1F);color:#fff;border-radius:16px;"
+        f"<div style='background:linear-gradient(135deg,#FF7124,#D95A10);color:#fff;border-radius:16px;"
         f"padding:16px 22px;font-size:15px;font-weight:900;text-align:center;width:81%;"
         f"box-shadow:0 5px 14px rgba(255,138,61,.35);line-height:1.3'>"
         f"🥈 Backup<br><span style='font-size:12px;font-weight:700;opacity:.9'>{p2_name}</span>"
         f"</div>"
         # Level 3 — Tactical
-        f"<div style='background:linear-gradient(135deg,#6FF24B,#3DBF20);color:#1A1F36;border-radius:16px;"
+        f"<div style='background:linear-gradient(135deg,#6FF24B,#6FF24B);color:#272D4E;border-radius:16px;"
         f"padding:14px 22px;font-size:14px;font-weight:900;text-align:center;width:100%;"
         f"box-shadow:0 4px 12px rgba(111,242,75,.30);line-height:1.3'>"
         f"🥉 Tactical<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p3_name}</span>"
         f"</div>"
         f"</div>"
-        f"<div style='font-size:11px;color:#9CA3AF;margin-top:14px;text-align:center'>Use as album stickers for the pitch</div>"
+        f"<div style='font-size:11px;color:rgba(219,187,167,0.5);margin-top:14px;text-align:center'>Use as album stickers for the pitch</div>"
         f"</div>"
     )
 
     # ── 3. GUARDRAILS CARD (rediseñado) ──────────────────────────
     pressure_pct = to_number(pressure, 0)
 
-    risk_color_map = {"Low": "#00A86B", "Medium": "#FF8A3D", "High": "#E5332A"}
-    risk_bg_map   = {"Low": "#E6F9F2",  "Medium": "#FFF3EB",  "High": "#FEE9E8"}
-    pressure_color = risk_color_map.get(risk, "#FF8A3D")
+    risk_color_map = {"Low": "#6FF24B", "Medium": "#FF7124", "High": "#E5332A"}
+    risk_bg_map   = {"Low": "rgba(111,242,75,0.08)",  "Medium": "rgba(255,113,36,0.08)",  "High": "rgba(229,51,42,0.10)"}
+    pressure_color = risk_color_map.get(risk, "#FF7124")
 
     # ── Termómetro SVG para Risk Level (Low / Mid / High) ─────────
     thermo_levels = {"Low": 1, "Medium": 2, "High": 3}
     thermo_level  = thermo_levels.get(risk, 2)
     thermo_colors = {
-        1: ("#00A86B", "#E6F9F2"),   # Low  → green
-        2: ("#FF8A3D", "#FFF3EB"),   # Mid  → tangerine
-        3: ("#E5332A", "#FEE9E8"),   # High → red
+        1: ("#6FF24B", "rgba(111,242,75,0.08)"),   # Low  → green
+        2: ("#FF7124", "rgba(255,113,36,0.08)"),   # Mid  → tangerine
+        3: ("#E5332A", "rgba(229,51,42,0.10)"),   # High → red
     }
     thermo_fg, thermo_bg_light = thermo_colors[thermo_level]
     # Altura del relleno: 33% / 66% / 100%
@@ -9872,7 +9872,7 @@ def render_campaign_designer_html(design):
         f"<div style='display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px'>"
         f"<svg width='24' height='64' viewBox='0 0 24 64' fill='none' xmlns='http://www.w3.org/2000/svg'>"
         # tubo externo
-        f"<rect x='9' y='4' width='6' height='42' rx='3' fill='#E5E7EB'/>"
+        f"<rect x='9' y='4' width='6' height='42' rx='3' fill='rgba(255,255,255,0.12)'/>"
         # relleno dinámico (crece de abajo hacia arriba)
         f"<rect x='9' y='{46 - thermo_fill_h // 3 * 14}' width='6' height='{thermo_fill_h // 3 * 14}' rx='3' fill='{thermo_fg}'/>"
         # bulbo
@@ -9882,7 +9882,7 @@ def render_campaign_designer_html(design):
         # etiquetas L / M / H al lado
         f"<div style='display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:-60px;margin-left:28px'>"
         + "".join([
-            f"<span style='font-size:9px;font-weight:900;color:{'#E5332A' if i==3 else '#FF8A3D' if i==2 else '#00A86B'};opacity:{'1' if thermo_level==i else '0.3'}'>"
+            f"<span style='font-size:9px;font-weight:900;color:{'#E5332A' if i==3 else '#FF7124' if i==2 else '#6FF24B'};opacity:{'1' if thermo_level==i else '0.3'}'>"
             f"{'H' if i==3 else 'M' if i==2 else 'L'}</span>"
             for i in [3, 2, 1]
         ]) +
@@ -9894,17 +9894,17 @@ def render_campaign_designer_html(design):
     pressure_dots_count = min(max(round(pressure_pct * 10), 0), 10)
     pressure_dots_html = "".join([
         f"<span style='display:inline-block;width:14px;height:14px;border-radius:50%;"
-        f"background:{'#E5332A' if idx >= 6 else '#FF8A3D' if idx >= 4 else '#00A86B'};"
+        f"background:{'#E5332A' if idx >= 6 else '#FF7124' if idx >= 4 else '#6FF24B'};"
         f"opacity:{'1' if idx < pressure_dots_count else '0.18'};margin:2px'></span>"
         for idx in range(10)
     ])
     pressure_dot_chart = (
         f"<div style='margin-bottom:10px'>"
-        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:6px'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:6px'>"
         f"<span style='text-transform:uppercase;letter-spacing:.04em'>Partner Pressure</span>"
-        f"<span style='color:#1A1F36'>{int(pressure_pct * 100)}%</span></div>"
+        f"<span style='color:#272D4E'>{int(pressure_pct * 100)}%</span></div>"
         f"<div style='display:flex;flex-wrap:wrap;gap:3px'>{pressure_dots_html}</div>"
-        f"<div style='display:flex;justify-content:space-between;font-size:9px;color:#9CA3AF;margin-top:4px'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:9px;color:rgba(219,187,167,0.5);margin-top:4px'>"
         f"<span>LOW</span><span>MID</span><span>HIGH</span></div>"
         f"</div>"
     )
@@ -9912,7 +9912,7 @@ def render_campaign_designer_html(design):
     # ── Gráfico de proyección (barras históricas + proyección) para Impact ──
     impact_mid_val = (impact_low + impact_high) / 2
     impact_norm_val = min(max(impact_mid_val / 25.0, 0), 1)
-    impact_color_val = "#00A86B" if impact_norm_val >= 0.5 else "#FF8A3D" if impact_norm_val >= 0.25 else "#8B9DFF"
+    impact_color_val = "#6FF24B" if impact_norm_val >= 0.5 else "#FF7124" if impact_norm_val >= 0.25 else "#8B9ED4"
 
     # Barras: 4 históricas (valores simulados crecientes) + 1 proyección destacada
     # Las barras históricas representan semanas/períodos previos normalizados al GMV actual
@@ -9930,7 +9930,7 @@ def render_campaign_designer_html(design):
         _by = _chart_h - _bh
         _bars_svg += (
             f"<rect x='{_bx}' y='{_by}' width='{_bar_w}' height='{_bh}' rx='3' "
-            f"fill='#CBD5E1' opacity='.7'/>"
+            f"fill='rgba(219,187,167,0.4)' opacity='.7'/>"
         )
     # Barra proyectada (última, destacada con el color del impact)
     _proj_bx = 4 + 4 * (_bar_w + _bar_gap)
@@ -9953,13 +9953,13 @@ def render_campaign_designer_html(design):
         for bi, r in enumerate(_hist_ratios)
     ])
     _bars_svg += (
-        f"<polyline points='{_trend_pts}' fill='none' stroke='#94A3B8' "
+        f"<polyline points='{_trend_pts}' fill='none' stroke='#DBBBA7' "
         f"stroke-width='1.5' stroke-dasharray='3 2' stroke-linecap='round'/>"
     )
 
     impact_forecast_svg = (
         f"<div style='margin-bottom:10px'>"
-        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:4px'>"
         f"<span style='text-transform:uppercase;letter-spacing:.04em'>Proyección de Impacto</span>"
         f"<span style='color:{impact_color_val};font-size:12px'>+{impact_low}% – +{impact_high}% GMV</span></div>"
         f"<svg viewBox='0 0 {_chart_w} {_chart_h}' width='100%' height='{_chart_h}' "
@@ -9980,17 +9980,17 @@ def render_campaign_designer_html(design):
         f"background:{thermo_bg_light};border-radius:12px;padding:10px 14px'>"
         f"{thermometer_svg}"
         f"<div style='margin-left:18px'>"
-        f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.06em;color:#9CA3AF'>High Risk</div>"
+        f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.06em;color:rgba(219,187,167,0.5)'>High Risk</div>"
         f"<div style='font-size:18px;font-weight:900;color:{thermo_fg}'>{html.escape(risk)}</div>"
-        f"<div style='font-size:10px;color:#9CA3AF;margin-top:2px'>Low · Mid · High</div>"
+        f"<div style='font-size:10px;color:rgba(219,187,167,0.5);margin-top:2px'>Low · Mid · High</div>"
         f"</div>"
         f"</div>"
         # Partner Pressure con dot chart
         f"{pressure_dot_chart}"
         # Impact con forecast chart
         f"{impact_forecast_svg}"
-        f"<div style='margin-top:6px;background:#F3F4F6;border-radius:12px;padding:8px 12px;"
-        f"font-size:11px;color:#6B7280;line-height:1.4'>"
+        f"<div style='margin-top:6px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 12px;"
+        f"font-size:11px;color:#DBBBA7;line-height:1.4'>"
         f"⚠️ Pressure ≥60% = High Risk · ROI target Ads &gt;4.5x · MD &gt;3.2x"
         f"</div>"
         f"</div>"
@@ -10046,7 +10046,7 @@ def render_campaign_designer_html(design):
     reasoning_card = (
         f"<div class='campaign-mini-card lever-ops' style='padding:20px 22px'>"
         f"<div class='card-label'>🧠 Por qué esta estrategia</div>"
-        f"<div style='font-size:13px;color:#374151;line-height:1.65;margin-top:10px'>"
+        f"<div style='font-size:13px;color:#DBBBA7;line-height:1.65;margin-top:10px'>"
         f"{reasoning_paragraph}"
         f"</div>"
         f"</div>"
@@ -10845,27 +10845,27 @@ def _roi_chip(roi_value, benchmark=3.2):
     orange_end = benchmark / cap
 
     if roi >= benchmark:
-        label_color, label_text = "#5A7A00", f"ROI {fmt_roi(roi_value)} ✓"
+        label_color, label_text = "#6FF24B", f"ROI {fmt_roi(roi_value)} ✓"
     elif roi >= benchmark * 0.6:
-        label_color, label_text = "#B85C00", f"ROI {fmt_roi(roi_value)} ~"
+        label_color, label_text = "#D95A10", f"ROI {fmt_roi(roi_value)} ~"
     else:
-        label_color, label_text = "#C0001A", f"ROI {fmt_roi(roi_value)} ↓"
+        label_color, label_text = "#E5332A", f"ROI {fmt_roi(roi_value)} ↓"
 
     gauge_svg = (
         f'<svg width="108" height="54" viewBox="0 0 108 54" xmlns="http://www.w3.org/2000/svg">'
         # Red arc
         f'<path d="{arc_path(0, red_end)}" fill="#E5332A" opacity="0.85"/>'
         # Orange arc
-        f'<path d="{arc_path(red_end, orange_end)}" fill="#FF8A3D" opacity="0.85"/>'
+        f'<path d="{arc_path(red_end, orange_end)}" fill="#FF7124" opacity="0.85"/>'
         # Green arc
         f'<path d="{arc_path(orange_end, 1.0)}" fill="#6FF24B" opacity="0.85"/>'
         # Needle
-        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#1D2659" stroke-width="2.5" stroke-linecap="round"/>'
+        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#272D4E" stroke-width="2.5" stroke-linecap="round"/>'
         # Center dot
-        f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="#1D2659"/>'
+        f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="#272D4E"/>'
         # Benchmark tick
-        f'<line x1="{cx + r * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y1="{cy + r * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" x2="{cx + (r + 4) * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y2="{cy + (r + 4) * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" stroke="#1D2659" stroke-width="1.5"/>'
-        f'<text x="{cx}" y="52" text-anchor="middle" font-size="7" fill="#6B7280" font-weight="700">/{benchmark}x</text>'
+        f'<line x1="{cx + r * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y1="{cy + r * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" x2="{cx + (r + 4) * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y2="{cy + (r + 4) * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" stroke="#272D4E" stroke-width="1.5"/>'
+        f'<text x="{cx}" y="52" text-anchor="middle" font-size="7" fill="#DBBBA7" font-weight="700">/{benchmark}x</text>'
         '</svg>'
     )
 
@@ -10891,7 +10891,7 @@ def _business_card(label, value, copy="", lever_class="", chip=""):
 def render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw=0, conversion_raw=0, commission_raw=0, cvr_weekly=None, cvr_source='Sin datos', cvr_bench=None):
     import math as _math
 
-    def _waffle_icons(filled_count, total=10, filled_color="#BFFF00", empty_color="#D1D5DB"):
+    def _waffle_icons(filled_count, total=10, filled_color="#6FF24B", empty_color="rgba(255,255,255,0.15)"):
         person_path = '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/>'
         icons = []
         for i in range(total):
@@ -10927,9 +10927,9 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         if commission_val >= benchmark:
             nc = "#E5332A"
         elif commission_val >= benchmark * 0.6:
-            nc = "#FF8A3D"
+            nc = "#FF7124"
         else:
-            nc = "#BFFF00"
+            nc = "#6FF24B"
 
         green_w  = green_end * bar_w
         orange_w = (orange_end - green_end) * bar_w
@@ -10940,14 +10940,14 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
 
         svg_parts = [
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">',
-            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="#F0F0F0"/>',
+            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.08)"/>',
             f'<rect x="{pad_l:.1f}" y="{bar_y}" width="{green_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(191,255,0,0.28)"/>',
             f'<rect x="{orange_x:.1f}" y="{bar_y}" width="{orange_w:.1f}" height="{bar_h}" fill="rgba(255,138,61,0.22)"/>',
             f'<rect x="{red_x:.1f}" y="{bar_y}" width="{red_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,92,122,0.25)"/>',
             f'<rect x="{pad_l}" y="{bar_y + 1}" width="{fill_w:.1f}" height="{bar_h - 2}" rx="{rx - 1}" fill="{nc}" opacity="0.90"/>',
-            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#1A1F36" opacity="0.40"/>',
+            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#272D4E" opacity="0.40"/>',
             f'<text x="{pad_l}" y="{label_y}" font-size="6.5" font-weight="900" fill="{nc}">{fmt_percent0(commission_val)}</text>',
-            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="#9CA3AF" font-weight="700">/{fmt_percent0(benchmark)}</text>',
+            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="rgba(219,187,167,0.5)" font-weight="700">/{fmt_percent0(benchmark)}</text>',
             '</svg>',
         ]
         return f'<div style="position:absolute;bottom:8px;right:8px;opacity:0.95;">{"".join(svg_parts)}</div>'
@@ -10969,7 +10969,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         fill_ratio = min(max(roi_val / max_val, 0), 1)
         fill_w     = fill_ratio * bar_w
         bm_x       = pad_l + (bmark / max_val) * bar_w
-        nc = "#BFFF00" if roi_val >= bmark else ("#FF8A3D" if roi_val >= bmark * 0.6 else "#E5332A")
+        nc = "#6FF24B" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#E5332A")
 
         red_w    = (bmark * 0.6 / max_val) * bar_w
         orange_w = ((bmark - bmark * 0.6) / max_val) * bar_w
@@ -10983,7 +10983,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         svg_parts = [
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">',
             # Track
-            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="#F0F0F0"/>',
+            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.08)"/>',
             # Zone tints
             f'<rect x="{red_x:.1f}" y="{bar_y}" width="{red_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,92,122,0.28)"/>',
             f'<rect x="{orange_x:.1f}" y="{bar_y}" width="{orange_w:.1f}" height="{bar_h}" fill="rgba(255,138,61,0.22)"/>',
@@ -10991,11 +10991,11 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
             # Filled bar
             f'<rect x="{pad_l}" y="{bar_y + 1}" width="{fill_w:.1f}" height="{bar_h - 2}" rx="{rx - 1}" fill="{nc}" opacity="0.90"/>',
             # Benchmark tick
-            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#1A1F36" opacity="0.40"/>',
+            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#272D4E" opacity="0.40"/>',
             # Value label
             f'<text x="{pad_l}" y="{label_y}" font-size="6.5" font-weight="900" fill="{nc}">{roi_val:.1f}x</text>',
             # Benchmark label
-            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="#9CA3AF" font-weight="700">/{bmark}x</text>',
+            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="rgba(219,187,167,0.5)" font-weight="700">/{bmark}x</text>',
             '</svg>',
         ]
         return f'<div style="position:absolute;top:8px;right:8px;opacity:0.95;">{"".join(svg_parts)}</div>'
@@ -11013,14 +11013,14 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     # PRO Users card with waffle
     pro_pct = round(pro_users_raw * 100) if pro_users_raw <= 1 else round(pro_users_raw)
     pro_icons = max(0, min(10, round(pro_pct / 10)))
-    pro_waffle_html = _waffle_icons(pro_icons, filled_color="#BFFF00", empty_color="#D1D5DB")
+    pro_waffle_html = _waffle_icons(pro_icons, filled_color="#6FF24B", empty_color="rgba(255,255,255,0.15)")
     pro_card = (
         f"<div class='business-mini-card lever-pro'>"
         f"<div class='card-label'>PRO Users</div>"
         f"<div class='card-value'>{html.escape(clean(pro_users_display, '-'))}</div>"
         f"<div class='card-copy'>User mix / Prime opportunity</div>"
         f"{pro_waffle_html}"
-        f'<div style="font-size:10px;color:#6B7280;margin-top:4px;">{pro_icons} de 10 · 1 figura = 10%</div>'
+        f'<div style="font-size:10px;color:#DBBBA7;margin-top:4px;">{pro_icons} de 10 · 1 figura = 10%</div>'
         f"</div>"
     )
 
@@ -11029,9 +11029,9 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     _cvr_norm = (_cvr_val if _cvr_val <= 1 else _cvr_val / 100) if _cvr_val else 0
     cr_pct = round(_cvr_norm * 100)
     cr_icons = max(0, min(10, round(cr_pct / 10)))
-    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#4E63D9", empty_color="#D1D5DB")
+    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#3B4883", empty_color="rgba(255,255,255,0.15)")
     _cvr_main = fmt_percent0(_cvr_norm) if _cvr_val is not None else clean(conversion_display, '-')
-    _cvr_src_html = f"<span style='font-size:9px;color:#9CA3AF;margin-left:4px;'>({html.escape(cvr_source)})</span>"
+    _cvr_src_html = f"<span style='font-size:9px;color:rgba(219,187,167,0.5);margin-left:4px;'>({html.escape(cvr_source)})</span>"
     _bench_html = ""
     if cvr_bench is not None:
         _bn = cvr_bench if cvr_bench <= 1 else cvr_bench / 100
@@ -11039,7 +11039,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         _dc = "#6FF24B" if _delta >= 0 else "#E5332A"
         _ds = "+" if _delta >= 0 else ""
         _bench_html = (
-            f'<div style="font-size:10px;color:#6B7280;margin-top:4px;">'
+            f'<div style="font-size:10px;color:#DBBBA7;margin-top:4px;">'
             f'Benchmark categ.: {fmt_percent0(_bn)} '
             f'<span style="color:{_dc};font-weight:700;">{_ds}{fmt_percent0(_delta)}</span>'
             f'</div>'
@@ -11051,7 +11051,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         f"<div class='card-copy'>Últimas 4 semanas · vs benchmark categoría</div>"
         f"{cr_waffle_html}"
         f"{_bench_html}"
-        f'<div style="font-size:10px;color:#6B7280;margin-top:2px;">{cr_icons} de 10 · 1 figura = 10%</div>'
+        f'<div style="font-size:10px;color:#DBBBA7;margin-top:2px;">{cr_icons} de 10 · 1 figura = 10%</div>'
         f"</div>"
     )
 
@@ -11117,7 +11117,7 @@ def render_brand_profile(row, brand_id):
     )
 
     turbo_badge_html = (
-        "<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF8A3D,#FF5F1F);margin-left:8px;'>⚡ STORE TURBO</span>"
+        "<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF7124,#D95A10);margin-left:8px;'>⚡ STORE TURBO</span>"
         if get_turbo_info(brand_id) else ""
     )
 
@@ -11156,9 +11156,9 @@ def render_brand_profile(row, brand_id):
     coin_info = get_coinversion_info(brand_id, name)
     extra_stickers_html = ""
     if top_res_info.get("found"):
-        extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FFD700,#FFA500);margin-left:8px'>{top_res_info['sticker']}</span>"
+        extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF7124,#FF7124);margin-left:8px'>{top_res_info['sticker']}</span>"
     if coin_info.get("found"):
-        tier_color = "linear-gradient(145deg,#4E63D9,#1D2659)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#6FF24B,#009175)"
+        tier_color = "linear-gradient(145deg,#3B4883,#272D4E)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#6FF24B,#6FF24B)"
         extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_color};margin-left:8px'>{coin_info['sticker']}</span>"
 
     # General Information fields — computed here so they can be embedded in the hero-card
@@ -11226,10 +11226,10 @@ def render_brand_profile(row, brand_id):
                 _cl_brand = _cl_brand.sort_values("datetime", ascending=False).head(5)
                 _hist_rows = "".join([
                     f"<div style='display:flex;gap:12px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,0.06);align-items:baseline;'>"
-                    f"<span style='font-size:11px;color:#9CA3AF;white-space:nowrap;min-width:110px;'>{html.escape(str(r.get('datetime',''))[:16])}</span>"
-                    f"<span style='font-size:12px;color:#6B7280;min-width:120px;'>{html.escape(str(r.get('field','')))}</span>"
-                    f"<span style='font-size:12px;color:#9CA3AF;text-decoration:line-through;margin-right:6px;'>{html.escape(str(r.get('old_value','')))}</span>"
-                    f"<span style='font-size:12px;font-weight:700;color:#1D2659;'>{html.escape(str(r.get('new_value','')))}</span>"
+                    f"<span style='font-size:11px;color:rgba(219,187,167,0.5);white-space:nowrap;min-width:110px;'>{html.escape(str(r.get('datetime',''))[:16])}</span>"
+                    f"<span style='font-size:12px;color:#DBBBA7;min-width:120px;'>{html.escape(str(r.get('field','')))}</span>"
+                    f"<span style='font-size:12px;color:rgba(219,187,167,0.5);text-decoration:line-through;margin-right:6px;'>{html.escape(str(r.get('old_value','')))}</span>"
+                    f"<span style='font-size:12px;font-weight:700;color:#272D4E;'>{html.escape(str(r.get('new_value','')))}</span>"
                     f"</div>"
                     for _, r in _cl_brand.iterrows()
                 ])
@@ -11266,23 +11266,23 @@ def render_brand_profile(row, brand_id):
         _bf_days_color = "#6FF24B"
     elif _bf_days <= 14:
         _bf_days_label = f"Hace {_bf_days}d · en cadencia"
-        _bf_days_color = "#C8FF00"
+        _bf_days_color = "#6FF24B"
     elif _bf_days <= 21:
         _bf_days_label = f"Hace {_bf_days}d · zona de alerta"
-        _bf_days_color = "#FF8A3D"
+        _bf_days_color = "#FF7124"
     else:
         _bf_days_label = f"Hace {_bf_days}d · marca fría ❄️"
         _bf_days_color = "#E5332A"
 
     # Temperature badge
     if _bf_days is None or _bf_days > 21:
-        _bf_temp_badge = "<span style='background:#fde8e8;color:#c62828;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>❄️ Fría</span>"
+        _bf_temp_badge = "<span style='background:rgba(229,51,42,0.10);color:#E5332A;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>❄️ Fría</span>"
     elif _bf_days > 14:
-        _bf_temp_badge = "<span style='background:#fff3e0;color:#e65100;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟠 Alerta</span>"
+        _bf_temp_badge = "<span style='background:rgba(255,113,36,0.10);color:#D95A10;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟠 Alerta</span>"
     elif _bf_days > 7:
-        _bf_temp_badge = "<span style='background:#fffde7;color:#f57f17;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟡 Cadencia</span>"
+        _bf_temp_badge = "<span style='background:rgba(255,113,36,0.08);color:#D95A10;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟡 Cadencia</span>"
     else:
-        _bf_temp_badge = "<span style='background:#f1f8e9;color:#2e7d32;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟢 Activa</span>"
+        _bf_temp_badge = "<span style='background:rgba(111,242,75,0.08);color:#6FF24B;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟢 Activa</span>"
 
     # Opportunity score from scored data
     _bf_scored_df = _prepare_growth_scored_data()
@@ -11303,32 +11303,32 @@ def render_brand_profile(row, brand_id):
                     _bf_opp_rank = int(_bf_rank_match.index[0]) + 1
 
     _bf_score_html = (
-        f"<span style='font-size:20px;font-weight:900;color:#4E63D9;'>{_bf_opp_score}</span>"
-        f"<span style='font-size:11px;color:#6B7280;margin-left:4px;'>opp. score</span>"
-        f"<span style='font-size:11px;color:#6B7280;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
+        f"<span style='font-size:20px;font-weight:900;color:#3B4883;'>{_bf_opp_score}</span>"
+        f"<span style='font-size:11px;color:#DBBBA7;margin-left:4px;'>opp. score</span>"
+        f"<span style='font-size:11px;color:#DBBBA7;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
         if _bf_opp_score is not None else
         "<span style='font-size:12px;color:#aaa;'>Score no disponible</span>"
     )
 
     _bf_last_note = _bf_meta.get("notes", "-")
     _bf_last_note_html = (
-        f'<span style="font-size:11px;color:#6B7280;font-style:italic;">{_bf_last_note[:120]}{"…" if len(_bf_last_note) > 120 else ""}</span>'
+        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;">{_bf_last_note[:120]}{"…" if len(_bf_last_note) > 120 else ""}</span>'
         if _bf_last_note and _bf_last_note != "-" else
         '<span style="font-size:11px;color:#aaa;">Sin nota reciente</span>'
     )
 
     st.markdown(f"""
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
-      <div style="background:#f7f8fc;border-radius:12px;padding:14px 16px;">
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Último contacto</div>
         <div style="font-size:13px;font-weight:800;color:{_bf_days_color};">{_bf_days_label}</div>
         <div style="margin-top:6px;">{_bf_temp_badge}</div>
       </div>
-      <div style="background:#f7f8fc;border-radius:12px;padding:14px 16px;">
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Opportunity Score</div>
         <div style="margin-top:2px;">{_bf_score_html}</div>
       </div>
-      <div style="background:#f7f8fc;border-radius:12px;padding:14px 16px;">
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
         <div style="margin-top:2px;">{_bf_last_note_html}</div>
       </div>
@@ -11393,23 +11393,23 @@ def render_brand_profile(row, brand_id):
         svg = (
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">'
             # Y axis
-            f'<line x1="{ML}" y1="{MT}" x2="{ML}" y2="{MT+PH}" stroke="#E5E7EB" stroke-width="1.2"/>'
+            f'<line x1="{ML}" y1="{MT}" x2="{ML}" y2="{MT+PH}" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>'
             # X axis
-            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="#E5E7EB" stroke-width="1.2"/>'
+            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>'
             # ANT bar (grey)
-            f'<rect x="{ML}" y="{y_ant}" width="{w_ant}" height="{bar_h}" rx="4" fill="#D1D5DB"/>'
+            f'<rect x="{ML}" y="{y_ant}" width="{w_ant}" height="{bar_h}" rx="4" fill="rgba(255,255,255,0.15)"/>'
             # ANT label inside bar
-            f'<text x="{ML + 5}" y="{cy_ant + 4}" font-size="7" font-weight="900" fill="#4B5563">{lbl_ant}</text>'
+            f'<text x="{ML + 5}" y="{cy_ant + 4}" font-size="7" font-weight="900" fill="#DBBBA7">{lbl_ant}</text>'
             # ACT bar (colored)
             f'<rect x="{ML}" y="{y_act}" width="{w_act}" height="{bar_h}" rx="4" fill="{grow_color}"/>'
             # ACT label inside bar
-            f'<text x="{ML + 5}" y="{cy_act + 4}" font-size="7" font-weight="900" fill="#1A1F36">{lbl_act}</text>'
+            f'<text x="{ML + 5}" y="{cy_act + 4}" font-size="7" font-weight="900" fill="#272D4E">{lbl_act}</text>'
             # Y-axis labels
-            f'<text x="{ML - 3}" y="{cy_ant + 3}" text-anchor="end" font-size="6.5" fill="#9CA3AF" font-weight="700">ANT</text>'
+            f'<text x="{ML - 3}" y="{cy_ant + 3}" text-anchor="end" font-size="6.5" fill="rgba(219,187,167,0.5)" font-weight="700">ANT</text>'
             f'<text x="{ML - 3}" y="{cy_act + 3}" text-anchor="end" font-size="6.5" fill="{grow_color}" font-weight="700">ACT</text>'
             # X-axis tick at max value
-            f'<text x="{ML + PW}" y="{MT + PH + 11}" text-anchor="middle" font-size="6" fill="#9CA3AF">{_fmt_compact(v_max)}</text>'
-            f'<text x="{ML}" y="{MT + PH + 11}" text-anchor="middle" font-size="6" fill="#9CA3AF">0</text>'
+            f'<text x="{ML + PW}" y="{MT + PH + 11}" text-anchor="middle" font-size="6" fill="rgba(219,187,167,0.5)">{_fmt_compact(v_max)}</text>'
+            f'<text x="{ML}" y="{MT + PH + 11}" text-anchor="middle" font-size="6" fill="rgba(219,187,167,0.5)">0</text>'
             '</svg>'
         )
 
@@ -11506,15 +11506,15 @@ def render_brand_profile(row, brand_id):
 
 
 
-    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#4E63D9"):
+    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#3B4883"):
         return f"""
-<div style="background:#f7f8fc;border-radius:12px;padding:14px 16px;min-height:160px;">
+<div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;min-height:160px;">
   <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:8px;">{emoji} {title}</div>
   <div style="font-size:24px;font-weight:900;color:{color};line-height:1.1;">{main_value}</div>
-  <div style="font-size:12px;color:#6B7280;margin-top:3px;margin-bottom:10px;">{main_sub}</div>
+  <div style="font-size:12px;color:#DBBBA7;margin-top:3px;margin-bottom:10px;">{main_sub}</div>
   <div style="border-top:1px solid rgba(78,99,217,0.12);padding-top:8px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8B9DFF;margin-bottom:4px;">Cómo decírselo al dueño</div>
-    <div style="font-size:12px;color:#374151;line-height:1.45;font-style:italic;">"{pitch_text}"</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8B9ED4;margin-bottom:4px;">Cómo decírselo al dueño</div>
+    <div style="font-size:12px;color:#DBBBA7;line-height:1.45;font-style:italic;">"{pitch_text}"</div>
   </div>
 </div>"""
 
@@ -11527,11 +11527,11 @@ def render_brand_profile(row, brand_id):
             f"{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%",
             "pitch",
             f"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir alquiler, nómina y servicios. Cuantos más pedidos, más rápido cubrís esos fijos y empieza la ganancia real.",
-            color="#009175"
+            color="#6FF24B"
         ), unsafe_allow_html=True)
 
     with _c2:
-        _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF8A3D" if _be_pct_over_current > 20 else "#009175"
+        _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF7124" if _be_pct_over_current > 20 else "#6FF24B"
         _aov_rounded       = round(_aov / 1000) * 1000
         _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
         # Ratio: cuántas promos cubre 1 orden limpia con su margen neto
@@ -11563,7 +11563,7 @@ def render_brand_profile(row, brand_id):
             _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
         elif _cr_above_bench:
             _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
-            _inc_color = "#4E63D9"
+            _inc_color = "#3B4883"
             _c3_main   = f"+{_delta_pp}pp sobre benchmark"
             _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
             _c3_pitch  = (
@@ -11571,7 +11571,7 @@ def render_brand_profile(row, brand_id):
                 + (f"Con {_traffic_disp} visitas mensuales reales, el problema no es la tienda — es el volumen de tráfico." if _traffic_disp else "El problema no es la tienda — es el volumen de tráfico.")
             )
         else:
-            _inc_color = "#009175" if _gmv_incremental > 0 else "#aaa"
+            _inc_color = "#6FF24B" if _gmv_incremental > 0 else "#aaa"
             _c3_main   = fmt_ars(round(_gmv_incremental)) if _gmv_incremental > 0 else "Sin dato suficiente"
             _c3_sub    = f"CR {_cr_display} → benchmark {_bench_display} ({_bench_source}) · {_traffic_source}"
             _c3_pitch  = (
@@ -11610,15 +11610,15 @@ def render_brand_profile(row, brand_id):
                 _d4_diag     = "Problema doble"
                 _d4_diag_sub = "Tráfico bajo y conversión baja"
             elif not _traffic_ok:
-                _d4_color    = "#FF8A3D"
+                _d4_color    = "#FF7124"
                 _d4_diag     = "Problema: Tráfico"
                 _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
             elif not _cvr_ok:
-                _d4_color    = "#FF8A3D"
+                _d4_color    = "#FF7124"
                 _d4_diag     = "Problema: Conversión"
                 _d4_diag_sub = "Hay visitas · la tienda no convierte"
             else:
-                _d4_color    = "#009175"
+                _d4_color    = "#6FF24B"
                 _d4_diag     = "Ambas métricas OK"
                 _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
 
@@ -11745,15 +11745,15 @@ def render_brand_profile(row, brand_id):
 
     fill_colors_map = {
         'health-green':  '#6FF24B',
-        'health-yellow': '#8B9DFF',
-        'health-orange': '#FF8A3D',
+        'health-yellow': '#8B9ED4',
+        'health-orange': '#FF7124',
         'health-red':    '#E5332A',
     }
     pct_colors_map = {
-        'health-green':  '#5A7A00',
-        'health-yellow': '#92700A',
-        'health-orange': '#B85C00',
-        'health-red':    '#C0001A',
+        'health-green':  '#6FF24B',
+        'health-yellow': '#D95A10',
+        'health-orange': '#D95A10',
+        'health-red':    '#E5332A',
     }
     area_emojis_map = {
         'lever-ops':  '⚙️',
@@ -11776,8 +11776,8 @@ def render_brand_profile(row, brand_id):
         score_pct   = float(score_match.group(1)) if score_match else 100.0
         score_pct   = max(0.0, min(100.0, score_pct))
 
-        ring_color = '#1D2659' if lever_cls == 'lever-menu' else '#6FF24B'
-        pct_color  = pct_colors_map.get(health_cls, '#5A7A00')
+        ring_color = '#272D4E' if lever_cls == 'lever-menu' else '#6FF24B'
+        pct_color  = pct_colors_map.get(health_cls, '#6FF24B')
         emoji      = area_emojis_map.get(lever_cls, '📊')
 
         r     = 22
@@ -11787,7 +11787,7 @@ def render_brand_profile(row, brand_id):
 
         ring_svg = (
             f'<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
-            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="#E5E7EB" stroke-width="5"/>'
+            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5"/>'
             f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="{ring_color}" stroke-width="5" '
             f'stroke-linecap="round" stroke-dasharray="{filled} {gap}" transform="rotate(-90 30 30)"/>'
             f'<text x="30" y="35" text-anchor="middle" font-size="18">{emoji}</text>'
@@ -11814,7 +11814,7 @@ def render_brand_profile(row, brand_id):
             divider = (
                 "<div style='margin:14px 0 10px;border-top:1px solid rgba(78,99,217,0.18);'></div>"
                 "<div style='font-size:10px;font-weight:900;text-transform:uppercase;"
-                "letter-spacing:.06em;color:#8B9DFF;margin-bottom:8px;'>🎯 Priority Signal</div>"
+                "letter-spacing:.06em;color:#8B9ED4;margin-bottom:8px;'>🎯 Priority Signal</div>"
             )
             items_html = ""
             for ti in tactical_items:
@@ -11822,14 +11822,14 @@ def render_brand_profile(row, brand_id):
                 t_cue  = clean(ti.get('cue') or ti.get('argument'), '')
                 t_cls  = clean(ti.get('class'), 'health-yellow')
                 t_color_map = {
-                    'health-green': '#5A7A00', 'health-yellow': '#92700A',
-                    'health-orange': '#B85C00', 'health-red': '#C0001A',
+                    'health-green': '#6FF24B', 'health-yellow': '#D95A10',
+                    'health-orange': '#D95A10', 'health-red': '#E5332A',
                 }
-                t_col = t_color_map.get(t_cls, '#92700A')
+                t_col = t_color_map.get(t_cls, '#D95A10')
                 items_html += (
                     f"<div style='margin-bottom:8px;'>"
                     f"<div style='font-size:13px;font-weight:900;color:{t_col};line-height:1.15;'>{html.escape(t_main)}</div>"
-                    + (f"<div style='font-size:11px;color:#374151;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
+                    + (f"<div style='font-size:11px;color:#DBBBA7;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
                     + "</div>"
                 )
             bottom_html = divider + items_html
@@ -12027,7 +12027,7 @@ def render_brand_profile(row, brand_id):
             for b in _bullets
         )
         _reasoning_html = (
-            f"<div style='font-size:13px;color:#374151;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
+            f"<div style='font-size:13px;color:#DBBBA7;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
             f"<hr style='border:none;border-top:1px solid rgba(0,0,0,0.08);margin:14px 0;'>"
             if reasoning_paragraph else ""
         )
@@ -12649,7 +12649,7 @@ def page_campaign_weekly_tracker():
             _rng = max(_mx - _mn, 0.1)
             def _sx(i): return PAD + i * (W - 2*PAD) / max(len(roi_vals)-1, 1)
             def _sy(v): return H - PAD - (v - _mn) / _rng * (H - 2*PAD)
-            line_color = "#2e7d32" if roi_vals[-1] >= roi_vals[0] else "#c62828"
+            line_color = "#6FF24B" if roi_vals[-1] >= roi_vals[0] else "#E5332A"
             pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(roi_vals))
             dots = "".join(
                 f'<circle cx="{_sx(i):.1f}" cy="{_sy(v):.1f}" r="2.8" fill="{line_color}" title="{fmt_roi2(v)}"/>' 
@@ -12733,8 +12733,8 @@ def page_campaign_weekly_tracker():
                 for _, r in _drop_brands.iterrows()
             )
             st.markdown(
-                f'<div style="background:#fde8e8;border-left:4px solid #c62828;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#5d1a1a;">'
+                f'<div style="background:rgba(229,51,42,0.10);border-left:4px solid #E5332A;border-radius:0 8px 8px 0;'
+                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#E5332A;">'
                 f'🔻 <b>Caída de ROI crítica esta semana:</b> {_drop_items}</div>',
                 unsafe_allow_html=True,
             )
@@ -12744,8 +12744,8 @@ def page_campaign_weekly_tracker():
                 for _, r in _warn_brands.iterrows()
             )
             st.markdown(
-                f'<div style="background:#fff3e0;border-left:4px solid #e65100;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#5d2700;">'
+                f'<div style="background:rgba(255,113,36,0.10);border-left:4px solid #D95A10;border-radius:0 8px 8px 0;'
+                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#D95A10;">'
                 f'⚠️ <b>Caída de ROI moderada:</b> {_warn_items}</div>',
                 unsafe_allow_html=True,
             )
@@ -12985,7 +12985,7 @@ def page_brand_finder():
             # Badge de marca nueva
             new_badge_html = (
                 "<div style='display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#FF8A3D22,#FF8A3D44);"
-                "border:1.5px solid #FF8A3D;border-radius:8px;padding:6px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:#FF8A3D;'>"
+                "border:1.5px solid #FF7124;border-radius:8px;padding:6px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:#FF7124;'>"
                 "🆕 Marca nueva · Asignacion Junio · Sin ficha en Growth OS todavía</div>"
             )
             st.markdown(new_badge_html, unsafe_allow_html=True)
