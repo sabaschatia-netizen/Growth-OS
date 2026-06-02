@@ -4431,10 +4431,10 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     background: rgba(255,255,255,0.09) !important;
 }}
 /* Lever accent borders */
-.business-mini-card.lever-ads   {{ border-left: 3px solid #FF7124 !important; }}
-.business-mini-card.lever-md    {{ border-left: 3px solid #8B9ED4 !important; }}
-.business-mini-card.lever-menu  {{ border-left: 3px solid #3B4883 !important; }}
-.business-mini-card.lever-pro   {{ border-left: 3px solid #6FF24B !important; }}
+.business-mini-card.lever-ads   {{ }}
+.business-mini-card.lever-md    {{ }}
+.business-mini-card.lever-menu  {{ }}
+.business-mini-card.lever-pro   {{ }}
 
 .card-label {{
     font-size: 10px;
@@ -4479,9 +4479,9 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     border-color: rgba(255,255,255,0.20) !important;
     background: rgba(255,255,255,0.08) !important;
 }}
-.campaign-mini-card.lever-menu  {{ border-left: 3px solid #3B4883 !important; }}
-.campaign-mini-card.lever-ops   {{ border-left: 3px solid #8B9ED4 !important; }}
-.campaign-mini-card.lever-pro   {{ border-left: 3px solid #6FF24B !important; }}
+.campaign-mini-card.lever-menu  {{ }}
+.campaign-mini-card.lever-ops   {{ }}
+.campaign-mini-card.lever-pro   {{ }}
 
 /* ── PRIORITY OVERVIEW GRID (Brand Finder landing) ── */
 .priority-overview-grid {{
@@ -4517,10 +4517,10 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 
 /* ── 360° ACTION CARD HEALTH CLASSES ── */
 /* Color overrides per health level — border-left accent */
-.action-card.health-green  {{ border-left: 3px solid #6FF24B !important; }}
-.action-card.health-yellow {{ border-left: 3px solid #FF7124 !important; }}
-.action-card.health-orange {{ border-left: 3px solid #D95A10 !important; }}
-.action-card.health-red    {{ border-left: 3px solid #E5332A !important; }}
+.action-card.health-green  {{ }}
+.action-card.health-yellow {{ }}
+.action-card.health-orange {{ }}
+.action-card.health-red    {{ }}
 
 /* Lever top-border accent on 360 action cards */
 .action-card.lever-ops   {{ border-top: 2px solid #8B9ED4 !important; }}
