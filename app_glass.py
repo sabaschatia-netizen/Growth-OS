@@ -4408,6 +4408,96 @@ div[data-testid="column"] {{ padding: 0 8px !important; }}
 .campaign-mini-card.lever-ops   {{ border-left: 3px solid #8B9ED4 !important; }}
 .campaign-mini-card.lever-pro   {{ border-left: 3px solid #6FF24B !important; }}
 
+/* ── PRIORITY OVERVIEW GRID (Brand Finder landing) ── */
+.priority-overview-grid {{
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 12px;
+}}
+@media (max-width: 1100px) {{
+    .priority-overview-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+}}
+.priority-overview-card {{
+    background: rgba(255,255,255,0.06) !important;
+    backdrop-filter: blur(20px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 18px !important;
+    padding: 18px 16px !important;
+    min-height: 130px !important;
+    transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
+}}
+.priority-overview-card:hover {{
+    transform: scale(1.04) !important;
+    border-color: rgba(255,255,255,0.22) !important;
+    background: rgba(255,255,255,0.09) !important;
+}}
+/* Lever accent borders on priority overview cards */
+.priority-overview-card.lever-ops   {{ border-top: 3px solid #8B9ED4 !important; }}
+.priority-overview-card.lever-menu  {{ border-top: 3px solid #3B4883 !important; }}
+.priority-overview-card.lever-md    {{ border-top: 3px solid #8B9ED4 !important; }}
+.priority-overview-card.lever-pro   {{ border-top: 3px solid #6FF24B !important; }}
+.priority-overview-card.lever-ads   {{ border-top: 3px solid #FF7124 !important; }}
+
+/* ── 360° ACTION CARD HEALTH CLASSES ── */
+/* Color overrides per health level — border-left accent */
+.action-card.health-green  {{ border-left: 3px solid #6FF24B !important; }}
+.action-card.health-yellow {{ border-left: 3px solid #FF7124 !important; }}
+.action-card.health-orange {{ border-left: 3px solid #D95A10 !important; }}
+.action-card.health-red    {{ border-left: 3px solid #E5332A !important; }}
+
+/* Lever top-border accent on 360 action cards */
+.action-card.lever-ops   {{ border-top: 2px solid #8B9ED4 !important; }}
+.action-card.lever-menu  {{ border-top: 2px solid #3B4883 !important; }}
+.action-card.lever-md    {{ border-top: 2px solid #8B9ED4 !important; }}
+.action-card.lever-pro   {{ border-top: 2px solid #6FF24B !important; }}
+.action-card.lever-ads   {{ border-top: 2px solid #FF7124 !important; }}
+
+/* 360 action card typography */
+.action-area {{
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: rgba(219,187,167,0.55);
+    margin-top: 3px;
+}}
+.action-main {{
+    font-size: 18px;
+    font-weight: 900;
+    color: #E8DFD5;
+    margin-top: 10px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+}}
+.action-reason {{
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(219,187,167,0.65);
+    margin-top: 6px;
+    line-height: 1.4;
+}}
+.action-secondary {{
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(219,187,167,0.45);
+    margin-top: 8px;
+    line-height: 1.35;
+}}
+
+/* ── SPACING OVERRIDES: more breathing room between cards ── */
+div[data-testid=\"column\"] {{ padding: 0 10px !important; }}
+.mgmt-row {{ gap: 20px !important; margin-bottom: 20px !important; }}
+.action-grid {{ gap: 16px !important; }}
+.business-card-grid {{ gap: 14px !important; }}
+.priority-overview-grid {{ gap: 14px !important; }}
+/* Extra gap between Streamlit column rows */
+div[data-testid=\"stHorizontalBlock\"] {{
+    gap: 18px !important;
+    margin-bottom: 18px !important;
+}}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
 ::-webkit-scrollbar-track {{ background: transparent; }}
