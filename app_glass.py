@@ -5950,7 +5950,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
 
     # Name / Brand / Restaurant / brand_name sticker — palette blue
     def _name_pill(text):
-        return _make_pill(text, "rgba(59,72,131,0.15)", "#3B4883")
+        return _make_pill(text, "rgba(245,197,24,0.15)", "#F5C518")
 
     # Status pill — color driven by content
     def _status_pill(text):
