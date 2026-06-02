@@ -4576,18 +4576,18 @@ def page_management_dashboard():
     # ── ROW 1: GMV + AOV ──────────────────────────────────────────────────────
     gmv_pct   = max(0, min(1, safe_ratio(vals["gmv_ars"], baseline_vals.get("gmv_ars", 1)) or 0))
     gmv_bar   = round(gmv_pct * 100)
-    gmv_color = "#BFFF00" if gmv_pct >= 1 else ("#FF8A3D" if gmv_pct >= 0.7 else "#E5332A")
+    gmv_color = "#6FF24B" if gmv_pct >= 1 else ("#FF7124" if gmv_pct >= 0.7 else "#E5332A")
 
     aov_change = safe_ratio(vals["aov_ars"] - baseline_vals.get("aov_ars", 0), baseline_vals.get("aov_ars", 1)) or 0
     aov_sign   = "+" if aov_change >= 0 else ""
     aov_arrow  = "▲" if aov_change >= 0 else "▼"
-    aov_color  = "#BFFF00" if aov_change >= 0 else "#E5332A"
+    aov_color  = "#6FF24B" if aov_change >= 0 else "#E5332A"
 
     gmv_surplus     = vals["gmv_ars"] - baseline_vals.get("gmv_ars", 0)
     gmv_surplus_usd = vals["gmv_usd"] - baseline_vals.get("gmv_usd", 0)
     gmv_surplus_cop = vals["gmv_cop"] - baseline_vals.get("gmv_cop", 0)
     surplus_sign    = "+" if gmv_surplus >= 0 else ""
-    surplus_color   = "#BFFF00" if gmv_surplus >= 0 else "#E5332A"
+    surplus_color   = "#6FF24B" if gmv_surplus >= 0 else "#E5332A"
     surplus_label   = "▲ Excedente sobre mes anterior" if gmv_surplus >= 0 else "▼ Por debajo del mes anterior"
 
     _v_gmv_ars   = fmt_ars(vals["gmv_ars"])
@@ -4605,7 +4605,7 @@ def page_management_dashboard():
     gmv_change    = safe_ratio(vals["gmv_ars"] - baseline_vals.get("gmv_ars", 0), baseline_vals.get("gmv_ars", 1)) or 0
     gmv_sign_ch   = "+" if gmv_change >= 0 else ""
     gmv_arrow_ch  = "&#9650;" if gmv_change >= 0 else "&#9660;"
-    gmv_color_ch  = "#BFFF00" if gmv_change >= 0 else "#E5332A"
+    gmv_color_ch  = "#6FF24B" if gmv_change >= 0 else "#E5332A"
 
     c1, c2 = st.columns(2)
     with c1:
@@ -4618,7 +4618,7 @@ def page_management_dashboard():
     <div style="font-size:38px;font-weight:900;color:{gmv_color_ch};line-height:1;">{gmv_arrow_ch}</div>
     <div>
       <div style="font-size:28px;font-weight:900;color:{gmv_color_ch};">{gmv_sign_ch}{fmt_percent0(gmv_change)}</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
+      <div style="font-size:12px;color:#DBBBA7;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -4634,7 +4634,7 @@ def page_management_dashboard():
     <div style="font-size:38px;font-weight:900;color:{aov_color};line-height:1;">{'&#9650;' if aov_change >= 0 else '&#9660;'}</div>
     <div>
       <div style="font-size:28px;font-weight:900;color:{aov_color};">{aov_sign}{fmt_percent0(aov_change)}</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("aov_usd", 0))}</div>
+      <div style="font-size:12px;color:#DBBBA7;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("aov_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -4656,14 +4656,14 @@ def page_management_dashboard():
         cx = cy = size / 2
         return (
             f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" style="display:block;">'
-            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#F0F0F0" stroke-width="{stroke}"/>'
+            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="{stroke}"/>'
             f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}" '
             f'stroke-dasharray="{filled} {gap}" stroke-dashoffset="{circ * 0.25}" stroke-linecap="round"/>'
             f'</svg>'
         )
 
-    ads_donut_color = "#FF8A3D" if ads_pct_bar < 60 else ("#BFFF00" if ads_pct_bar >= 80 else "#FF8A3D")
-    md_donut_color  = "#8B9DFF" if md_pct_bar  < 60 else ("#BFFF00" if md_pct_bar  >= 80 else "#8B9DFF")
+    ads_donut_color = "#FF7124" if ads_pct_bar < 60 else ("#6FF24B" if ads_pct_bar >= 80 else "#FF7124")
+    md_donut_color  = "#8B9ED4" if md_pct_bar  < 60 else ("#6FF24B" if md_pct_bar  >= 80 else "#8B9ED4")
 
     coverage_html = (
         '<div class="stack-card mgmt-stack-card" style="padding:26px 28px;">'
@@ -4672,31 +4672,31 @@ def page_management_dashboard():
         # ADS donut
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
         f'<div style="position:relative;width:110px;height:110px;">'
-        f'{_svg_donut(ads_pct_bar, "#FF8A3D")}'
+        f'{_svg_donut(ads_pct_bar, "#FF7124")}'
         f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-        f'<div style="font-size:20px;font-weight:900;color:#FF8A3D;line-height:1;">{ads_pct_bar}%</div>'
+        f'<div style="font-size:20px;font-weight:900;color:#FF7124;line-height:1;">{ads_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#FF8A3D;">&#128992; ADS</div>'
-        f'<div style="font-size:11px;color:#6B7280;font-weight:700;">{live_coverage["ads"]} brands</div>'
+        f'<div style="font-size:12px;font-weight:900;color:#FF7124;">&#6FF24B; ADS</div>'
+        f'<div style="font-size:11px;color:#DBBBA7;font-weight:700;">{live_coverage["ads"]} brands</div>'
         f'</div></div>'
         # MD donut
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
         f'<div style="position:relative;width:110px;height:110px;">'
-        f'{_svg_donut(md_pct_bar, "#8B9DFF")}'
+        f'{_svg_donut(md_pct_bar, "#8B9ED4")}'
         f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-        f'<div style="font-size:20px;font-weight:900;color:#8B9DFF;line-height:1;">{md_pct_bar}%</div>'
+        f'<div style="font-size:20px;font-weight:900;color:#8B9ED4;line-height:1;">{md_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#8B9DFF;">&#128309; MD</div>'
-        f'<div style="font-size:11px;color:#6B7280;font-weight:700;">{live_coverage["md"]} brands</div>'
+        f'<div style="font-size:12px;font-weight:900;color:#8B9ED4;">&#6FF24B; MD</div>'
+        f'<div style="font-size:11px;color:#DBBBA7;font-weight:700;">{live_coverage["md"]} brands</div>'
         f'</div></div>'
         '</div>'
-        f'<div style="font-size:11px;color:#6B7280;margin-top:14px;text-align:center;">Portfolio: {total_brands} brands &middot; live tracker</div>'
+        f'<div style="font-size:11px;color:#DBBBA7;margin-top:14px;text-align:center;">Portfolio: {total_brands} brands &middot; live tracker</div>'
         '</div>'
     )
 
-    def _waffle_icons(filled_count, total=10, filled_color="#BFFF00", empty_color="#D1D5DB"):
+    def _waffle_icons(filled_count, total=10, filled_color="#6FF24B", empty_color="rgba(255,255,255,0.15)"):
         person_path = '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/>'
         icons = []
         for i in range(total):
@@ -4717,22 +4717,22 @@ def page_management_dashboard():
         '<div style="margin-top:16px;display:flex;flex-direction:column;gap:18px;">'
         '<div>'
         '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px;">'
-        '<span style="color:#5A7A00;">🟢 PRO % &nbsp;<span style="font-weight:600;color:#6B7280;">usuarios con plan Pro</span></span>'
-        f'<span style="color:#5A7A00;">{pro_pct_bar}%</span>'
+        '<span style="color:#6FF24B;">🟢 PRO % &nbsp;<span style="font-weight:600;color:#DBBBA7;">usuarios con plan Pro</span></span>'
+        f'<span style="color:#6FF24B;">{pro_pct_bar}%</span>'
         '</div>'
-        f'<div style="font-size:11px;color:#6B7280;margin-bottom:2px;">{pro_icons_count} de 10 = {pro_pct_bar}% PRO</div>'
-        + _waffle_icons(pro_icons_count, filled_color="#BFFF00") +
+        f'<div style="font-size:11px;color:#DBBBA7;margin-bottom:2px;">{pro_icons_count} de 10 = {pro_pct_bar}% PRO</div>'
+        + _waffle_icons(pro_icons_count, filled_color="#6FF24B") +
         '</div>'
         '<div>'
         '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px;">'
-        '<span style="color:#6B7280;">⚪ CR % &nbsp;<span style="font-weight:600;">compran vs no compran</span></span>'
-        f'<span style="color:#94A3B8;">{cr_pct_bar}%</span>'
+        '<span style="color:#DBBBA7;">⚪ CR % &nbsp;<span style="font-weight:600;">compran vs no compran</span></span>'
+        f'<span style="color:#DBBBA7;">{cr_pct_bar}%</span>'
         '</div>'
-        f'<div style="font-size:11px;color:#6B7280;margin-bottom:2px;">{cr_icons_count} de 10 = {cr_pct_bar}% convierten</div>'
-        + _waffle_icons(cr_icons_count, filled_color="#4E63D9", empty_color="#D1D5DB") +
+        f'<div style="font-size:11px;color:#DBBBA7;margin-bottom:2px;">{cr_icons_count} de 10 = {cr_pct_bar}% convierten</div>'
+        + _waffle_icons(cr_icons_count, filled_color="#3B4883", empty_color="rgba(255,255,255,0.15)") +
         '</div>'
         '</div>'
-        '<div style="font-size:11px;color:#6B7280;margin-top:12px;">Baseline reference · last month snapshot · 1 muñequito = 10%</div>'
+        '<div style="font-size:11px;color:#DBBBA7;margin-top:12px;">Baseline reference · last month snapshot · 1 muñequito = 10%</div>'
         '</div>'
     )
 
@@ -4746,16 +4746,16 @@ def page_management_dashboard():
     rev_pct      = max(0, safe_ratio(ads_revenue["usd"], ADS_REVENUE_TARGET_USD) or 0)
     rev_done_pct = round(min(rev_pct, 1) * 100)
     rev_over_pct = round((rev_pct - 1) * 100) if rev_pct > 1 else 0
-    donut_color  = "#BFFF00" if rev_pct >= 1 else ("#FF8A3D" if rev_pct >= 0.5 else "#8B9DFF")
+    donut_color  = "#6FF24B" if rev_pct >= 1 else ("#FF7124" if rev_pct >= 0.5 else "#8B9ED4")
 
     book_pct   = max(0, safe_ratio(ads_bookings["ars"], baseline_vals.get("gross_bookings_ars", 1)) or 0)
     book_bar   = round(min(book_pct, 1) * 100)
     book_over  = round((book_pct - 1) * 100) if book_pct > 1 else 0
-    book_color = "#BFFF00" if book_pct >= 1 else ("#FF8A3D" if book_pct >= 0.7 else "#E5332A")
+    book_color = "#6FF24B" if book_pct >= 1 else ("#FF7124" if book_pct >= 0.7 else "#E5332A")
 
     # ── Barra delgada lateral derecha (thin right-side bar) ──────────────────
     def _thin_bar_right_svg(current_val, goal_val, label_goal,
-                             base_color="#4E63D9", over_color="#6FF24B", under_color="#E5332A",
+                             base_color="#3B4883", over_color="#6FF24B", under_color="#E5332A",
                              width=52, height=110):
         """
         Barra vertical delgada, alineada a la derecha del sticker.
@@ -4804,7 +4804,7 @@ def page_management_dashboard():
         # Línea de meta punteada
         meta_line = (
             f'<line x1="{bar_x - 4:.1f}" y1="{goal_y:.1f}" x2="{bar_x + bar_w + 4:.1f}" y2="{goal_y:.1f}" '
-            f'stroke="#1A1F36" stroke-width="1.5" stroke-dasharray="3 2"/>'
+            f'stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-dasharray="3 2"/>'
         )
 
         # Porcentaje de ejecución encima de la barra
@@ -4817,7 +4817,7 @@ def page_management_dashboard():
         # "Meta" debajo
         meta_label = (
             f'<text x="{width/2:.1f}" y="{height - 2:.1f}" text-anchor="middle" '
-            f'font-size="7" fill="#9CA3AF" font-weight="700">Meta</text>'
+            f'font-size="7" fill="rgba(219,187,167,0.5)" font-weight="700">Meta</text>'
         )
 
         return (
@@ -4830,13 +4830,13 @@ def page_management_dashboard():
     # ── Leyenda compacta ──────────────────────────────────────────────────────
     legend_html = (
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">'
-        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
-        '<span style="display:inline-block;width:10px;height:10px;background:#4E63D9;border-radius:2px;"></span>'
+        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#DBBBA7;">'
+        '<span style="display:inline-block;width:10px;height:10px;background:#3B4883;border-radius:2px;"></span>'
         'Ejecución</span>'
-        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
+        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#DBBBA7;">'
         '<span style="display:inline-block;width:10px;height:10px;background:#6FF24B;border-radius:2px;"></span>'
         'Sobre meta</span>'
-        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
+        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#DBBBA7;">'
         '<span style="display:inline-block;width:10px;height:10px;background:#E5332A;border-radius:2px;"></span>'
         'No cumplimiento</span>'
         '</div>'
@@ -4883,7 +4883,7 @@ def page_management_dashboard():
       <div class="stack-main mgmt-ars" style="margin-top:0;">{_b_usd}</div>
       <div class="stack-sub mgmt-conv">{_b_ars} &middot; {_b_cop}</div>
       <div style="font-size:12px;font-weight:800;color:{_sc_book};margin-top:8px;">{_sl_book}</div>
-      <div style="font-size:11px;color:#6B7280;margin-top:2px;">Meta: {_b_goal} &middot; {_pct_book}% ejec.</div>
+      <div style="font-size:11px;color:#DBBBA7;margin-top:2px;">Meta: {_b_goal} &middot; {_pct_book}% ejec.</div>
     </div>
     <div style="flex-shrink:0;">{book_bar_svg}</div>
   </div>
@@ -4902,9 +4902,9 @@ def page_management_dashboard():
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:4px;">
     <div>
       <div class="stack-main mgmt-ars" style="margin-top:0;">{_r_fmt}</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:700;margin-top:4px;">Revenue generado</div>
+      <div style="font-size:12px;color:#DBBBA7;font-weight:700;margin-top:4px;">Revenue generado</div>
       <div style="font-size:12px;font-weight:800;color:{_sc_rev};margin-top:8px;">{_sl_rev}</div>
-      <div style="font-size:11px;color:#6B7280;margin-top:2px;">Meta: {_r_goal} &middot; {_pct_rev}% ejec.</div>
+      <div style="font-size:11px;color:#DBBBA7;margin-top:2px;">Meta: {_r_goal} &middot; {_pct_rev}% ejec.</div>
     </div>
     <div style="flex-shrink:0;">{rev_bar_svg}</div>
   </div>
@@ -4940,7 +4940,7 @@ def page_management_dashboard():
         fill_ratio = min(max(roi_val / max_val, 0), 1)
         fill_w     = fill_ratio * bar_w
 
-        nc = "#BFFF00" if roi_val >= bmark else ("#FF8A3D" if roi_val >= bmark * 0.6 else "#E5332A")
+        nc = "#6FF24B" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#E5332A")
 
         # Benchmark tick position
         bm_x = seg_x(bmark / max_val)
@@ -4951,21 +4951,21 @@ def page_management_dashboard():
         svg_parts = [
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">',
             # Background zones
-            f'<rect x="{pad_l:.1f}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="#F0F0F0"/>',
+            f'<rect x="{pad_l:.1f}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.1)"/>',
             f'<rect x="{pad_l:.1f}" y="{bar_y}" width="{red_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,92,122,0.25)"/>',
             f'<rect x="{seg_x(red_end):.1f}" y="{bar_y}" width="{orange_w:.1f}" height="{bar_h}" fill="rgba(255,138,61,0.20)"/>',
             f'<rect x="{seg_x(orange_end):.1f}" y="{bar_y}" width="{green_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(191,255,0,0.22)"/>',
             # Filled performance bar (thinner, centered vertically)
             f'<rect x="{pad_l:.1f}" y="{bar_y + 2}" width="{fill_w:.1f}" height="{bar_h - 4}" rx="{rx - 1}" fill="{nc}" opacity="0.92"/>',
             # Benchmark tick
-            f'<rect x="{bm_x - 1:.1f}" y="{bar_y - 3}" width="2" height="{bar_h + 6}" rx="1" fill="#1A1F36" opacity="0.45"/>',
+            f'<rect x="{bm_x - 1:.1f}" y="{bar_y - 3}" width="2" height="{bar_h + 6}" rx="1" fill="rgba(255,255,255,0.3)" opacity="0.45"/>',
             # Value text (left-aligned, above bar)
             f'<text x="{pad_l}" y="{label_y}" font-size="11" font-weight="900" fill="{nc}">{roi_val:.1f}x</text>',
             # Benchmark label (right side, above bar)
-            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="8" fill="#9CA3AF" font-weight="700">bm {bmark}x</text>',
+            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="8" fill="rgba(219,187,167,0.5)" font-weight="700">bm {bmark}x</text>',
             # Zone labels below bar
             f'<text x="{pad_l}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#E5332A" font-weight="700">low</text>',
-            f'<text x="{seg_x(orange_end):.1f}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#BFFF00" font-weight="700">target</text>',
+            f'<text x="{seg_x(orange_end):.1f}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#6FF24B" font-weight="700">target</text>',
             '</svg>',
         ]
         return "".join(svg_parts)
@@ -4980,7 +4980,7 @@ def page_management_dashboard():
   <div class="stack-label">MD SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_md_usd}</div>
   <div class="stack-sub mgmt-conv">{_md_ars} &middot; {_md_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#8B9DFF;">&#127981; {_md_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#8B9ED4;">&#6FF24B; {_md_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {md_gauge}
   </div>
@@ -4993,7 +4993,7 @@ def page_management_dashboard():
   <div class="stack-label">MD PRO SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_mdp_usd}</div>
   <div class="stack-sub mgmt-conv">{_mdp_ars} &middot; {_mdp_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#6FF24B;">&#127981; {_mdp_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#6FF24B;">&#6FF24B; {_mdp_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {mdpro_gauge}
   </div>
@@ -5033,17 +5033,17 @@ def page_management_dashboard():
         f'<div class="stack-label">CONTACT PERFORMANCE · since {_cs_since}</div>'
         f'{"<div style=\"font-size:10px;color:#aaa;margin-top:2px;\">fuente: " + _src_badge + "</div>" if _src_badge else ""}'
         f'</div>'
-        f'<div style="font-size:32px;font-weight:900;color:#FF8A3D;">{_cs_total_fmt} <span style="font-size:14px;color:#6B7280;font-weight:700;">contactos efectivos</span></div>'
+        f'<div style="font-size:32px;font-weight:900;color:#FF7124;">{_cs_total_fmt} <span style="font-size:14px;color:#DBBBA7;font-weight:700;">contactos efectivos</span></div>'
         '</div>'
         # ── Stacked horizontal bar ──────────────────────────────────────────
         '<div style="display:flex;height:28px;border-radius:999px;overflow:hidden;width:100%;margin-bottom:14px;">'
-        f'<div style="width:{calls_pct}%;background:#FF8A3D;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Zoho Voice {calls_pct}%">'
+        f'<div style="width:{calls_pct}%;background:#FF7124;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Zoho Voice {calls_pct}%">'
         f'{"📞 " + str(calls_pct) + "%" if calls_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{chats_pct}%;background:#8B9DFF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 Treble {chats_pct}%">'
+        f'<div style="width:{chats_pct}%;background:#8B9ED4;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 Treble {chats_pct}%">'
         f'{"💬 " + str(chats_pct) + "%" if chats_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#2a5000;white-space:nowrap;overflow:hidden;" title="🖥️ Videocall {meets_pct}%">'
+        f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#6FF24B;white-space:nowrap;overflow:hidden;" title="🖥️ Videocall {meets_pct}%">'
         f'{"🖥️ " + str(meets_pct) + "%" if meets_pct >= 7 else ""}'
         '</div>'
         f'<div style="width:{ghost_pct}%;background:#E5332A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Answer {ghost_pct}%">'
@@ -5053,24 +5053,24 @@ def page_management_dashboard():
         # ── Legend row ──────────────────────────────────────────────────────
         '<div style="display:flex;gap:20px;flex-wrap:wrap;">'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#FF8A3D;flex-shrink:0;"></div>'
-        f'<span style="color:#FF8A3D;">📞 Zoho Voice</span>'
-        f'<span style="color:#6B7280;font-weight:600;">{_cs_calls} &middot; {calls_pct}%</span>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#FF7124;flex-shrink:0;"></div>'
+        f'<span style="color:#FF7124;">📞 Zoho Voice</span>'
+        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_calls} &middot; {calls_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#8B9DFF;flex-shrink:0;"></div>'
-        f'<span style="color:#8B9DFF;">💬 Treble</span>'
-        f'<span style="color:#6B7280;font-weight:600;">{_cs_chats} &middot; {chats_pct}%</span>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#8B9ED4;flex-shrink:0;"></div>'
+        f'<span style="color:#8B9ED4;">💬 Treble</span>'
+        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_chats} &middot; {chats_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#6FF24B;flex-shrink:0;"></div>'
-        f'<span style="color:#5A7A00;">🖥️ Videocall</span>'
-        f'<span style="color:#6B7280;font-weight:600;">{_cs_meets} &middot; {meets_pct}%</span>'
+        f'<span style="color:#6FF24B;">🖥️ Videocall</span>'
+        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_meets} &middot; {meets_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#E5332A;flex-shrink:0;"></div>'
         f'<span style="color:#E5332A;">👻 No Answer</span>'
-        f'<span style="color:#6B7280;font-weight:600;">{_cs_ghost} &middot; {ghost_pct}%</span>'
+        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_ghost} &middot; {ghost_pct}%</span>'
         '</div>'
         '</div>'
         '</div>'
@@ -5125,7 +5125,7 @@ def page_management_dashboard():
         _ads_status_color = "#6FF24B"
     elif _ads_proj_pct >= 75:
         _ads_status_label = "⚡ Necesita acelerar ADS"
-        _ads_status_color = "#FF8A3D"
+        _ads_status_color = "#FF7124"
     else:
         _ads_status_label = "🚨 Gap crítico ADS"
         _ads_status_color = "#E5332A"
@@ -5138,34 +5138,34 @@ def page_management_dashboard():
     with _pcol1:
         st.markdown(f"""
         <div style="background:rgba(78,99,217,.06);border:1.5px solid rgba(78,99,217,.25);border-radius:16px;padding:16px 18px;height:100%;">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Proyección GMV al ritmo actual</div>
-          <div style="font-size:24px;font-weight:900;color:#4E63D9;line-height:1;">{fmt_usd(_projected_gmv)}</div>
-          <div style="font-size:12px;color:#6B7280;margin-top:6px;">{fmt_ars(_projected_gmv * ARS_PER_USD)} estimado</div>
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Proyección GMV al ritmo actual</div>
+          <div style="font-size:24px;font-weight:900;color:#3B4883;line-height:1;">{fmt_usd(_projected_gmv)}</div>
+          <div style="font-size:12px;color:#DBBBA7;margin-top:6px;">{fmt_ars(_projected_gmv * ARS_PER_USD)} estimado</div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
             <span style="font-size:22px;color:{_proj_color};font-weight:900;">{_proj_arrow}</span>
             <span style="font-size:15px;font-weight:900;color:{_proj_color};">{_proj_sign}{fmt_percent0(_proj_vs_ref)} vs mes anterior</span>
           </div>
-          <div style="margin-top:8px;font-size:12px;color:#6B7280;">{_proj_status}</div>
+          <div style="margin-top:8px;font-size:12px;color:#DBBBA7;">{_proj_status}</div>
         </div>
         """, unsafe_allow_html=True)
     with _pcol2:
         st.markdown(f"""
         <div style="background:rgba(255,138,61,.06);border:1.5px solid rgba(255,138,61,.25);border-radius:16px;padding:16px 18px;height:100%;">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Proyección ADS Revenue</div>
-          <div style="font-size:24px;font-weight:900;color:#FF8A3D;line-height:1;">{fmt_usd(_projected_ads)}</div>
-          <div style="font-size:12px;color:#6B7280;margin-top:6px;">Target: {fmt_usd(ADS_REVENUE_TARGET_USD)} &middot; {_ads_proj_pct:.0f}% cubierto</div>
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Proyección ADS Revenue</div>
+          <div style="font-size:24px;font-weight:900;color:#FF7124;line-height:1;">{fmt_usd(_projected_ads)}</div>
+          <div style="font-size:12px;color:#DBBBA7;margin-top:6px;">Target: {fmt_usd(ADS_REVENUE_TARGET_USD)} &middot; {_ads_proj_pct:.0f}% cubierto</div>
           <div style="margin-top:10px;font-size:13px;font-weight:800;color:{_ads_status_color};">{_ads_status_label}</div>
-          <div style="margin-top:6px;font-size:12px;color:#6B7280;">Necesitás generar {fmt_usd(_ads_needed_daily)}/día los próximos {_remain_days}d para llegar</div>
+          <div style="margin-top:6px;font-size:12px;color:#DBBBA7;">Necesitás generar {fmt_usd(_ads_needed_daily)}/día los próximos {_remain_days}d para llegar</div>
         </div>
         """, unsafe_allow_html=True)
     with _pcol3:
         st.markdown(f"""
         <div style="background:rgba(111,242,75,.06);border:1.5px solid rgba(111,242,75,.30);border-radius:16px;padding:16px 18px;height:100%;">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Ritmo diario actual</div>
-          <div style="font-size:24px;font-weight:900;color:#3A8A1A;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#6B7280;font-weight:700;">/día GMV</span></div>
-          <div style="font-size:14px;font-weight:900;color:#FF8A3D;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#6B7280;font-weight:700;">/día ADS Rev.</span></div>
-          <div style="margin-top:10px;font-size:12px;color:#6B7280;">Corte semanal: dom. {_last_sunday.strftime("%d/%m")} · {_elapsed_days} días acumulados</div>
-          <div style="font-size:12px;color:#6B7280;margin-top:4px;">Datos actualizados desde Current sheets.</div>
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Ritmo diario actual</div>
+          <div style="font-size:24px;font-weight:900;color:#6FF24B;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#DBBBA7;font-weight:700;">/día GMV</span></div>
+          <div style="font-size:14px;font-weight:900;color:#FF7124;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#DBBBA7;font-weight:700;">/día ADS Rev.</span></div>
+          <div style="margin-top:10px;font-size:12px;color:#DBBBA7;">Corte semanal: dom. {_last_sunday.strftime("%d/%m")} · {_elapsed_days} días acumulados</div>
+          <div style="font-size:12px;color:#DBBBA7;margin-top:4px;">Datos actualizados desde Current sheets.</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -5536,73 +5536,73 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
 
     # Name / Brand / Restaurant / brand_name sticker — palette blue
     def _name_pill(text):
-        return _make_pill(text, "#EEF2FF", "#3730A3")
+        return _make_pill(text, "rgba(59,72,131,0.15)", "#3B4883")
 
     # Status pill — color driven by content
     def _status_pill(text):
         low = text.lower()
         if any(k in low for k in ["✅on", "✅ on", "active 🚀", "estable", "✅"]):
-            return _make_pill(text, "#D1FAE5", "#065F46")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
         elif any(k in low for k in ["⚠️w1", "⚠️ w1", "⚠️ revisar", "revisar"]):
-            return _make_pill(text, "#FEF3C7", "#92400E")
+            return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif any(k in low for k in ["🚨w2", "🚨 w2"]):
-            return _make_pill(text, "#FFEDD5", "#9A3412")
+            return _make_pill(text, "rgba(255,113,36,0.12)", "#D95A10")
         elif any(k in low for k in ["🆘w3", "🆘 w3"]):
-            return _make_pill(text, "#FEE2E2", "#991B1B")
+            return _make_pill(text, "rgba(229,51,42,0.12)", "#E5332A")
         elif any(k in low for k in ["☠️off", "☠️ off", "😴off", "😴 off", "inactive 💤", "off"]):
-            return _make_pill(text, "#F3F4F6", "#6B7280")
+            return _make_pill(text, "rgba(255,255,255,0.06)", "#DBBBA7")
         elif any(k in low for k in ["frío", "frio", "❄️"]):
-            return _make_pill(text, "#EFF6FF", "#1E40AF")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
         elif any(k in low for k in ["renegociación", "renegociacion", "🔄"]):
-            return _make_pill(text, "#F5F3FF", "#6D28D9")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
         elif any(k in low for k in ["prioritized 🔥"]):
-            return _make_pill(text, "#FFF7ED", "#C2410C")
+            return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif any(k in low for k in ["non prioritized"]):
-            return _make_pill(text, "#F3F4F6", "#6B7280")
+            return _make_pill(text, "rgba(255,255,255,0.06)", "#DBBBA7")
         else:
-            return _make_pill(text, "#F1F5F9", "#475569")
+            return _make_pill(text, "rgba(59,72,131,0.08)", "#DBBBA7")
 
     # Opp pill (already existed)
     def _opp_pill(text):
         low = text.lower()
         if any(k in low for k in ["🏆 acquire", "🏆acquire"]):
-            return _make_pill(text, "#FFF7ED", "#92400E")
+            return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif any(k in low for k in ["🔧 upsell urgente", "🔧upsell urgente", "upsell urgente"]):
-            return _make_pill(text, "#FFF1F2", "#9F1239")
+            return _make_pill(text, "rgba(229,51,42,0.08)", "#E5332A")
         elif any(k in low for k in ["⚡ upselling", "⚡upselling"]):
-            return _make_pill(text, "#F5F3FF", "#6D28D9")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
         elif "adquisición" in low or "adquisicion" in low:
-            return _make_pill(text, "#EFF6FF", "#1D4ED8")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
         elif "upselling" in low:
-            return _make_pill(text, "#F5F3FF", "#6D28D9")
-        return _make_pill(text, "#F1F5F9", "#475569")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
+        return _make_pill(text, "rgba(59,72,131,0.08)", "#DBBBA7")
 
     # Revenue Proj 80% pill — green money sticker, value x4
     def _revenue_pill(text):
         if text in ("-", "", "—"):
-            return f'<span style="font-size:12px;color:#D1D5DB;">—</span>'
+            return f'<span style="font-size:12px;color:rgba(255,255,255,0.15);">—</span>'
         val4 = _revenue_x4(text)
-        return _make_pill(f"↑ {val4}", "#D1FAE5", "#065F46")
+        return _make_pill(f"↑ {val4}", "rgba(111,242,75,0.12)", "#6FF24B")
 
     # commercial_action / movement pill — indigo
     def _action_pill(text):
         low = text.lower()
         if any(k in low for k in ["closed", "cerrado", "won", "ganado"]):
-            return _make_pill(text, "#D1FAE5", "#065F46")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
         elif any(k in low for k in ["rejected", "rechazado", "lost"]):
-            return _make_pill(text, "#FEE2E2", "#991B1B")
+            return _make_pill(text, "rgba(229,51,42,0.12)", "#E5332A")
         elif any(k in low for k in ["negotiation", "negociación", "pipeline"]):
-            return _make_pill(text, "#FEF3C7", "#92400E")
-        return _make_pill(text, "#EEF2FF", "#3730A3")
+            return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
+        return _make_pill(text, "rgba(59,72,131,0.15)", "#3B4883")
 
     # pipeline_stage / opportunity_status pill — amber
     def _stage_pill(text):
         low = text.lower()
         if any(k in low for k in ["closed", "won", "cerrado"]):
-            return _make_pill(text, "#D1FAE5", "#065F46")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
         elif any(k in low for k in ["rejected", "lost", "rechazado"]):
-            return _make_pill(text, "#FEE2E2", "#991B1B")
-        return _make_pill(text, "#FFF7ED", "#92400E")
+            return _make_pill(text, "rgba(229,51,42,0.12)", "#E5332A")
+        return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
 
     # ── column routing map ───────────────────────────────────────────────────
     # key = col name lowercased, value = pill function
@@ -5610,16 +5610,16 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     def _pene_pill(text):
         low = text.lower()
         if "✅" in low or "en rango" in low:
-            return _make_pill(text, "#D1FAE5", "#065F46")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
         elif "⚠️" in low or "sobre techo" in low:
-            return _make_pill(text, "#FFEDD5", "#9A3412")
+            return _make_pill(text, "rgba(255,113,36,0.12)", "#D95A10")
         elif "bajo" in low:
-            return _make_pill(text, "#FEF3C7", "#92400E")
+            return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif "0%" in low or "sin promo" in low or "objetivo" in low:
-            return _make_pill(text, "#FFF7ED", "#92400E")
+            return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif "sin gmv" in low:
-            return _make_pill(text, "#F3F4F6", "#6B7280")
-        return _make_pill(text, "#F1F5F9", "#475569")
+            return _make_pill(text, "rgba(255,255,255,0.06)", "#DBBBA7")
+        return _make_pill(text, "rgba(59,72,131,0.08)", "#DBBBA7")
 
     COL_PILL_MAP = {
         "name":               _name_pill,
@@ -5658,26 +5658,26 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     th_base = (
         'position:sticky;top:0;z-index:2;padding:10px 14px;'
         'text-align:left;font-size:11px;font-weight:700;'
-        'letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;'
-        'background:#FFFFFF;border-bottom:2px solid #F3F4F6;'
-        'white-space:nowrap;box-shadow:0 1px 0 #F3F4F6;'
+        'letter-spacing:0.05em;text-transform:uppercase;color:rgba(219,187,167,0.5);'
+        'background:rgba(255,255,255,0.06);border-bottom:2px solid rgba(255,255,255,0.06);'
+        'white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.06);'
     )
     header_cells = (
         f'<th style="position:sticky;top:0;z-index:2;padding:10px 8px 10px 20px;width:36px;'
         f'text-align:center;font-size:11px;font-weight:700;letter-spacing:0.05em;'
-        f'text-transform:uppercase;color:#9CA3AF;background:#FFFFFF;'
-        f'border-bottom:2px solid #F3F4F6;box-shadow:0 1px 0 #F3F4F6;">N.</th>'
+        f'text-transform:uppercase;color:rgba(219,187,167,0.5);background:rgba(255,255,255,0.06);'
+        f'border-bottom:2px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 rgba(255,255,255,0.06);">N.</th>'
     )
     for col in display_df.columns:
         header_cells += f'<th style="{th_base}">{html.escape(str(col))}</th>'
-    header = f'<thead><tr style="background:#FFFFFF;">{header_cells}</tr></thead>'
+    header = f'<thead><tr style="background:rgba(255,255,255,0.06);">{header_cells}</tr></thead>'
 
     # ── rows ─────────────────────────────────────────────────────────────────
     rows_html = []
     for i, (_, row) in enumerate(display_df.iterrows()):
-        base_bg  = "#FFFFFF" if i % 2 == 0 else "#F9FAFB"
+        base_bg  = "rgba(255,255,255,0.06)" if i % 2 == 0 else "rgba(255,255,255,0.04)"
         hover_in = (
-            "this.style.background='#EEF2FF';"
+            "this.style.background='rgba(59,72,131,0.15)';"
             "this.style.boxShadow='0 4px 18px rgba(78,99,217,0.13)';"
             "this.style.transform='scale(1.003) translateY(-1px)';"
             "this.style.zIndex='1';"
@@ -5691,8 +5691,8 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         )
         row_num = (
             f'<td style="padding:12px 8px 12px 20px;text-align:center;'
-            f'font-size:12px;font-weight:600;color:#D1D5DB;'
-            f'border-bottom:1px solid #F3F4F6;">{i+1}</td>'
+            f'font-size:12px;font-weight:600;color:rgba(255,255,255,0.15);'
+            f'border-bottom:1px solid rgba(255,255,255,0.06);">{i+1}</td>'
         )
         cells = row_num
         for col, val in zip(display_df.columns, row):
@@ -5707,21 +5707,21 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
             if pill_fn and text not in ("-", "", "—"):
                 cell_inner = pill_fn(text)
             elif text in ("-", "", "—"):
-                cell_inner = '<span style="font-size:12px;color:#D1D5DB;">—</span>'
+                cell_inner = '<span style="font-size:12px;color:rgba(255,255,255,0.15);">—</span>'
             else:
                 stripped = (text.replace("ARS","").replace("USD","").replace("$","")
                                .replace(".","").replace(",","").replace("%","").replace("x","").strip())
                 is_numeric = stripped.lstrip("-").isdigit()
                 if is_numeric:
-                    cell_inner = f'<span style="font-size:13px;font-weight:700;color:#111827;">{html.escape(text)}</span>'
+                    cell_inner = f'<span style="font-size:13px;font-weight:700;color:#E8DFD5;">{html.escape(text)}</span>'
                 else:
-                    cell_inner = f'<span style="font-size:12px;color:#374151;">{html.escape(text)}</span>'
+                    cell_inner = f'<span style="font-size:12px;color:#DBBBA7;">{html.escape(text)}</span>'
 
             # For raw-HTML columns (días, próximo contacto, roi trend) strip tags for the tooltip
             import re as _re
             tooltip_text = _re.sub(r"<[^>]+>", "", text) if col_key in ("días", "próximo contacto", "roi trend") else text
             cells += (
-                f'<td style="padding:12px 14px;border-bottom:1px solid #F3F4F6;'
+                f'<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);'
                 f'white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;'
                 f'transition:background 0.15s;" title="{html.escape(tooltip_text)}">'
                 f'{cell_inner}</td>'
@@ -5738,14 +5738,14 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     count_note = ""
     if len(df) > max_rows:
         count_note = (
-            f'<div style="font-size:11px;color:#9CA3AF;padding:8px 20px 12px;">'
+            f'<div style="font-size:11px;color:rgba(219,187,167,0.5);padding:8px 20px 12px;">'
             f'Showing first {max_rows} of {len(df)} rows.</div>'
         )
 
     table_html = (
-        f'<div id="{tid}" style="border-radius:16px;border:1px solid #E5E7EB;'
+        f'<div id="{tid}" style="border-radius:16px;border:1px solid rgba(255,255,255,0.12);'
         f'box-shadow:0 2px 16px rgba(0,0,0,0.07);margin:8px 0 20px 0;'
-        f'background:#FFFFFF;overflow:hidden;">'
+        f'background:rgba(255,255,255,0.06);overflow:hidden;">'
         f'<div style="overflow-x:auto;overflow-y:auto;max-height:{scroll_h}px;">'
         f'<table style="width:100%;border-collapse:collapse;'
         f'font-family:Inter,-apple-system,sans-serif;">'
@@ -5760,7 +5760,7 @@ def _render_light_table(df, height=420):
     _render_html_table(df)
 
 
-def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF8A3D"):
+def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF7124"):
     """
     Renders a horizontal progress bar showing:
       - Active revenue already running (green)
@@ -5781,7 +5781,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         status_color = "#6FF24B"
         status_label = "✅ On track to close"
     elif overall_pct >= 70:
-        status_color = "#FF8A3D"
+        status_color = "#FF7124"
         status_label = "⚡ Needs focus"
     else:
         status_color = "#E5332A"
