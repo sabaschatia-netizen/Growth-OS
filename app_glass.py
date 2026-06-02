@@ -43,56 +43,66 @@ COP_PER_USD = 3900
 ADS_REVENUE_TARGET_USD = 16038
 CONTACTS_START_DATE = date(2026, 5, 16)
 
-# Main visual identity requested by Sabas
-# Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
-# Core: Space Indigo #1D2659 · Slate Indigo #4E63D9 · Neon Tangerine #FF8A3D · Laser Green #6FF24B · Soft Mint #DDFBCF
+# ──────────────────────────────────────────────────────────────
+# SISTEMA DE DISEÑO — Holding Sabas Ramírez Dashboard v2
+# Paleta Cristache — fija, sin condicionales, solo dark mode
+# ──────────────────────────────────────────────────────────────
+NOBLE_BLACK    = "#202124"   # fondo base
+WAHOO          = "#272D4E"   # fondo cards hover / capas medias
+BLUE_ESTATE    = "#3B4883"   # acentos secundarios, bordes activos
+BURNING_ORANGE = "#FF7124"   # acento primario (reemplaza tangerine)
+CINNAMON_ICE   = "#DBBBA7"   # texto muted / labels
+PALE_CASHMERE  = "#E8DFD5"   # texto principal / valores hero
+LASER_GREEN    = "#BFFF00"   # métricas positivas / ganancias — solo para esto
+
 PALETTE = {
-    # ── 6 tokens de identidad — los únicos que importan ──────
-    "space_indigo":   "#1D2659",   # fondo dark profundo
-    "slate_indigo":   "#4E63D9",   # azul primario / intel
-    "laser_green":    "#6FF24B",   # acento éxito / highlight
-    "soft_mint":      "#DDFBCF",   # texto sobre dark
-    "neon_tangerine": "#FF8A3D",   # acento comercial / ADS
+    # ── Tokens Cristache v2 ───────────────────────────────────
+    "noble_black":    NOBLE_BLACK,
+    "wahoo":          WAHOO,
+    "blue_estate":    BLUE_ESTATE,
+    "burning_orange": BURNING_ORANGE,
+    "cinnamon_ice":   CINNAMON_ICE,
+    "pale_cashmere":  PALE_CASHMERE,
+    "laser_green":    LASER_GREEN,
 
-    # ── Scales derivadas ─────────────────────────────────────
-    "navy_dark":      "#10163A",   # dark más profundo
-    "blue_soft":      "#6F82EF",   # slate_indigo atenuado
-    "laser_soft":     "#B9FF9C",   # laser_green atenuado
-    "mint_soft":      "#F4FFF0",   # soft_mint muy claro
-    "tangerine_dark": "#FF5F1F",   # neon_tangerine oscuro
-    "tangerine_soft": "#FFD7C2",   # neon_tangerine claro
-    "emerald_dark":   "#009175",   # éxito alternativo (heatmap)
-
-    # ── World Cup seasonal accents (solo texturas/fondo) ─────
+    # ── Alias backward-compat — el código existente no se rompe ──
+    "space_indigo":   NOBLE_BLACK,
+    "slate_indigo":   BLUE_ESTATE,
+    "soft_mint":      PALE_CASHMERE,
+    "mint_soft":      PALE_CASHMERE,
+    "neon_tangerine": BURNING_ORANGE,
+    "tangerine_dark": "#E05800",
+    "tangerine_soft": "#F5D5C0",
+    "navy_dark":      "#171A1F",
+    "blue_soft":      BLUE_ESTATE,
+    "laser_soft":     "#D8FF80",
+    "emerald_dark":   "#009175",
     "world_red":      "#E5332A",
     "world_cyan":     "#55C8FF",
     "world_yellow":   "#FFF100",
     "world_green":    "#00A86B",
-
-    # ── Alias backward-compat — no eliminar ──────────────────
-    # El código existente sigue funcionando sin tocar nada.
-    "navy":        "#1D2659",   # → space_indigo
-    "navy_soft":   "#27316A",
-    "blue":        "#4E63D9",   # → slate_indigo
-    "blue_mist":   "#EEF2FF",
-    "laser":       "#6FF24B",   # → laser_green
-    "mint":        "#DDFBCF",   # → soft_mint
-    "mint_muted":  "#BFE8AC",
-    "white":       "#FFFFFF",
-    "cream":       "#FFFFFF",
-    "cream_soft":  "#F4FFF0",
-    "cream_muted": "#BFE8AC",
-    "coral":       "#FF8A3D",   # → neon_tangerine
-    "coral_soft":  "#FFD7C2",
-    "gold":        "#FF8A3D",   # → neon_tangerine
-    "gold_soft":   "#FFD7C2",
-    "orange_dark": "#FF5F1F",   # → tangerine_dark
-    "orange":      "#FF8A3D",   # → neon_tangerine
-    "orange_soft": "#FFD7C2",
-    "red":         "#FF5F1F",   # → tangerine_dark
-    "red_soft":    "#FFD7C2",
-    "sky":         "#4E63D9",   # → slate_indigo
-    "sky_soft":    "#6F82EF",
+    "navy":           NOBLE_BLACK,
+    "navy_soft":      WAHOO,
+    "blue":           BLUE_ESTATE,
+    "blue_mist":      WAHOO,
+    "laser":          LASER_GREEN,
+    "mint":           PALE_CASHMERE,
+    "mint_muted":     CINNAMON_ICE,
+    "white":          PALE_CASHMERE,
+    "cream":          PALE_CASHMERE,
+    "cream_soft":     PALE_CASHMERE,
+    "cream_muted":    CINNAMON_ICE,
+    "coral":          BURNING_ORANGE,
+    "coral_soft":     "#F5D5C0",
+    "gold":           BURNING_ORANGE,
+    "gold_soft":      "#F5D5C0",
+    "orange_dark":    "#E05800",
+    "orange":         BURNING_ORANGE,
+    "orange_soft":    "#F5D5C0",
+    "red":            "#E05800",
+    "red_soft":       "#F5D5C0",
+    "sky":            BLUE_ESTATE,
+    "sky_soft":       WAHOO,
 }
 
 
@@ -3515,7 +3525,7 @@ def page_day_queue():
             st.markdown(
                 f"<div style='font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;"
                 f"margin:12px 0 4px;'>Palanca recomendada</div>"
-                f"<div style='font-size:14px;font-weight:600;color:#1D2659;margin-bottom:12px;'>"
+                f"<div style='font-size:14px;font-weight:600;color:#202124;margin-bottom:12px;'>"
                 f"{_lever_label}</div>",
                 unsafe_allow_html=True
             )
@@ -3545,102 +3555,80 @@ def page_day_queue():
 # THEME
 # =========================
 
-theme = st.sidebar.radio("Theme", ["Light Mode", "Dark Mode"], index=0)
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "Management Dashboard",
-        "Opportunity List",
-        "Follow-Up List",
-        "Brand Finder",
-        "Day Queue",
-        "Acquisition Tracker",
-        "Campaign Weekly Tracker",
-        "Weekly Calendar",
-        "Brand Update",
-        "Earnings Calculator",
-        "Productivity HeatMap",
-        "Call Quality Trainer",
-        "Role Play Trainer",
-    ],
-    index=0
-)
+# =========================
+# NAVIGATION — Top Navbar (no sidebar)
+# =========================
 
-LIGHT = theme == "Light Mode"
+PAGES = [
+    "Management Dashboard",
+    "Opportunity List",
+    "Follow-Up List",
+    "Brand Finder",
+    "Day Queue",
+    "Acquisition Tracker",
+    "Campaign Weekly Tracker",
+    "Weekly Calendar",
+    "Brand Update",
+    "Earnings Calculator",
+    "Productivity HeatMap",
+    "Call Quality Trainer",
+    "Role Play Trainer",
+]
 
-if LIGHT:
-    COLORS = {
-        "bg":              "#F0F2FF",   # era #F4F6F8 — ahora tiene ADN de la paleta
-        "card":            "#FFFFFF",
-        "card2":           "#FFFFFF",
-        "text":            "#1A1F36",
-        "muted":           "#6B7280",
-        "label":           "#1A1F36",
-        "border":          "rgba(78, 99, 217, 0.10)",  # era transparente
-        "sidebar":         "#FFFFFF",
-        "sidebar_text":    "#1A1F36",
-        "active":          "#6FF24B",
-        "active_text":     "#1A1F36",
-        "blue":            "#4E63D9",
-        "blue_text":       "#FFFFFF",
-        "input_bg":        "#FFFFFF",
-        "accent":          "#FF8A3D",
-        "accent_dark":     "#FF5F1F",
-        "accent_soft":     "#FFD7C2",
-        "commercial":      "#FF8A3D",
-        "commercial_dark": "#FF5F1F",
-        "commercial_soft": "#FFD7C2",
-        "intel":           "#4E63D9",
-        "intel_soft":      "#6F82EF",
-        "success":         "#6FF24B",
-        "warning":         "#FF8A3D",
-        "danger":          "#E5332A",
-        "info_bg":         "#EEF2FF",
-        "info_text":       "#1A1F36",
-    }
-else:
-    COLORS = {
-        "bg": "radial-gradient(560px 260px at 7% 10%, rgba(0,168,107,.10), transparent 60%), radial-gradient(520px 240px at 88% 8%, rgba(255,241,0,.09), transparent 58%), radial-gradient(470px 230px at 96% 78%, rgba(229,51,42,.08), transparent 62%), radial-gradient(520px 250px at 18% 96%, rgba(85,200,255,.10), transparent 62%), radial-gradient(760px 460px at 92% 10%, rgba(255,138,61,.10), transparent 56%), linear-gradient(135deg, #10163A 0%, #1D2659 55%, #121947 100%)",
-        "card": "#17205C",
-        "card2": "#2230A0",
-        "text": PALETTE["mint_soft"],
-        "muted": "#C6D4F7",
-        "label": PALETTE["mint_soft"],
-        "border": "rgba(111, 242, 75, .34)",
-        "sidebar": "#0B102B",
-        "sidebar_text": PALETTE["mint_soft"],
-        "active": PALETTE["laser_green"],
-        "active_text": PALETTE["space_indigo"],
-        "blue": PALETTE["slate_indigo"],
-        "blue_text": PALETTE["mint_soft"],
-        "input_bg": "#151D4A",
-        "accent": PALETTE["neon_tangerine"],
-        "accent_dark": PALETTE["neon_tangerine"],
-        "accent_soft": PALETTE["tangerine_soft"],
-        "commercial": PALETTE["neon_tangerine"],
-        "commercial_dark": PALETTE["tangerine_dark"],
-        "commercial_soft": PALETTE["tangerine_soft"],
-        "intel": PALETTE["blue_soft"],
-        "intel_soft": PALETTE["laser_green"],
-        "success": PALETTE["laser_green"],
-        "warning": PALETTE["neon_tangerine"],
-        "danger": "#FF7EA8",
-        "info_bg": "linear-gradient(135deg, #17205C 0%, #2230A0 100%)",
-        "info_text": PALETTE["mint_soft"],
-    }
+# Use a hidden radio to drive navigation — overridden visually by top navbar CSS
+if "nav_page" not in st.session_state:
+    st.session_state["nav_page"] = "Management Dashboard"
+
+# Sidebar kept minimal (hidden via CSS) — only used as state driver
+page = st.sidebar.radio("Navigation", PAGES, index=PAGES.index(st.session_state["nav_page"]), key="_nav_radio", label_visibility="collapsed")
+st.session_state["nav_page"] = page
+
+
+# =========================
+# THEME — Dark Only (Cristache v2)
+# =========================
+
+LIGHT = False  # dark mode permanente — no toggle
+
+COLORS = {
+    "bg":              f"radial-gradient(560px 260px at 7% 10%, rgba(0,168,107,.08), transparent 60%), radial-gradient(520px 240px at 88% 8%, rgba(255,241,0,.07), transparent 58%), radial-gradient(470px 230px at 96% 78%, rgba(229,51,42,.06), transparent 62%), radial-gradient(520px 250px at 18% 96%, rgba(85,200,255,.08), transparent 62%), linear-gradient(135deg, {NOBLE_BLACK} 0%, {WAHOO} 55%, {NOBLE_BLACK} 100%)",
+    "card":            WAHOO,
+    "card2":           BLUE_ESTATE,
+    "text":            PALE_CASHMERE,
+    "muted":           CINNAMON_ICE,
+    "label":           PALE_CASHMERE,
+    "border":          f"rgba(59,72,131,.45)",   # Blue Estate semitransparente
+    "sidebar":         NOBLE_BLACK,
+    "sidebar_text":    PALE_CASHMERE,
+    "active":          LASER_GREEN,
+    "active_text":     NOBLE_BLACK,
+    "blue":            BLUE_ESTATE,
+    "blue_text":       PALE_CASHMERE,
+    "input_bg":        WAHOO,
+    "accent":          BURNING_ORANGE,
+    "accent_dark":     "#E05800",
+    "accent_soft":     "#F5D5C0",
+    "commercial":      BURNING_ORANGE,
+    "commercial_dark": "#E05800",
+    "commercial_soft": "#F5D5C0",
+    "intel":           BLUE_ESTATE,
+    "intel_soft":      BLUE_ESTATE,
+    "success":         LASER_GREEN,
+    "warning":         BURNING_ORANGE,
+    "danger":          "#FF7EA8",
+    "info_bg":         WAHOO,
+    "info_text":       PALE_CASHMERE,
+}
 
 flag_html = '<img class="flag-img" src="https://flagcdn.com/w80/ar.png">'
 
-# ── Glass tokens (solo Dark Mode) ────────────────────────────────────────────
-# Light Mode usa superficies blancas (#FFFFFF) como antes.
-# Dark Mode usa glassmorphism: vidrio semitransparente sobre el fondo navy/World Cup.
-GLASS_BG      = "rgba(255,255,255,0.06)"   if not LIGHT else "#FFFFFF"
-GLASS_BORDER  = "rgba(255,255,255,0.12)"   if not LIGHT else "rgba(0,0,0,0.07)"
-GLASS_BLUR    = "blur(12px)"               if not LIGHT else "none"
-GLASS_SHADOW  = "0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10)" if not LIGHT else "0 10px 30px rgba(0,0,0,0.05)"
-# Texto sobre vidrio oscuro — mint suave; sobre blanco — navy
-GLASS_TEXT    = PALETTE["mint_soft"]       if not LIGHT else "#1A1F36"
-GLASS_MUTED   = "rgba(255,255,255,0.52)"   if not LIGHT else "#6B7280"
+# ── Glass tokens — Cristache Dark ─────────────────────────────
+GLASS_BG      = "rgba(255,255,255,0.05)"
+GLASS_BORDER  = "rgba(255,255,255,0.09)"
+GLASS_BLUR    = "blur(14px)"
+GLASS_SHADOW  = f"0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)"
+GLASS_TEXT    = PALE_CASHMERE
+GLASS_MUTED   = CINNAMON_ICE
 
 
 # =========================
@@ -3649,18 +3637,90 @@ GLASS_MUTED   = "rgba(255,255,255,0.52)"   if not LIGHT else "#6B7280"
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;600;700;800&display=swap');
 
 * {{
     font-family: 'Inter', sans-serif;
 }}
 
+/* ===== DM SERIF DISPLAY para hero / display elements ===== */
+.header-title, .brand-name, .hero-name, .mgmt-section-title-copy,
+.dm-serif {{ font-family: 'DM Serif Display', serif !important; }}
+
 .stApp {{
     background: {COLORS["bg"]};
+    background-color: {NOBLE_BLACK};
     color: {COLORS["text"]};
 }}
 
-/* ===== LIGHT MODE: SYSTEM TEXT ON PEARL BACKGROUND ===== */
+/* ===== HIDE SIDEBAR — nav is top navbar ===== */
+section[data-testid="stSidebar"] {{
+    display: none !important;
+}}
+
+/* ===== TOP NAVBAR ===== */
+.top-navbar {{
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    margin-bottom: 24px;
+    flex-wrap: nowrap;
+    min-height: 56px;
+}}
+.top-navbar::-webkit-scrollbar {{ display: none; }}
+
+.nav-logo {{
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: {PALE_CASHMERE};
+    white-space: nowrap;
+    margin-right: 24px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+}}
+
+.nav-tab {{
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    color: {CINNAMON_ICE};
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    transition: color .18s, background .18s;
+    flex-shrink: 0;
+    margin: 0 2px;
+}}
+.nav-tab:hover {{
+    color: {PALE_CASHMERE};
+    background: rgba(255,255,255,0.06);
+}}
+.nav-tab.active {{
+    background: {BURNING_ORANGE};
+    color: {NOBLE_BLACK} !important;
+    font-weight: 900;
+}}
+
+/* ===== SYSTEM TEXT ===== */
 [data-testid="stMarkdownContainer"] h1,
 [data-testid="stMarkdownContainer"] h2,
 [data-testid="stMarkdownContainer"] h3,
@@ -3670,1251 +3730,9 @@ st.markdown(f"""
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stCaptionContainer"],
 [data-testid="stCaptionContainer"] * {{
-    color: {"#1A1F36" if LIGHT else COLORS["label"]} !important;
+    color: {COLORS["label"]} !important;
 }}
 
-[data-testid="stDataFrame"] *,
-[data-testid="stTable"] *,
-[data-testid="stAlert"] *,
-.stTextInput *,
-.stTextArea textarea,
-.stSelectbox *,
-.stNumberInput * {{
-    color: {COLORS["text"]};
-}}
-
-.block-container {{
-    max-width: 1400px;
-    padding-top: 2rem;
-    padding-bottom: 5rem;
-}}
-
-section[data-testid="stSidebar"] {{
-    background: {COLORS["sidebar"]};
-    border-right: {"1px solid rgba(78,99,217,0.18)" if LIGHT else f"1px solid {COLORS['border']}"};
-    box-shadow: none;
-}}
-
-section[data-testid="stSidebar"] * {{
-    color: {COLORS["sidebar_text"]} !important;
-}}
-
-.flag-img {{
-    width: 44px;
-    height: 29px;
-    border-radius: 6px;
-    object-fit: cover;
-    margin-right: 12px;
-    vertical-align: middle;
-}}
-
-/* ===== APP HEADER ===== */
-.app-header {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 28px;
-    padding: 30px 38px;
-    margin-bottom: 32px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}}
-
-.header-title {{
-    font-size: 44px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    display: flex;
-    align-items: center;
-    line-height: 1;
-}}
-
-.header-subtitle {{
-    margin-top: 12px;
-    font-size: 18px;
-    font-weight: 600;
-    color: {GLASS_MUTED};
-}}
-
-.period-pill {{
-    font-size: 18px;
-    font-weight: 800;
-    color: #8B9DFF;
-}}
-
-.section-title {{
-    font-size: 22px;
-    font-weight: 800;
-    color: {COLORS["text"]};
-    margin: 32px 0 20px;
-}}
-
-/* ===== BASE CARD (Glassmorphism / Light Neumorphism) ===== */
-.panel {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 24px;
-    padding: 24px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    margin-bottom: 20px;
-}}
-
-.metric-card {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 24px;
-    padding: 18px;
-    min-height: 176px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    overflow: hidden;
-    transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s cubic-bezier(.22,1,.36,1);
-}}
-
-.metric-card:hover {{
-    transform: translateY(-4px);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.09);
-}}
-
-.metric-icon {{
-    width: 54px;
-    height: 54px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-size: 27px;
-    font-weight: 800;
-    margin-bottom: 16px;
-}}
-
-.metric-label {{
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: {GLASS_MUTED};
-    min-height: 34px;
-    line-height: 1.15;
-}}
-
-.metric-value {{
-    font-size: clamp(17px, 1.45vw, 24px);
-    font-weight: 800;
-    margin-top: 12px;
-    line-height: 1.12;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}}
-
-.metric-foot {{
-    margin-top: 14px;
-    font-size: 13px;
-    color: #6B7280;
-    min-height: 18px;
-}}
-
-.up {{ color: #BFFF00; font-weight: 800; }}
-.ars {{ color: #FF8A3D; }}
-.usd {{ color: #BFFF00; }}
-.cop {{ color: #8B9DFF; }}
-.blue-val {{ color: #8B9DFF; }}
-
-.lime-box {{
-    background: rgba(191, 255, 0, 0.10);
-    border-radius: 16px;
-    padding: 10px 14px;
-    text-align: center;
-    color: #8B9DFF;
-    font-size: 24px;
-    font-weight: 800;
-}}
-
-/* ===== ALL CARD VARIANTS ===== */
-.brand-card,
-.status-card,
-.metric-header,
-.kpi-card,
-.salary-card,
-.bucket-card,
-.update-card,
-.agenda-card {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    box-sizing: border-box;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-}}
-
-.brand-card {{
-    border-radius: 34px;
-    height: 220px;
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}}
-
-.brand-name {{
-    font-size: 46px;
-    font-weight: 800;
-    line-height: 1.08;
-    color: {GLASS_TEXT};
-    margin-bottom: 18px;
-}}
-
-.brand-id {{
-    font-size: 24px;
-    font-weight: 700;
-    color: #6B7280;
-}}
-
-.brand-badges {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 18px;
-}}
-
-.brand-badge {{
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    padding: 7px 12px;
-    font-size: 13px;
-    font-weight: 900;
-    color: #FF8A3D;
-    background: rgba(255, 138, 61, 0.08);
-    border: 1px solid rgba(255, 138, 61, 0.30);
-    white-space: nowrap;
-    transition: background .20s, color .20s;
-}}
-.brand-badge:hover {{
-    background: #FF8A3D;
-    color: #FFFFFF;
-}}
-
-.status-card {{
-    border-radius: 50%;
-    aspect-ratio: 1 / 1;
-    min-height: 160px;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-}}
-
-.status-label {{
-    font-size: 14px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: #6B7280;
-    margin-bottom: 16px;
-}}
-
-.status-value {{
-    font-size: 23px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    line-height: 1.12;
-}}
-
-.metric-header {{
-    height: 88px;
-    border-radius: 28px;
-    padding: 22px 32px;
-    display: flex;
-    align-items: center;
-    margin-top: 18px;
-    margin-bottom: 14px;
-}}
-
-.metric-title {{
-    font-size: 30px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-}}
-
-.money-card {{
-    border-radius: 50%;
-    height: 235px;
-    width: 235px;
-    padding: 28px 20px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-    box-sizing: border-box;
-    overflow: hidden;
-}}
-
-.ars-card {{
-    background: rgba(191, 255, 0, 0.08);
-    border: 2px solid rgba(191, 255, 0, 0.40);
-    color: #1A1F36;
-}}
-
-.usd-card {{
-    background: rgba(191, 255, 0, 0.08);
-    border: 2px solid rgba(191, 255, 0, 0.40);
-    color: #BFFF00;
-}}
-
-.money-label {{
-    font-size: 18px;
-    font-weight: 800;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-}}
-
-.money-value {{
-    font-size: clamp(22px, 2vw, 30px);
-    font-weight: 800;
-    line-height: 1;
-    white-space: nowrap;
-}}
-
-.money-period {{
-    font-size: 15px;
-    font-weight: 700;
-    margin-top: 18px;
-}}
-
-.info-card {{
-    background: {GLASS_BG};
-    color: {GLASS_TEXT};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 30px;
-    padding: 34px 38px;
-    min-height: 430px;
-    margin-top: 24px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-}}
-
-.info-card h3 {{
-    font-size: 30px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    margin: 0 0 24px 0;
-}}
-
-.row-line {{
-    border-bottom: 1px solid rgba(180,180,180,.20);
-    padding: 12px 0;
-    font-size: 18px;
-    color: {GLASS_TEXT};
-    line-height: 1.3;
-}}
-
-.comments-card {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 30px;
-    padding: 30px;
-    margin-top: 24px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
-}}
-.comments-card:hover {{
-    box-shadow: 0 0 0 3px #4E63D9, 0 8px 28px rgba(78,99,217,.22);
-    transform: translateY(-2px);
-}}
-
-.success-box {{
-    background: rgba(191, 255, 0, 0.10);
-    border: 2px solid #BFFF00;
-    color: #5A7A00;
-    padding: 18px 22px;
-    border-radius: 18px;
-    font-size: 20px;
-    font-weight: 800;
-    margin: 20px 0;
-}}
-
-.kpi-card {{
-    border-radius: 24px;
-    padding: 26px;
-    min-height: 250px;
-    margin-bottom: 24px;
-    overflow: hidden;
-}}
-
-.kpi-title {{
-    font-size: 26px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    margin-bottom: 22px;
-    text-align: center;
-}}
-
-.kpi-row {{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-}}
-
-.target-box {{
-    background: rgba(191, 255, 0, 0.08);
-    border: 2px solid rgba(191, 255, 0, 0.40);
-    border-radius: 22px;
-    padding: 18px 12px;
-    text-align: center;
-    color: #1A1F36;
-    min-height: 105px;
-    overflow: hidden;
-}}
-
-.result-box {{
-    background: rgba(139, 157, 255, 0.08);
-    border: 2px solid rgba(139, 157, 255, 0.40);
-    border-radius: 22px;
-    padding: 18px 12px;
-    text-align: center;
-    color: #8B9DFF;
-    min-height: 105px;
-    overflow: hidden;
-}}
-
-.variable-box {{
-    background: rgba(139, 157, 255, 0.08);
-    border: 2px solid rgba(139, 157, 255, 0.40);
-    border-radius: 22px;
-    padding: 24px 12px;
-    text-align: center;
-    color: #8B9DFF;
-    min-height: 150px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}}
-
-.zero-box {{
-    background: rgba(255, 92, 122, 0.06);
-    border: 2px solid #E5332A;
-    border-radius: 22px;
-    padding: 18px 12px;
-    text-align: center;
-    color: #E5332A;
-    min-height: 105px;
-    overflow: hidden;
-}}
-
-.kpi-label {{
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-}}
-
-.kpi-value {{
-    font-size: 19px;
-    font-weight: 800;
-    margin-top: 10px;
-    white-space: nowrap;
-}}
-
-.variable-value {{
-    font-size: 36px;
-    font-weight: 800;
-    margin-top: 10px;
-    white-space: nowrap;
-}}
-
-.achievement {{
-    margin-top: 16px;
-    background: rgba(191, 255, 0, 0.10);
-    border-radius: 18px;
-    padding: 10px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: 800;
-    color: #8B9DFF;
-}}
-
-.bucket-card {{
-    border-radius: 24px;
-    padding: 22px;
-    min-height: 178px;
-    text-align: center;
-    margin-bottom: 18px;
-}}
-
-.bucket-title {{
-    font-size: 18px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    margin-bottom: 14px;
-    min-height: 48px;
-}}
-
-.salary-card {{
-    border-radius: 24px;
-    padding: 22px;
-    min-height: 140px;
-    text-align: center;
-    margin-bottom: 18px;
-}}
-
-.salary-label {{
-    font-size: 16px;
-    font-weight: 800;
-    color: #6B7280;
-}}
-
-.salary-value {{
-    font-size: 21px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    margin-top: 10px;
-    line-height: 1.15;
-    white-space: normal;
-}}
-
-.net-card {{
-    background: rgba(191, 255, 0, 0.10) !important;
-    border: 2px solid #BFFF00 !important;
-    box-shadow: 0 14px 34px rgba(0, 120, 0, 0.10) !important;
-}}
-
-.net-card .salary-label,
-.net-card .salary-value {{
-    color: #5A7A00 !important;
-}}
-
-.legend-box {{
-    background: rgba(139, 157, 255, 0.08);
-    border: 1px solid rgba(139, 157, 255, 0.40);
-    color: #8B9DFF;
-    padding: 18px 22px;
-    border-radius: 18px;
-    font-size: 18px;
-    font-weight: 700;
-    margin-top: 20px;
-}}
-
-.agenda-card {{
-    border-radius: 24px;
-    padding: 20px;
-    margin-bottom: 14px;
-}}
-
-.agenda-date {{
-    width: 76px;
-    height: 76px;
-    border: 1px solid rgba(139, 157, 255, 0.30);
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-    color: #8B9DFF;
-    font-weight: 800;
-}}
-
-/* ===== PRIORITY PILLS ===== */
-.priority-pill {{
-    padding: 7px 14px;
-    border-radius: 999px;
-    font-weight: 800;
-    display: inline-block;
-}}
-
-.high {{ color: #FF8A3D; border: 1px solid #FF8A3D; }}
-.mid {{ color: #8B9DFF; border: 1px solid #8B9DFF; }}
-.low {{ color: #8B9DFF; border: 1px solid rgba(139, 157, 255, 0.50); background: rgba(139, 157, 255, 0.08); }}
-.done {{ color: #94A3B8; border: 1px solid #94A3B8; }}
-
-/* ===== UPDATE CARD ===== */
-.update-card {{
-    border-radius: 24px;
-    padding: 24px;
-    margin-bottom: 20px;
-}}
-
-.update-title {{
-    color: #6B7280;
-    font-size: 22px;
-    font-weight: 800;
-    margin-bottom: 16px;
-}}
-
-.small-muted {{
-    color: #6B7280;
-    font-size: 14px;
-}}
-
-/* ===== INPUTS ===== */
-input, textarea, select {{
-    background: {"#FFFFFF" if LIGHT else "rgba(255,255,255,0.08)"} !important;
-    color: {"#1A1F36" if LIGHT else PALETTE["mint_soft"]} !important;
-    border-radius: 14px !important;
-    border: 1px solid {"rgba(0,0,0,0.10)" if LIGHT else "rgba(255,255,255,0.15)"} !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
-}}
-
-div[data-testid="stTextInput"] label,
-div[data-testid="stSelectbox"] label,
-div[data-testid="stNumberInput"] label,
-div[data-testid="stTextArea"] label {{
-    color: {"#1A1F36" if LIGHT else COLORS["label"]} !important;
-    font-weight: 800 !important;
-}}
-
-div[data-testid="column"] {{
-    padding: 0 8px !important;
-}}
-
-/* ===== MANAGEMENT DASHBOARD GRID ===== */
-.mgmt-title {{
-    font-size: 30px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    margin: 48px 0 16px;
-}}
-
-.mgmt-row {{ display: grid; gap: 20px; margin-bottom: 32px; align-items: stretch; }}
-.mgmt-row.three {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
-.mgmt-row.two {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-.mgmt-row.line4 {{ grid-template-columns: 1fr 1fr 2.35fr; }}
-
-.mgmt-section {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 28px;
-    padding: 24px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    min-height: 250px;
-}}
-
-.mgmt-section-title {{
-    font-size: 24px;
-    font-weight: 800;
-    color: {GLASS_TEXT};
-    margin-bottom: 18px;
-}}
-
-.mgmt-subgrid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }}
-.mgmt-subgrid.three {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
-
-.mgmt-card {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 24px;
-    padding: 22px;
-    min-height: 178px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    overflow: hidden;
-    transition: transform .20s, box-shadow .20s;
-}}
-
-.mgmt-card:hover {{
-    transform: translateY(-3px);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
-}}
-
-.mgmt-card.compact {{ min-height: 160px; }}
-
-.mgmt-icon {{
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 26px;
-    font-weight: 800;
-    margin-bottom: 18px;
-}}
-
-.mgmt-label {{
-    font-size: 14px;
-    line-height: 1.2;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: #6B7280;
-    min-height: 34px;
-    margin-bottom: 16px;
-}}
-
-.mgmt-value {{
-    font-size: clamp(21px, 2.0vw, 30px);
-    line-height: 1.08;
-    font-weight: 800;
-    white-space: nowrap;
-    letter-spacing: -0.02em;
-}}
-
-.mgmt-foot {{ margin-top: 18px; font-size: 14px; color: #6B7280; font-weight: 600; }}
-.mgmt-clean-card {{ display: flex; flex-direction: column; justify-content: center; }}
-
-@media (max-width: 1100px) {{
-    .mgmt-row.three, .mgmt-row.two, .mgmt-row.line4,
-    .mgmt-subgrid, .mgmt-subgrid.three {{ grid-template-columns: 1fr; }}
-}}
-
-/* ===== BRAND FINDER HERO CARD ===== */
-.hero-card {{
-    position: relative;
-    overflow: hidden;
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 34px;
-    padding: 28px 34px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    margin-bottom: 22px;
-    transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
-}}
-.hero-card:hover {{
-    box-shadow: 0 0 0 3px #4E63D9, 0 8px 28px rgba(78,99,217,.22);
-    transform: translateY(-2px);
-}}
-
-.hero-grid {{ display:grid; grid-template-columns: 1.25fr 1.05fr 1.25fr; gap:22px; align-items:center; }}
-
-.hero-name {{
-    font-size: clamp(30px, 3.3vw, 52px);
-    font-weight: 900;
-    line-height: 1.02;
-    color: {GLASS_TEXT};
-    letter-spacing: -0.04em;
-}}
-
-.hero-name-row {{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }}
-
-.hero-mundialista-badge {{
-    display:inline-flex; align-items:center; gap:7px; border-radius:999px;
-    padding:7px 11px; font-size:12px; font-weight:1000; line-height:1;
-    text-transform:uppercase; letter-spacing:.02em; color:#FFFFFF;
-    background: linear-gradient(145deg, #FF8A3D, #E06B1A);
-    border:none; box-shadow:0 8px 20px rgba(255,138,61,.28);
-    white-space:nowrap;
-}}
-.hero-mundialista-badge .badge-cup {{ font-size:16px; line-height:1; }}
-
-.hero-id {{ color: #6B7280; font-size: 20px; font-weight: 800; margin-top: 12px; }}
-
-.signal-stack {{ display:flex; flex-direction:column; gap:10px; }}
-.signal-pill {{
-    background: rgba(255, 138, 61, 0.08);
-    border: 1px solid rgba(255, 138, 61, 0.35);
-    color: #1A1F36;
-    border-radius: 999px;
-    padding: 9px 13px;
-    font-size: 13px;
-    font-weight: 900;
-    white-space: nowrap;
-    overflow:hidden;
-    text-overflow: ellipsis;
-}}
-
-.sticker-grid {{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }}
-.sticker {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    color: {GLASS_TEXT};
-    border-radius: 18px;
-    padding: 12px 14px;
-    min-height: 70px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
-}}
-.sticker:hover {{
-    box-shadow: 0 0 0 2px #4E63D9, 0 6px 18px rgba(78,99,217,.18);
-    transform: translateY(-1px);
-}}
-.sticker-label {{ font-size: 11px; text-transform: uppercase; font-weight: 900; color: {GLASS_MUTED}; }}
-.sticker-value {{ font-size: 18px; font-weight: 900; margin-top: 7px; line-height:1.08; color: {GLASS_TEXT}; }}
-
-/* Hero card bottom row — General Information merged */
-.hero-divider {{ border:none; border-top: 1px solid rgba(0,0,0,0.07); margin: 22px 0 18px; }}
-.hero-info-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:14px 20px; }}
-.hero-info-item {{ display:flex; flex-direction:column; gap:4px; }}
-.hero-info-label {{ font-size:11px; text-transform:uppercase; font-weight:900; color:#6B7280; opacity:.90; }}
-.hero-info-value {{ font-size:15px; font-weight:800; color:{GLASS_TEXT}; line-height:1.25; overflow-wrap:anywhere; }}
-
-.stack-card {{
-    position: relative;
-    overflow: hidden;
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 28px;
-    padding: 24px;
-    min-height: 190px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: box-shadow .22s, transform .22s;
-}}
-.stack-card:hover {{
-    box-shadow: 0 0 0 3px #4E63D9, 0 8px 28px rgba(78,99,217,.22);
-    transform: translateY(-2px);
-}}
-
-.stack-label {{ font-size: 13px; font-weight: 900; text-transform: uppercase; color:#6B7280; }}
-.stack-main {{ font-size: clamp(28px, 3vw, 42px); font-weight: 900; color:#FF8A3D; margin-top: 12px; line-height:1.05; letter-spacing:-0.04em; }}
-.stack-sub {{ font-size: 16px; font-weight: 800; color:#8B9DFF; margin-top: 10px; }}
-.stack-foot {{ font-size: 14px; color:#6B7280; font-weight: 800; margin-top: 12px; }}
-
-/* Brand Finder stack-cards (GMV / AOV) use indigo blue, not tangerine */
-.stack-card:not(.mgmt-stack-card) .stack-main {{ color: #8B9DFF; }}
-
-.wide-info-card {{
-    position: relative;
-    overflow: hidden;
-    background: {GLASS_BG};
-    color: {GLASS_TEXT};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 30px;
-    padding: 26px 30px;
-    margin-top: 20px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: box-shadow .22s cubic-bezier(.22,1,.36,1), transform .22s cubic-bezier(.22,1,.36,1);
-}}
-.wide-info-card:hover {{
-    box-shadow: 0 0 0 3px #4E63D9, 0 8px 28px rgba(78,99,217,.22);
-    transform: translateY(-2px);
-}}
-
-.wide-info-title {{ font-size: 25px; font-weight: 900; margin-bottom: 18px; color: #6B7280; }}
-.wide-info-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; }}
-.info-mini-label {{ font-size: 11px; text-transform: uppercase; font-weight: 900; color:#6B7280; opacity:.90; }}
-.info-mini-value {{ font-size: 16px; font-weight: 900; margin-top: 6px; line-height:1.22; overflow-wrap:anywhere; color:{GLASS_TEXT}; }}
-
-.chip-line {{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }}
-.category-chip {{
-    background: rgba(255,138,61,.08); border:1px solid rgba(255,138,61,.30);
-    color:#1A1F36; border-radius:999px; padding:5px 10px; font-weight:900; font-size:12px;
-    transition: background .18s, color .18s;
-}}
-.category-chip:hover {{ background:#FF8A3D; color:#FFFFFF; }}
-
-.priority-top-grid {{ display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:14px; margin-bottom:16px; }}
-.priority-levers {{ grid-column: 1 / -1; display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }}
-.priority-chip {{
-    background: rgba(139,157,255,.08); border:1px solid rgba(139,157,255,.30);
-    border-radius:999px; padding:7px 11px; font-weight:900; font-size:12px; line-height:1.15;
-    color:#1A1F36; transition: background .18s, color .18s;
-}}
-.priority-chip:hover {{ background:#8B9DFF; color:#FFFFFF; }}
-.priority-chip strong {{ font-weight:900; }}
-.priority-note {{ grid-column:1/-1; font-size:12px; opacity:.76; font-weight:800; margin-top:4px; color:#6B7280; }}
-.multibrand-box {{ grid-column: 1 / -1; background: rgba(139,157,255,.06); border: 1px solid rgba(139,157,255,.22); border-radius: 20px; padding: 14px 16px; }}
-.multibrand-summary {{ font-size: 13px; opacity:.88; font-weight: 800; margin-top: 8px; color:#1A1F36; }}
-
-/* ===== ACTION CARDS (Hover Invertido Semántico) ===== */
-.action-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; }}
-.action-card {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 22px;
-    padding: 18px;
-    min-height: 178px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: none;
-}}
-
-/* Health-based permanent solid background — no hover, no glow */
-.action-card.health-green  {{ background: #6FF24B; border-color: rgba(0,0,0,0.07); }}
-.action-card.health-yellow {{ background: #8B9DFF; border-color: rgba(0,0,0,0.07); }}
-.action-card.health-orange {{ background: #FF8A3D; border-color: rgba(0,0,0,0.07); }}
-.action-card.health-red    {{ background: #E5332A; border-color: rgba(0,0,0,0.07); }}
-.action-card.health-green *, .action-card.health-yellow *,
-.action-card.health-orange *, .action-card.health-red * {{ color: #FFFFFF !important; }}
-
-.action-area {{ font-size: 12px; text-transform:uppercase; opacity:.78; font-weight:900; color:#8B9DFF; }}
-.action-health {{ display:inline-flex; align-items:center; gap:6px; margin-top:8px; border-radius:999px; padding:5px 9px; font-size:11px; font-weight:1000; background:rgba(191,255,0,.12); border:1px solid rgba(191,255,0,.38); color:#5A7A00; }}
-.action-main {{ font-size: 20px; font-weight: 900; margin-top: 10px; line-height:1.05; color:#6B7280; }}
-.action-reason {{ font-size: 13px; opacity:.88; font-weight:800; margin-top: 11px; line-height:1.25; color:#1A1F36; }}
-.action-secondary {{ font-size: 11px; opacity:.74; font-weight:800; margin-top: 9px; line-height:1.25; color:#6B7280; }}
-
-.tactical-flow-card {{ margin-top: 18px; }}
-.tactical-grid {{ display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:14px; }}
-.tactical-card {{
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    border-radius: 22px;
-    padding: 16px 17px;
-    min-height: 156px;
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: none;
-}}
-
-/* Health-based permanent solid background — no hover, no glow */
-.tactical-card.health-green  {{ background: #6FF24B; border-color: rgba(0,0,0,0.07); }}
-.tactical-card.health-orange {{ background: #FF8A3D; border-color: rgba(0,0,0,0.07); }}
-.tactical-card.health-red    {{ background: #E5332A; border-color: rgba(0,0,0,0.07); }}
-.tactical-card.health-green *, .tactical-card.health-orange *,
-.tactical-card.health-red * {{ color: #FFFFFF !important; }}
-
-.tactical-area {{ font-size: 11px; text-transform:uppercase; opacity:.78; font-weight:1000; color:#8B9DFF; }}
-.tactical-main {{ font-size: 17px; font-weight: 1000; margin-top: 8px; line-height:1.05; color:#6B7280; }}
-.tactical-argument {{ font-size: 12px; opacity:.88; font-weight:800; margin-top: 9px; line-height:1.24; color:#1A1F36; }}
-.tactical-cue {{ font-size: 12px; opacity:.94; font-weight:950; margin-top: 10px; line-height:1.25; color:#1A1F36; }}
-
-@media (max-width: 1100px) {{
-    .hero-grid, .wide-info-grid, .action-grid, .priority-top-grid, .tactical-grid {{ grid-template-columns: 1fr; }}
-    .sticker-grid {{ grid-template-columns: 1fr 1fr; }}
-}}
-
-/* ===== SYSTEM LABELS (Light mode: dark text on pearl bg) ===== */
-.block-container > div [data-testid="stMarkdownContainer"] h1,
-.block-container > div [data-testid="stMarkdownContainer"] h2,
-.block-container > div [data-testid="stMarkdownContainer"] h3,
-.block-container > div [data-testid="stMarkdownContainer"] h4,
-.block-container > div [data-testid="stMarkdownContainer"] h5,
-.block-container > div [data-testid="stMarkdownContainer"] h6 {{
-    color: {"#1A1F36" if LIGHT else COLORS["label"]} !important;
-    text-shadow: none;
-}}
-
-.block-container > div [data-testid="stMarkdownContainer"] p,
-.block-container > div [data-testid="stCaptionContainer"],
-.block-container > div [data-testid="stCaptionContainer"] * {{
-    color: {"#6B7280" if LIGHT else "rgba(255,255,255,.88)"} !important;
-}}
-
-[data-testid="stWidgetLabel"],
-[data-testid="stWidgetLabel"] *,
-div[data-testid="stTextInput"] label,
-div[data-testid="stSelectbox"] label,
-div[data-testid="stNumberInput"] label,
-div[data-testid="stTextArea"] label,
-div[data-testid="stDateInput"] label,
-div[data-testid="stTimeInput"] label,
-div[data-testid="stMultiSelect"] label,
-div[data-testid="stRadio"] label,
-div[data-testid="stCheckbox"] label,
-label[data-baseweb="form-control-label"] {{
-    color: {"#1A1F36" if LIGHT else "#FFFFFF"} !important;
-    text-shadow: none;
-}}
-
-/* ===== EXPANDERS ===== */
-div[data-testid="stExpander"] {{
-    background: {GLASS_BG} !important;
-    border: 1px solid {GLASS_BORDER} !important;
-    border-radius: 14px !important;
-    box-shadow: {GLASS_SHADOW} !important;
-    -webkit-backdrop-filter: {GLASS_BLUR} !important;
-    backdrop-filter: {GLASS_BLUR} !important;
-    overflow: hidden !important;
-}}
-div[data-testid="stExpander"] details,
-div[data-testid="stExpander"] summary {{
-    background: transparent !important;
-    color: {GLASS_TEXT} !important;
-}}
-div[data-testid="stExpander"] *,
-div[data-testid="stExpander"] summary *,
-div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] *,
-div[data-testid="stExpander"] p,
-div[data-testid="stExpander"] span,
-div[data-testid="stExpander"] label,
-div[data-testid="stExpander"] div,
-div[data-testid="stExpander"] strong {{
-    color: {GLASS_TEXT} !important;
-    -webkit-text-fill-color: {GLASS_TEXT} !important;
-    text-shadow: none !important;
-    opacity: 1 !important;
-}}
-details > summary, details > summary *,
-div[data-testid="stExpander"] summary svg,
-div[data-testid="stExpander"] summary svg * {{
-    color: {GLASS_TEXT} !important;
-    -webkit-text-fill-color: {GLASS_TEXT} !important;
-    fill: {GLASS_TEXT} !important;
-    stroke: {GLASS_TEXT} !important;
-    text-shadow: none !important;
-}}
-div[data-testid="stExpander"] textarea,
-div[data-testid="stExpander"] input {{
-    color: {"#1A1F36" if LIGHT else PALETTE["mint_soft"]} !important;
-    -webkit-text-fill-color: {"#1A1F36" if LIGHT else PALETTE["mint_soft"]} !important;
-    background: {"#FFFFFF" if LIGHT else "rgba(255,255,255,0.08)"} !important;
-}}
-div[data-testid="stExpander"] .stButton > button,
-div[data-testid="stExpander"] .stButton > button *,
-div[data-testid="stExpander"] button[kind="primary"],
-div[data-testid="stExpander"] button[kind="primary"] * {{
-    color: #FFFFFF !important;
-    -webkit-text-fill-color: #FFFFFF !important;
-}}
-
-/* ===== DATAFRAMES / TABLES ===== */
-div[data-testid="stDataFrame"],
-div[data-testid="stTable"] {{
-    border-radius: 14px !important;
-    overflow: hidden !important;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.05) !important;
-}}
-
-/* ===== BUTTONS ===== */
-.stButton > button {{
-    background: linear-gradient(135deg, #FF8A3D, #E06B1A) !important;
-    color: #FFFFFF !important;
-    border: none !important;
-    border-radius: 15px !important;
-    font-weight: 900 !important;
-    box-shadow: 0 8px 22px rgba(255, 138, 61, 0.28) !important;
-    transition: transform .18s, box-shadow .18s !important;
-}}
-.stButton > button:hover {{
-    transform: translateY(-2px) !important;
-    box-shadow: 0 14px 30px rgba(255, 138, 61, 0.36) !important;
-}}
-.orange-accent, .commercial-accent {{ color: #FF8A3D !important; }}
-
-/* ===== CARDS KEEP READABLE TEXT ===== */
-.hero-card *, .stack-card *, .wide-info-card *, .comments-card *, .panel *,
-.metric-card *, .mgmt-section *, .mgmt-card *, .kpi-card *, .salary-card *,
-.bucket-card *, .update-card *, .agenda-card *, div[data-testid="stExpander"] *,
-div[data-testid="stDataFrame"] *, div[data-testid="stTable"] * {{
-    text-shadow: none !important;
-}}
-
-/* ===== WORLD CUP PILL ===== */
-.header-right {{ display:flex; align-items:flex-end; flex-direction:column; gap:8px; }}
-.worldcup-pill {{
-    display:inline-flex; align-items:center; justify-content:center;
-    border-radius:999px; padding:8px 13px; font-size:13px; font-weight:1000;
-    letter-spacing:.02em; color:#1A1F36;
-    background: linear-gradient(135deg, #BFFF00 0%, #8B9DFF 100%);
-    border:none; box-shadow:0 8px 22px rgba(139,157,255,.22);
-}}
-
-/* ===== LEVER / ACTION CARDS (semantic colors via border/shadow) ===== */
-.lever-card, .business-mini-card, .campaign-mini-card, .priority-overview-card {{
-    position: relative;
-    overflow: hidden;
-    border-radius: 24px;
-    padding: 18px;
-    min-height: 116px;
-    background: {GLASS_BG};
-    border: 1px solid {GLASS_BORDER};
-    box-shadow: {GLASS_SHADOW};
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    transition: background .22s, box-shadow .22s, transform .22s;
-}}
-
-.card-grid, .business-card-grid, .campaign-card-grid, .priority-overview-grid {{
-    display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px; margin-top: 14px;
-}}
-.priority-overview-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
-.card-label {{ font-size:11px; text-transform:uppercase; font-weight:1000; letter-spacing:.04em; color:#6B7280; }}
-.card-value {{ font-size:22px; font-weight:1000; color:{GLASS_TEXT}; margin-top:8px; line-height:1.12; overflow-wrap:anywhere; }}
-.card-copy {{ font-size:13px; color:#6B7280; margin-top:8px; line-height:1.35; }}
-.card-chipline {{ margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }}
-.card-chip {{ border-radius:999px; padding:5px 9px; font-size:11px; font-weight:900; background:rgba(191,255,0,.14); color:#1A1F36; border:1px solid rgba(191,255,0,.36); }}
-
-/* ── Lever semantic: fondo blanco fijo en Business Info y Campaign Designer ── */
-
-/* MENU */
-.lever-menu, .menu-card {{
-    background: {GLASS_BG} !important;
-    border-color: {GLASS_BORDER} !important;
-    box-shadow: none !important;
-    transition: none !important;
-}}
-
-/* MD (Markdown) */
-.lever-md, .md-card {{
-    background: {GLASS_BG} !important;
-    border-color: {GLASS_BORDER} !important;
-    box-shadow: none !important;
-    transition: none !important;
-}}
-.lever-md *, .md-card * {{
-    color: {GLASS_TEXT} !important;
-}}
-
-/* PRO (Markdown PRO) */
-.lever-pro, .pro-card {{
-    background: {GLASS_BG} !important;
-    border-color: {GLASS_BORDER} !important;
-    box-shadow: none !important;
-    transition: none !important;
-}}
-.lever-pro *, .pro-card * {{
-    color: {GLASS_TEXT} !important;
-}}
-
-/* ADS */
-.lever-ads, .ads-card {{
-    background: {GLASS_BG} !important;
-    border-color: {GLASS_BORDER} !important;
-    box-shadow: none !important;
-    transition: none !important;
-}}
-
-/* OPS */
-.lever-ops, .ops-card {{
-    background: {GLASS_BG} !important;
-    border-color: {GLASS_BORDER} !important;
-    box-shadow: none !important;
-    transition: none !important;
-}}
-
-/* ── Fondos sólidos escopados al 360 Action (tactical-flow-card) — sin hover, color fijo ── */
-.tactical-flow-card .action-card.lever-menu,
-.tactical-flow-card .tactical-card.lever-menu,
-.tactical-flow-card .action-card.lever-menu:hover,
-.tactical-flow-card .tactical-card.lever-menu:hover {{
-    background: #6FF24B !important;
-    border-color: rgba(0,0,0,0.07) !important;
-    box-shadow: none !important;
-    transform: none !important;
-    transition: none !important;
-}}
-.tactical-flow-card .action-card.lever-md,
-.tactical-flow-card .tactical-card.lever-md,
-.tactical-flow-card .action-card.lever-md:hover,
-.tactical-flow-card .tactical-card.lever-md:hover {{
-    background: #4E63D9 !important;
-    border-color: rgba(0,0,0,0.07) !important;
-    box-shadow: none !important;
-    transform: none !important;
-    transition: none !important;
-}}
-.tactical-flow-card .action-card.lever-pro,
-.tactical-flow-card .tactical-card.lever-pro,
-.tactical-flow-card .action-card.lever-pro:hover,
-.tactical-flow-card .tactical-card.lever-pro:hover {{
-    background: #4E63D9 !important;
-    border-color: rgba(0,0,0,0.07) !important;
-    box-shadow: none !important;
-    transform: none !important;
-    transition: none !important;
-}}
-.tactical-flow-card .action-card.lever-ads,
-.tactical-flow-card .tactical-card.lever-ads,
-.tactical-flow-card .action-card.lever-ads:hover,
-.tactical-flow-card .tactical-card.lever-ads:hover {{
-    background: #FF8A3D !important;
-    border-color: rgba(0,0,0,0.07) !important;
-    box-shadow: none !important;
-    transform: none !important;
-    transition: none !important;
-}}
-.tactical-flow-card .action-card.lever-ops,
-.tactical-flow-card .tactical-card.lever-ops,
-.tactical-flow-card .action-card.lever-ops:hover,
-.tactical-flow-card .tactical-card.lever-ops:hover {{
-    background: #55C8FF !important;
-    border-color: rgba(0,0,0,0.07) !important;
-    box-shadow: none !important;
-    transform: none !important;
-    transition: none !important;
-}}
-
-/* Health dots */
-.health-dot {{ display:inline-block; width:9px; height:9px; border-radius:999px; margin-right:6px; vertical-align:middle; background:#BFFF00; }}
-.health-dot.yellow {{ background:#8B9DFF; }}
-.health-dot.orange {{ background:#FF8A3D; }}
-.health-dot.red {{ background:#E5332A; }}
-
-/* Management Dashboard: mgmt-stack-card */
-.mgmt-stack-card {{ background: {GLASS_BG} !important; border: 1px solid {GLASS_BORDER} !important; -webkit-backdrop-filter: {GLASS_BLUR}; backdrop-filter: {GLASS_BLUR}; box-shadow: {GLASS_SHADOW}; margin-bottom: 20px !important; }}
-.mgmt-stack-card:hover {{ box-shadow: 0 0 0 3px #4E63D9, 0 8px 28px rgba(78,99,217,.22) !important; transform: translateY(-2px); }}
-.mgmt-stack-card .stack-main {{ color: #8B9DFF !important; }}
-.mgmt-stack-card .mgmt-ars {{ color: #BFFF00 !important; }}
-.mgmt-stack-card .mgmt-conv, .mgmt-stack-card .stack-sub {{ color: #8B9DFF !important; }}
-.mgmt-stack-card .stack-label, .mgmt-stack-card .stack-foot {{ color: #6B7280 !important; }}
-
-/* Section title card */
-.mgmt-section-title-card {{
-    background: {GLASS_BG} !important;
-    border: 1px solid {GLASS_BORDER} !important;
-    border-radius: 26px;
-    padding: 22px 26px;
-    margin: 18px 0 14px;
-    box-shadow: {GLASS_SHADOW} !important;
-    -webkit-backdrop-filter: {GLASS_BLUR};
-    backdrop-filter: {GLASS_BLUR};
-    border-top: 4px solid #FF8A3D !important;
-}}
-.mgmt-section-title-copy {{ font-size: 28px; font-weight: 900; color: {GLASS_TEXT}; letter-spacing: -0.02em; }}
-
-/* Wide-info section title */
-.section-title, .update-title, .comments-card h1, .comments-card h2, .comments-card h3 {{
-    color: #6B7280 !important;
-}}
-
-/* Signal pills */
-.signal-pill::before, .priority-chip::before, .brand-badge::before {{
-    content:"";
-    display:inline-block;
-    width:7px;
-    height:7px;
-    border-radius:999px;
-    margin-right:7px;
-    background: linear-gradient(135deg, #BFFF00, #8B9DFF);
-}}
-
-/* Special hero/mundialista */
-.mundialista-sticker {{
-    position: absolute; bottom: 20px; right: 28px;
-    width: 122px; height: 122px; border-radius: 50%;
-    display: flex; flex-direction: column; justify-content: center;
-    align-items: center; text-align: center; transform: rotate(-14deg);
-    background: linear-gradient(145deg, #FF8A3D, #E06B1A);
-    color: #FFFFFF; border: 3px solid rgba(255,255,255,.78);
-    box-shadow: 0 16px 34px rgba(0,0,0,.18); font-weight: 1000;
-    letter-spacing: .02em; z-index: 3;
-}}
-.mundialista-sticker .sticker-trophy {{ font-size: 34px; line-height: 1; margin-bottom: 5px; }}
-.mundialista-sticker .sticker-text {{ font-size: 15px; line-height: 1.02; text-transform: uppercase; }}
-
-@media (max-width: 900px) {{
-    .mundialista-sticker {{ position: static; margin: 0 0 16px auto; width: 105px; height: 105px; }}
-}}
-@media (max-width: 1100px) {{
-    .card-grid, .business-card-grid, .campaign-card-grid, .priority-overview-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-}}
-@media (max-width: 760px) {{
-    .card-grid, .business-card-grid, .campaign-card-grid, .priority-overview-grid {{ grid-template-columns: 1fr; }}
-}}
-
-/* Native inputs keep dark text */
-input, textarea, [data-baseweb="select"] *, [data-baseweb="input"] * {{
-    color: #1A1F36 !important;
-}}
-
-/* Preserve Net Total card — override glass with green tint */
-.net-card {{
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-    background: rgba(191,255,0,.10) !important;
-    border: 2px solid #BFFF00 !important;
-    box-shadow: 0 14px 34px rgba(0,120,0,.10) !important;
-}}
-.net-card::before, .net-card::after {{ display:none !important; content:none !important; }}
 
 </style>
 """, unsafe_allow_html=True)
@@ -4972,12 +3790,49 @@ def option_index(options, current):
 # SIDEBAR
 # =========================
 
-st.sidebar.markdown(f"# {flag_html} Growth OS", unsafe_allow_html=True)
-st.sidebar.markdown("**Commercial Excellence**")
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Sabas Ramírez**  \nFarmer Sr.")
+# Sidebar minimized — navigation is top navbar (sidebar hidden via CSS)
 st.sidebar.caption(f"Excel: {EXCEL_FILE}")
-st.sidebar.caption("Build: Template Queue V4 · Multibrand Detector")
+
+# ── Top Navbar renderer ──────────────────────────────────────────────────────
+# Renders the sticky top navigation bar with logo + page tabs.
+# Active tab gets Burning Orange pill; inactive tabs are Cinnamon Ice.
+
+_NAV_LABELS = {
+    "Management Dashboard": "📊 Dashboard",
+    "Opportunity List":     "🎯 Opportunities",
+    "Follow-Up List":       "📋 Follow-Up",
+    "Brand Finder":         "🔍 Brand Finder",
+    "Day Queue":            "⚡ Day Queue",
+    "Acquisition Tracker":  "📈 Acquisition",
+    "Campaign Weekly Tracker": "📅 Campaigns",
+    "Weekly Calendar":      "🗓 Calendar",
+    "Brand Update":         "✏️ Update",
+    "Earnings Calculator":  "💰 Earnings",
+    "Productivity HeatMap": "🔥 HeatMap",
+    "Call Quality Trainer": "📞 Call Quality",
+    "Role Play Trainer":    "🎭 Role Play",
+}
+
+def render_top_navbar(current_page):
+    tabs_html = ""
+    for p in PAGES:
+        label = _NAV_LABELS.get(p, p)
+        active_class = "active" if p == current_page else ""
+        # Each tab uses st.query_params approach — but since Streamlit doesn't support
+        # in-HTML link nav, we render visual-only navbar; actual nav is the hidden sidebar radio.
+        tabs_html += f'<span class="nav-tab {active_class}">{label}</span>\n'
+
+    st.markdown(f"""
+    <div class="top-navbar">
+        <div class="nav-logo">{flag_html} Growth OS</div>
+        {tabs_html}
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0;padding-left:16px;">
+            <span style="font-size:12px;font-weight:700;color:{CINNAMON_ICE};">Sabas Ramírez · {APP_PERIOD}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+render_top_navbar(page)
 
 
 
@@ -5239,7 +4094,7 @@ def page_management_dashboard():
     # ── ROW 1: GMV + AOV ──────────────────────────────────────────────────────
     gmv_pct   = max(0, min(1, safe_ratio(vals["gmv_ars"], baseline_vals.get("gmv_ars", 1)) or 0))
     gmv_bar   = round(gmv_pct * 100)
-    gmv_color = "#BFFF00" if gmv_pct >= 1 else ("#FF8A3D" if gmv_pct >= 0.7 else "#E5332A")
+    gmv_color = "#BFFF00" if gmv_pct >= 1 else ("#FF7124" if gmv_pct >= 0.7 else "#E5332A")
 
     aov_change = safe_ratio(vals["aov_ars"] - baseline_vals.get("aov_ars", 0), baseline_vals.get("aov_ars", 1)) or 0
     aov_sign   = "+" if aov_change >= 0 else ""
@@ -5325,7 +4180,7 @@ def page_management_dashboard():
             f'</svg>'
         )
 
-    ads_donut_color = "#FF8A3D" if ads_pct_bar < 60 else ("#BFFF00" if ads_pct_bar >= 80 else "#FF8A3D")
+    ads_donut_color = "#FF7124" if ads_pct_bar < 60 else ("#BFFF00" if ads_pct_bar >= 80 else "#FF7124")
     md_donut_color  = "#8B9DFF" if md_pct_bar  < 60 else ("#BFFF00" if md_pct_bar  >= 80 else "#8B9DFF")
 
     coverage_html = (
@@ -5335,12 +4190,12 @@ def page_management_dashboard():
         # ADS donut
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
         f'<div style="position:relative;width:110px;height:110px;">'
-        f'{_svg_donut(ads_pct_bar, "#FF8A3D")}'
+        f'{_svg_donut(ads_pct_bar, "#FF7124")}'
         f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-        f'<div style="font-size:20px;font-weight:900;color:#FF8A3D;line-height:1;">{ads_pct_bar}%</div>'
+        f'<div style="font-size:20px;font-weight:900;color:#FF7124;line-height:1;">{ads_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#FF8A3D;">&#128992; ADS</div>'
+        f'<div style="font-size:12px;font-weight:900;color:#FF7124;">&#128992; ADS</div>'
         f'<div style="font-size:11px;color:#6B7280;font-weight:700;">{live_coverage["ads"]} brands</div>'
         f'</div></div>'
         # MD donut
@@ -5392,7 +4247,7 @@ def page_management_dashboard():
         f'<span style="color:#94A3B8;">{cr_pct_bar}%</span>'
         '</div>'
         f'<div style="font-size:11px;color:#6B7280;margin-bottom:2px;">{cr_icons_count} de 10 = {cr_pct_bar}% convierten</div>'
-        + _waffle_icons(cr_icons_count, filled_color="#4E63D9", empty_color="#D1D5DB") +
+        + _waffle_icons(cr_icons_count, filled_color="#3B4883", empty_color="#D1D5DB") +
         '</div>'
         '</div>'
         '<div style="font-size:11px;color:#6B7280;margin-top:12px;">Baseline reference · last month snapshot · 1 muñequito = 10%</div>'
@@ -5409,16 +4264,16 @@ def page_management_dashboard():
     rev_pct      = max(0, safe_ratio(ads_revenue["usd"], ADS_REVENUE_TARGET_USD) or 0)
     rev_done_pct = round(min(rev_pct, 1) * 100)
     rev_over_pct = round((rev_pct - 1) * 100) if rev_pct > 1 else 0
-    donut_color  = "#BFFF00" if rev_pct >= 1 else ("#FF8A3D" if rev_pct >= 0.5 else "#8B9DFF")
+    donut_color  = "#BFFF00" if rev_pct >= 1 else ("#FF7124" if rev_pct >= 0.5 else "#8B9DFF")
 
     book_pct   = max(0, safe_ratio(ads_bookings["ars"], baseline_vals.get("gross_bookings_ars", 1)) or 0)
     book_bar   = round(min(book_pct, 1) * 100)
     book_over  = round((book_pct - 1) * 100) if book_pct > 1 else 0
-    book_color = "#BFFF00" if book_pct >= 1 else ("#FF8A3D" if book_pct >= 0.7 else "#E5332A")
+    book_color = "#BFFF00" if book_pct >= 1 else ("#FF7124" if book_pct >= 0.7 else "#E5332A")
 
     # ── Barra delgada lateral derecha (thin right-side bar) ──────────────────
     def _thin_bar_right_svg(current_val, goal_val, label_goal,
-                             base_color="#4E63D9", over_color="#6FF24B", under_color="#E5332A",
+                             base_color="#3B4883", over_color="#BFFF00", under_color="#E5332A",
                              width=52, height=110):
         """
         Barra vertical delgada, alineada a la derecha del sticker.
@@ -5494,10 +4349,10 @@ def page_management_dashboard():
     legend_html = (
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">'
         '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
-        '<span style="display:inline-block;width:10px;height:10px;background:#4E63D9;border-radius:2px;"></span>'
+        '<span style="display:inline-block;width:10px;height:10px;background:#3B4883;border-radius:2px;"></span>'
         'Ejecución</span>'
         '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
-        '<span style="display:inline-block;width:10px;height:10px;background:#6FF24B;border-radius:2px;"></span>'
+        '<span style="display:inline-block;width:10px;height:10px;background:#BFFF00;border-radius:2px;"></span>'
         'Sobre meta</span>'
         '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
         '<span style="display:inline-block;width:10px;height:10px;background:#E5332A;border-radius:2px;"></span>'
@@ -5535,7 +4390,7 @@ def page_management_dashboard():
     with c1:
         _over_book  = _book_num - _b_goal_usd
         _pct_book   = round(min(_book_num / max(_b_goal_usd, 1), 9.99) * 100)
-        _sc_book    = "#6FF24B" if _book_num >= _b_goal_usd else "#E5332A"
+        _sc_book    = "#BFFF00" if _book_num >= _b_goal_usd else "#E5332A"
         _sl_book    = f"▲ +{fmt_usd(_over_book)} sobre meta" if _book_num >= _b_goal_usd else f"▼ Faltan {fmt_usd(abs(_over_book))}"
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:22px 24px;position:relative;overflow:hidden;">
@@ -5556,7 +4411,7 @@ def page_management_dashboard():
     with c2:
         _over_rev  = _rev_num - ADS_REVENUE_TARGET_USD
         _pct_rev   = round(min(_rev_num / max(ADS_REVENUE_TARGET_USD, 1), 9.99) * 100)
-        _sc_rev    = "#6FF24B" if _rev_num >= ADS_REVENUE_TARGET_USD else "#E5332A"
+        _sc_rev    = "#BFFF00" if _rev_num >= ADS_REVENUE_TARGET_USD else "#E5332A"
         _sl_rev    = f"▲ +{fmt_usd(_over_rev)} sobre meta" if _rev_num >= ADS_REVENUE_TARGET_USD else f"▼ Remaining: {_r_rem}"
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:22px 24px;position:relative;overflow:hidden;">
@@ -5603,7 +4458,7 @@ def page_management_dashboard():
         fill_ratio = min(max(roi_val / max_val, 0), 1)
         fill_w     = fill_ratio * bar_w
 
-        nc = "#BFFF00" if roi_val >= bmark else ("#FF8A3D" if roi_val >= bmark * 0.6 else "#E5332A")
+        nc = "#BFFF00" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#E5332A")
 
         # Benchmark tick position
         bm_x = seg_x(bmark / max_val)
@@ -5656,7 +4511,7 @@ def page_management_dashboard():
   <div class="stack-label">MD PRO SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_mdp_usd}</div>
   <div class="stack-sub mgmt-conv">{_mdp_ars} &middot; {_mdp_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#6FF24B;">&#127981; {_mdp_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#BFFF00;">&#127981; {_mdp_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {mdpro_gauge}
   </div>
@@ -5696,17 +4551,17 @@ def page_management_dashboard():
         f'<div class="stack-label">CONTACT PERFORMANCE · since {_cs_since}</div>'
         f'{"<div style=\"font-size:10px;color:#aaa;margin-top:2px;\">fuente: " + _src_badge + "</div>" if _src_badge else ""}'
         f'</div>'
-        f'<div style="font-size:32px;font-weight:900;color:#FF8A3D;">{_cs_total_fmt} <span style="font-size:14px;color:#6B7280;font-weight:700;">contactos efectivos</span></div>'
+        f'<div style="font-size:32px;font-weight:900;color:#FF7124;">{_cs_total_fmt} <span style="font-size:14px;color:#6B7280;font-weight:700;">contactos efectivos</span></div>'
         '</div>'
         # ── Stacked horizontal bar ──────────────────────────────────────────
         '<div style="display:flex;height:28px;border-radius:999px;overflow:hidden;width:100%;margin-bottom:14px;">'
-        f'<div style="width:{calls_pct}%;background:#FF8A3D;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Zoho Voice {calls_pct}%">'
+        f'<div style="width:{calls_pct}%;background:#FF7124;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Zoho Voice {calls_pct}%">'
         f'{"📞 " + str(calls_pct) + "%" if calls_pct >= 7 else ""}'
         '</div>'
         f'<div style="width:{chats_pct}%;background:#8B9DFF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 Treble {chats_pct}%">'
         f'{"💬 " + str(chats_pct) + "%" if chats_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#2a5000;white-space:nowrap;overflow:hidden;" title="🖥️ Videocall {meets_pct}%">'
+        f'<div style="width:{meets_pct}%;background:#BFFF00;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#2a5000;white-space:nowrap;overflow:hidden;" title="🖥️ Videocall {meets_pct}%">'
         f'{"🖥️ " + str(meets_pct) + "%" if meets_pct >= 7 else ""}'
         '</div>'
         f'<div style="width:{ghost_pct}%;background:#E5332A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Answer {ghost_pct}%">'
@@ -5716,8 +4571,8 @@ def page_management_dashboard():
         # ── Legend row ──────────────────────────────────────────────────────
         '<div style="display:flex;gap:20px;flex-wrap:wrap;">'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#FF8A3D;flex-shrink:0;"></div>'
-        f'<span style="color:#FF8A3D;">📞 Zoho Voice</span>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#FF7124;flex-shrink:0;"></div>'
+        f'<span style="color:#FF7124;">📞 Zoho Voice</span>'
         f'<span style="color:#6B7280;font-weight:600;">{_cs_calls} &middot; {calls_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
@@ -5726,7 +4581,7 @@ def page_management_dashboard():
         f'<span style="color:#6B7280;font-weight:600;">{_cs_chats} &middot; {chats_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#6FF24B;flex-shrink:0;"></div>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#BFFF00;flex-shrink:0;"></div>'
         f'<span style="color:#5A7A00;">🖥️ Videocall</span>'
         f'<span style="color:#6B7280;font-weight:600;">{_cs_meets} &middot; {meets_pct}%</span>'
         '</div>'
@@ -5764,7 +4619,7 @@ def page_management_dashboard():
     _ref_gmv_usd     = baseline_vals.get("gmv_usd", 0)
     _proj_vs_ref     = ((_projected_gmv / _ref_gmv_usd) - 1) if _ref_gmv_usd > 0 else 0
     _proj_sign       = "+" if _proj_vs_ref >= 0 else ""
-    _proj_color      = "#6FF24B" if _proj_vs_ref >= 0 else "#E5332A"
+    _proj_color      = "#BFFF00" if _proj_vs_ref >= 0 else "#E5332A"
     _proj_arrow      = "&#9650;" if _proj_vs_ref >= 0 else "&#9660;"
 
     # ADS Revenue projection
@@ -5785,10 +4640,10 @@ def page_management_dashboard():
     # ADS status
     if _ads_proj_pct >= 100:
         _ads_status_label = "✅ En camino a cumplir target ADS"
-        _ads_status_color = "#6FF24B"
+        _ads_status_color = "#BFFF00"
     elif _ads_proj_pct >= 75:
         _ads_status_label = "⚡ Necesita acelerar ADS"
-        _ads_status_color = "#FF8A3D"
+        _ads_status_color = "#FF7124"
     else:
         _ads_status_label = "🚨 Gap crítico ADS"
         _ads_status_color = "#E5332A"
@@ -5802,7 +4657,7 @@ def page_management_dashboard():
         st.markdown(f"""
         <div style="background:rgba(78,99,217,.06);border:1.5px solid rgba(78,99,217,.25);border-radius:16px;padding:16px 18px;height:100%;">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Proyección GMV al ritmo actual</div>
-          <div style="font-size:24px;font-weight:900;color:#4E63D9;line-height:1;">{fmt_usd(_projected_gmv)}</div>
+          <div style="font-size:24px;font-weight:900;color:#3B4883;line-height:1;">{fmt_usd(_projected_gmv)}</div>
           <div style="font-size:12px;color:#6B7280;margin-top:6px;">{fmt_ars(_projected_gmv * ARS_PER_USD)} estimado</div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
             <span style="font-size:22px;color:{_proj_color};font-weight:900;">{_proj_arrow}</span>
@@ -5815,7 +4670,7 @@ def page_management_dashboard():
         st.markdown(f"""
         <div style="background:rgba(255,138,61,.06);border:1.5px solid rgba(255,138,61,.25);border-radius:16px;padding:16px 18px;height:100%;">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Proyección ADS Revenue</div>
-          <div style="font-size:24px;font-weight:900;color:#FF8A3D;line-height:1;">{fmt_usd(_projected_ads)}</div>
+          <div style="font-size:24px;font-weight:900;color:#FF7124;line-height:1;">{fmt_usd(_projected_ads)}</div>
           <div style="font-size:12px;color:#6B7280;margin-top:6px;">Target: {fmt_usd(ADS_REVENUE_TARGET_USD)} &middot; {_ads_proj_pct:.0f}% cubierto</div>
           <div style="margin-top:10px;font-size:13px;font-weight:800;color:{_ads_status_color};">{_ads_status_label}</div>
           <div style="margin-top:6px;font-size:12px;color:#6B7280;">Necesitás generar {fmt_usd(_ads_needed_daily)}/día los próximos {_remain_days}d para llegar</div>
@@ -5826,7 +4681,7 @@ def page_management_dashboard():
         <div style="background:rgba(111,242,75,.06);border:1.5px solid rgba(111,242,75,.30);border-radius:16px;padding:16px 18px;height:100%;">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Ritmo diario actual</div>
           <div style="font-size:24px;font-weight:900;color:#3A8A1A;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#6B7280;font-weight:700;">/día GMV</span></div>
-          <div style="font-size:14px;font-weight:900;color:#FF8A3D;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#6B7280;font-weight:700;">/día ADS Rev.</span></div>
+          <div style="font-size:14px;font-weight:900;color:#FF7124;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#6B7280;font-weight:700;">/día ADS Rev.</span></div>
           <div style="margin-top:10px;font-size:12px;color:#6B7280;">Corte semanal: dom. {_last_sunday.strftime("%d/%m")} · {_elapsed_days} días acumulados</div>
           <div style="font-size:12px;color:#6B7280;margin-top:4px;">Datos actualizados desde Current sheets.</div>
         </div>
@@ -6423,7 +5278,7 @@ def _render_light_table(df, height=420):
     _render_html_table(df)
 
 
-def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF8A3D"):
+def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#BFFF00", color_pipeline="#FF7124"):
     """
     Renders a horizontal progress bar showing:
       - Active revenue already running (green)
@@ -6441,10 +5296,10 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     overall_pct  = min(total_filled / target_usd * 100, 100)
 
     if overall_pct >= 100:
-        status_color = "#6FF24B"
+        status_color = "#BFFF00"
         status_label = "✅ On track to close"
     elif overall_pct >= 70:
-        status_color = "#FF8A3D"
+        status_color = "#FF7124"
         status_label = "⚡ Needs focus"
     else:
         status_color = "#E5332A"
@@ -6949,7 +5804,7 @@ def page_opportunity_list():
             pipeline_usd=min(md_pipeline_usd, md_gap_usd),
             target_usd=md_gmv_target_usd,
             color_active="#8B9DFF",
-            color_pipeline="#FF8A3D",
+            color_pipeline="#FF7124",
         )
         st.markdown(
             f"<div style='font-size:12px; color:{COLORS['muted']}; margin-bottom:10px;'>"
@@ -7343,13 +6198,13 @@ def page_follow_up_list():
     health_score = round(100 * n_dentro_ciclo / total_portfolio) if total_portfolio > 0 else 0
 
     if health_score >= 70:
-        score_color = "#6FF24B"
+        score_color = "#BFFF00"
         score_label = "SANA"
     elif health_score >= 45:
         score_color = "#FFD600"
         score_label = "MODERADA"
     elif health_score >= 25:
-        score_color = "#FF8A3D"
+        score_color = "#FF7124"
         score_label = "EN ALERTA"
     else:
         score_color = "#FF3D3D"
@@ -7370,11 +6225,11 @@ def page_follow_up_list():
         except (ValueError, TypeError):
             return "—"
         if d <= 10:
-            color = "#6FF24B"
+            color = "#BFFF00"
         elif d <= 15:
             color = "#C8FF00"
         elif d <= 21:
-            color = "#FF8A3D"
+            color = "#FF7124"
         else:
             color = "#FF3D3D"
         return (
@@ -7467,7 +6322,7 @@ def page_follow_up_list():
     st.markdown(f"""
     <style>
     .hm-card {{
-        background: #1D2659;
+        background: #202124;
         border: 1px solid #27316A;
         border-radius: 16px;
         padding: 20px 24px 16px 24px;
@@ -7502,7 +6357,7 @@ def page_follow_up_list():
         width: 58px;
         height: 58px;
         border-radius: 50%;
-        background: #1D2659;
+        background: #202124;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -7580,7 +6435,7 @@ def page_follow_up_list():
         </div>
         <div class="hm-zones">
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#6FF24B;"></div>
+                <div class="hm-zone-accent" style="background:#BFFF00;"></div>
                 <div class="hm-zone-emoji">🟢</div>
                 <div class="hm-zone-name">Activo</div>
                 <div class="hm-zone-count">{n_activo}</div>
@@ -7596,7 +6451,7 @@ def page_follow_up_list():
                 <div class="hm-zone-range">11 – 15 días</div>
             </div>
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#FF8A3D;"></div>
+                <div class="hm-zone-accent" style="background:#FF7124;"></div>
                 <div class="hm-zone-emoji">🟠</div>
                 <div class="hm-zone-name">Alerta</div>
                 <div class="hm-zone-count">{n_alerta}</div>
@@ -7613,31 +6468,31 @@ def page_follow_up_list():
             </div>
         </div>
         <div class="hm-bar-wrap">
-            <div class="hm-bar-seg" style="width:{bw_activo}%; background:#6FF24B;"></div>
+            <div class="hm-bar-seg" style="width:{bw_activo}%; background:#BFFF00;"></div>
             <div class="hm-bar-seg" style="width:{bw_cadencia}%; background:#C8FF00;"></div>
-            <div class="hm-bar-seg" style="width:{bw_alerta}%; background:#FF8A3D;"></div>
+            <div class="hm-bar-seg" style="width:{bw_alerta}%; background:#FF7124;"></div>
             <div class="hm-bar-seg" style="width:{bw_fria}%; background:#FF3D3D;"></div>
         </div>
         <div class="hm-legend">
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#6FF24B;"></div> Activo (0–10d)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#BFFF00;"></div> Activo (0–10d)</div>
             <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#C8FF00;"></div> Cadencia (11–15d)</div>
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF8A3D;"></div> Alerta (16–21d)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF7124;"></div> Alerta (16–21d)</div>
             <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF3D3D;"></div> Fría (&gt;21d · sin contacto)</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     _showing = len(follow_df_filtered)
-    _wk_color = "#6FF24B" if _contacts_this_week >= 15 else ("#FF8A3D" if _contacts_this_week >= 8 else "#E5332A")
+    _wk_color = "#BFFF00" if _contacts_this_week >= 15 else ("#FF7124" if _contacts_this_week >= 8 else "#E5332A")
     st.markdown(f"""
 <div style="display:inline-flex;align-items:center;gap:12px;background:rgba(78,99,217,.07);
     border:1.5px solid rgba(78,99,217,.25);border-radius:12px;padding:10px 18px;margin-bottom:12px;">
     <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;">📞 Contactos esta semana</div>
     <div style="font-size:26px;font-weight:900;color:{_wk_color};line-height:1;">{_contacts_this_week}</div>
     <div style="font-size:11px;color:#6B7280;">{_week_label} &nbsp;·&nbsp;
-        <span style="color:#6FF24B;">🟢 {n_activo}</span> &nbsp;·&nbsp;
+        <span style="color:#BFFF00;">🟢 {n_activo}</span> &nbsp;·&nbsp;
         <span style="color:#C8FF00;">🟡 {n_cadencia}</span> &nbsp;·&nbsp;
-        <span style="color:#FF8A3D;">🟠 {n_alerta}</span> &nbsp;·&nbsp;
+        <span style="color:#FF7124;">🟠 {n_alerta}</span> &nbsp;·&nbsp;
         <span style="color:#FF3D3D;">🔴 {n_fria_total}</span>
     </div>
 </div>
@@ -8742,7 +7597,7 @@ def page_earnings_calculator():
         if achievement >= 1.0:
             arc_color = "#BFFF00"
         elif achievement >= 0.7:
-            arc_color = "#FF8A3D"
+            arc_color = "#FF7124"
         else:
             arc_color = "#E5332A"
 
@@ -8751,9 +7606,9 @@ def page_earnings_calculator():
 
         # Color accent per KPI
         accent_map = {
-            "Ads":         "#FF8A3D",
+            "Ads":         "#FF7124",
             "MD":          "#8B9DFF",
-            "MD PRO":      "#6FF24B",
+            "MD PRO":      "#BFFF00",
             "Churn":       "#E5332A",
             "Productivity":"#BFFF00",
         }
@@ -8847,18 +7702,18 @@ def page_earnings_calculator():
         _next_bucket_name  = "Bucket 2 (100% del target)"
         _gap_to_next        = _b2_threshold - ads_result
         _comm_at_next       = (_b2_threshold - _b1_threshold) * 0.10
-        _next_color         = "#FF8A3D"
+        _next_color         = "#FF7124"
         _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 20% de comisión. Bucket 1 acumulado: {fmt_usd(bucket1)}."
     elif ads_result < _b3_threshold:
         _next_bucket_name  = "Bucket 3 (120% del target)"
         _gap_to_next        = _b3_threshold - ads_result
         _comm_at_next       = (_b3_threshold - _b2_threshold) * 0.20
-        _next_color         = "#FF8A3D"
+        _next_color         = "#FF7124"
         _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 30% de comisión. Buckets 1+2 acumulados: {fmt_usd(bucket1 + bucket2)}."
     else:
         _next_bucket_name  = "Superaste los 3 buckets 🏆"
         _gap_to_next        = 0
-        _next_color         = "#6FF24B"
+        _next_color         = "#BFFF00"
         _next_note          = f"Estás en el máximo tier. Cada USD adicional genera 0.30 de comisión. Total acumulado: {fmt_usd(total_comm_usd)}."
 
     # Barra de progreso hacia el siguiente bucket
@@ -8959,17 +7814,17 @@ def page_earnings_calculator():
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
         <div>
             <div style="font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;margin-bottom:4px;">Deal</div>
-            <div style="font-size:22px;font-weight:900;color:#4E63D9;">{fmt_usd(sim_deal_usd)}</div>
+            <div style="font-size:22px;font-weight:900;color:#3B4883;">{fmt_usd(sim_deal_usd)}</div>
             <div style="font-size:11px;color:#9CA3AF;">ADS Revenue</div>
         </div>
         <div>
             <div style="font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;margin-bottom:4px;">Comisión extra</div>
-            <div style="font-size:22px;font-weight:900;color:#6FF24B;">+{fmt_usd(sim_delta)}</div>
+            <div style="font-size:22px;font-weight:900;color:#BFFF00;">+{fmt_usd(sim_delta)}</div>
             <div style="font-size:11px;color:#9CA3AF;">≈ {fmt_cop(sim_delta_cop)} COP</div>
         </div>
         <div>
             <div style="font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;margin-bottom:4px;">Bucket</div>
-            <div style="font-size:15px;font-weight:900;color:#FF8A3D;">{sim_bucket_label}</div>
+            <div style="font-size:15px;font-weight:900;color:#FF7124;">{sim_bucket_label}</div>
             <div style="font-size:11px;color:#9CA3AF;">Total comisión: {fmt_usd(sim_total)}</div>
         </div>
     </div>
@@ -10394,7 +9249,7 @@ def render_campaign_designer_html(design):
 
     mundialista_ready = bool(design.get("mundialista_ready"))
     mundialista_status = "Aliado Mundialista ✅" if mundialista_ready else "Aliado Mundialista Candidate"
-    mundialista_status_color = "#00A86B" if mundialista_ready else "#FF8A3D"
+    mundialista_status_color = "#00A86B" if mundialista_ready else "#FF7124"
 
     # ── helpers ──────────────────────────────────────────────────
     def chip(text):
@@ -10415,8 +9270,8 @@ def render_campaign_designer_html(design):
         )
 
     def risk_badge(risk_label):
-        colors = {"Low": ("#00A86B", "#E6F9F2"), "Medium": ("#FF8A3D", "#FFF3EB"), "High": ("#E5332A", "#FEE9E8")}
-        fg, bg = colors.get(risk_label, ("#FF8A3D", "#FFF3EB"))
+        colors = {"Low": ("#00A86B", "#E6F9F2"), "Medium": ("#FF7124", "#FFF3EB"), "High": ("#E5332A", "#FEE9E8")}
+        fg, bg = colors.get(risk_label, ("#FF7124", "#FFF3EB"))
         return (
             f"<span style='background:{bg};color:{fg};border:1px solid {fg};border-radius:999px;"
             f"padding:4px 12px;font-size:12px;font-weight:900'>{html.escape(risk_label)} Risk</span>"
@@ -10490,19 +9345,19 @@ def render_campaign_designer_html(design):
         f"<div class='card-label'>🏅 Top Products Pyramid</div>"
         f"<div style='margin-top:16px;display:flex;flex-direction:column;align-items:center;gap:10px;flex:1'>"
         # Level 1 — Hero
-        f"<div style='background:linear-gradient(135deg,#1D2659,#4E63D9);color:#fff;border-radius:16px;"
+        f"<div style='background:linear-gradient(135deg,#202124,#3B4883);color:#fff;border-radius:16px;"
         f"padding:18px 22px;font-size:16px;font-weight:900;text-align:center;width:62%;"
         f"box-shadow:0 6px 18px rgba(78,99,217,.40);line-height:1.3'>"
         f"🥇 Hero<br><span style='font-size:13px;font-weight:700;opacity:.9'>{p1_name}</span>"
         f"</div>"
         # Level 2 — Backup
-        f"<div style='background:linear-gradient(135deg,#FF8A3D,#FF5F1F);color:#fff;border-radius:16px;"
+        f"<div style='background:linear-gradient(135deg,#FF7124,#E05800);color:#fff;border-radius:16px;"
         f"padding:16px 22px;font-size:15px;font-weight:900;text-align:center;width:81%;"
         f"box-shadow:0 5px 14px rgba(255,138,61,.35);line-height:1.3'>"
         f"🥈 Backup<br><span style='font-size:12px;font-weight:700;opacity:.9'>{p2_name}</span>"
         f"</div>"
         # Level 3 — Tactical
-        f"<div style='background:linear-gradient(135deg,#6FF24B,#3DBF20);color:#1A1F36;border-radius:16px;"
+        f"<div style='background:linear-gradient(135deg,#BFFF00,#3DBF20);color:#1A1F36;border-radius:16px;"
         f"padding:14px 22px;font-size:14px;font-weight:900;text-align:center;width:100%;"
         f"box-shadow:0 4px 12px rgba(111,242,75,.30);line-height:1.3'>"
         f"🥉 Tactical<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p3_name}</span>"
@@ -10515,16 +9370,16 @@ def render_campaign_designer_html(design):
     # ── 3. GUARDRAILS CARD (rediseñado) ──────────────────────────
     pressure_pct = to_number(pressure, 0)
 
-    risk_color_map = {"Low": "#00A86B", "Medium": "#FF8A3D", "High": "#E5332A"}
+    risk_color_map = {"Low": "#00A86B", "Medium": "#FF7124", "High": "#E5332A"}
     risk_bg_map   = {"Low": "#E6F9F2",  "Medium": "#FFF3EB",  "High": "#FEE9E8"}
-    pressure_color = risk_color_map.get(risk, "#FF8A3D")
+    pressure_color = risk_color_map.get(risk, "#FF7124")
 
     # ── Termómetro SVG para Risk Level (Low / Mid / High) ─────────
     thermo_levels = {"Low": 1, "Medium": 2, "High": 3}
     thermo_level  = thermo_levels.get(risk, 2)
     thermo_colors = {
         1: ("#00A86B", "#E6F9F2"),   # Low  → green
-        2: ("#FF8A3D", "#FFF3EB"),   # Mid  → tangerine
+        2: ("#FF7124", "#FFF3EB"),   # Mid  → tangerine
         3: ("#E5332A", "#FEE9E8"),   # High → red
     }
     thermo_fg, thermo_bg_light = thermo_colors[thermo_level]
@@ -10545,7 +9400,7 @@ def render_campaign_designer_html(design):
         # etiquetas L / M / H al lado
         f"<div style='display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:-60px;margin-left:28px'>"
         + "".join([
-            f"<span style='font-size:9px;font-weight:900;color:{'#E5332A' if i==3 else '#FF8A3D' if i==2 else '#00A86B'};opacity:{'1' if thermo_level==i else '0.3'}'>"
+            f"<span style='font-size:9px;font-weight:900;color:{'#E5332A' if i==3 else '#FF7124' if i==2 else '#00A86B'};opacity:{'1' if thermo_level==i else '0.3'}'>"
             f"{'H' if i==3 else 'M' if i==2 else 'L'}</span>"
             for i in [3, 2, 1]
         ]) +
@@ -10557,7 +9412,7 @@ def render_campaign_designer_html(design):
     pressure_dots_count = min(max(round(pressure_pct * 10), 0), 10)
     pressure_dots_html = "".join([
         f"<span style='display:inline-block;width:14px;height:14px;border-radius:50%;"
-        f"background:{'#E5332A' if idx >= 6 else '#FF8A3D' if idx >= 4 else '#00A86B'};"
+        f"background:{'#E5332A' if idx >= 6 else '#FF7124' if idx >= 4 else '#00A86B'};"
         f"opacity:{'1' if idx < pressure_dots_count else '0.18'};margin:2px'></span>"
         for idx in range(10)
     ])
@@ -10575,7 +9430,7 @@ def render_campaign_designer_html(design):
     # ── Gráfico de proyección (barras históricas + proyección) para Impact ──
     impact_mid_val = (impact_low + impact_high) / 2
     impact_norm_val = min(max(impact_mid_val / 25.0, 0), 1)
-    impact_color_val = "#00A86B" if impact_norm_val >= 0.5 else "#FF8A3D" if impact_norm_val >= 0.25 else "#8B9DFF"
+    impact_color_val = "#00A86B" if impact_norm_val >= 0.5 else "#FF7124" if impact_norm_val >= 0.25 else "#8B9DFF"
 
     # Barras: 4 históricas (valores simulados crecientes) + 1 proyección destacada
     # Las barras históricas representan semanas/períodos previos normalizados al GMV actual
@@ -11519,15 +10374,15 @@ def _roi_chip(roi_value, benchmark=3.2):
         # Red arc
         f'<path d="{arc_path(0, red_end)}" fill="#E5332A" opacity="0.85"/>'
         # Orange arc
-        f'<path d="{arc_path(red_end, orange_end)}" fill="#FF8A3D" opacity="0.85"/>'
+        f'<path d="{arc_path(red_end, orange_end)}" fill="#FF7124" opacity="0.85"/>'
         # Green arc
-        f'<path d="{arc_path(orange_end, 1.0)}" fill="#6FF24B" opacity="0.85"/>'
+        f'<path d="{arc_path(orange_end, 1.0)}" fill="#BFFF00" opacity="0.85"/>'
         # Needle
-        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#1D2659" stroke-width="2.5" stroke-linecap="round"/>'
+        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#202124" stroke-width="2.5" stroke-linecap="round"/>'
         # Center dot
-        f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="#1D2659"/>'
+        f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="#202124"/>'
         # Benchmark tick
-        f'<line x1="{cx + r * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y1="{cy + r * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" x2="{cx + (r + 4) * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y2="{cy + (r + 4) * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" stroke="#1D2659" stroke-width="1.5"/>'
+        f'<line x1="{cx + r * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y1="{cy + r * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" x2="{cx + (r + 4) * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y2="{cy + (r + 4) * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" stroke="#202124" stroke-width="1.5"/>'
         f'<text x="{cx}" y="52" text-anchor="middle" font-size="7" fill="#6B7280" font-weight="700">/{benchmark}x</text>'
         '</svg>'
     )
@@ -11590,7 +10445,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         if commission_val >= benchmark:
             nc = "#E5332A"
         elif commission_val >= benchmark * 0.6:
-            nc = "#FF8A3D"
+            nc = "#FF7124"
         else:
             nc = "#BFFF00"
 
@@ -11632,7 +10487,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         fill_ratio = min(max(roi_val / max_val, 0), 1)
         fill_w     = fill_ratio * bar_w
         bm_x       = pad_l + (bmark / max_val) * bar_w
-        nc = "#BFFF00" if roi_val >= bmark else ("#FF8A3D" if roi_val >= bmark * 0.6 else "#E5332A")
+        nc = "#BFFF00" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#E5332A")
 
         red_w    = (bmark * 0.6 / max_val) * bar_w
         orange_w = ((bmark - bmark * 0.6) / max_val) * bar_w
@@ -11692,14 +10547,14 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     _cvr_norm = (_cvr_val if _cvr_val <= 1 else _cvr_val / 100) if _cvr_val else 0
     cr_pct = round(_cvr_norm * 100)
     cr_icons = max(0, min(10, round(cr_pct / 10)))
-    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#4E63D9", empty_color="#D1D5DB")
+    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#3B4883", empty_color="#D1D5DB")
     _cvr_main = fmt_percent0(_cvr_norm) if _cvr_val is not None else clean(conversion_display, '-')
     _cvr_src_html = f"<span style='font-size:9px;color:#9CA3AF;margin-left:4px;'>({html.escape(cvr_source)})</span>"
     _bench_html = ""
     if cvr_bench is not None:
         _bn = cvr_bench if cvr_bench <= 1 else cvr_bench / 100
         _delta = _cvr_norm - _bn
-        _dc = "#6FF24B" if _delta >= 0 else "#E5332A"
+        _dc = "#BFFF00" if _delta >= 0 else "#E5332A"
         _ds = "+" if _delta >= 0 else ""
         _bench_html = (
             f'<div style="font-size:10px;color:#6B7280;margin-top:4px;">'
@@ -11780,7 +10635,7 @@ def render_brand_profile(row, brand_id):
     )
 
     turbo_badge_html = (
-        "<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF8A3D,#FF5F1F);margin-left:8px;'>⚡ STORE TURBO</span>"
+        "<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF7124,#E05800);margin-left:8px;'>⚡ STORE TURBO</span>"
         if get_turbo_info(brand_id) else ""
     )
 
@@ -11821,7 +10676,7 @@ def render_brand_profile(row, brand_id):
     if top_res_info.get("found"):
         extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FFD700,#FFA500);margin-left:8px'>{top_res_info['sticker']}</span>"
     if coin_info.get("found"):
-        tier_color = "linear-gradient(145deg,#4E63D9,#1D2659)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#6FF24B,#009175)"
+        tier_color = "linear-gradient(145deg,#3B4883,#202124)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#BFFF00,#009175)"
         extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_color};margin-left:8px'>{coin_info['sticker']}</span>"
 
     # General Information fields — computed here so they can be embedded in the hero-card
@@ -11892,7 +10747,7 @@ def render_brand_profile(row, brand_id):
                     f"<span style='font-size:11px;color:#9CA3AF;white-space:nowrap;min-width:110px;'>{html.escape(str(r.get('datetime',''))[:16])}</span>"
                     f"<span style='font-size:12px;color:#6B7280;min-width:120px;'>{html.escape(str(r.get('field','')))}</span>"
                     f"<span style='font-size:12px;color:#9CA3AF;text-decoration:line-through;margin-right:6px;'>{html.escape(str(r.get('old_value','')))}</span>"
-                    f"<span style='font-size:12px;font-weight:700;color:#1D2659;'>{html.escape(str(r.get('new_value','')))}</span>"
+                    f"<span style='font-size:12px;font-weight:700;color:#202124;'>{html.escape(str(r.get('new_value','')))}</span>"
                     f"</div>"
                     for _, r in _cl_brand.iterrows()
                 ])
@@ -11923,16 +10778,16 @@ def render_brand_profile(row, brand_id):
         _bf_days_color = "#E5332A"
     elif _bf_days == 0:
         _bf_days_label = "Contactado hoy"
-        _bf_days_color = "#6FF24B"
+        _bf_days_color = "#BFFF00"
     elif _bf_days <= 7:
         _bf_days_label = f"Hace {_bf_days}d · en ciclo activo"
-        _bf_days_color = "#6FF24B"
+        _bf_days_color = "#BFFF00"
     elif _bf_days <= 14:
         _bf_days_label = f"Hace {_bf_days}d · en cadencia"
         _bf_days_color = "#C8FF00"
     elif _bf_days <= 21:
         _bf_days_label = f"Hace {_bf_days}d · zona de alerta"
-        _bf_days_color = "#FF8A3D"
+        _bf_days_color = "#FF7124"
     else:
         _bf_days_label = f"Hace {_bf_days}d · marca fría ❄️"
         _bf_days_color = "#E5332A"
@@ -11966,7 +10821,7 @@ def render_brand_profile(row, brand_id):
                     _bf_opp_rank = int(_bf_rank_match.index[0]) + 1
 
     _bf_score_html = (
-        f"<span style='font-size:20px;font-weight:900;color:#4E63D9;'>{_bf_opp_score}</span>"
+        f"<span style='font-size:20px;font-weight:900;color:#3B4883;'>{_bf_opp_score}</span>"
         f"<span style='font-size:11px;color:#6B7280;margin-left:4px;'>opp. score</span>"
         f"<span style='font-size:11px;color:#6B7280;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
         if _bf_opp_score is not None else
@@ -12017,7 +10872,7 @@ def render_brand_profile(row, brand_id):
     conversion_raw = _normalize_rate_value(get_from_row(row, ["cr %", "conversion rate", "conversion"], 0))
     commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
     def _bar_chart_card(label, val_current, val_last, fmt_fn, sub_current, sub_last, change_pct):
-        _change_color = "#6FF24B" if (change_pct or 0) >= 0 else "#E5332A"
+        _change_color = "#BFFF00" if (change_pct or 0) >= 0 else "#E5332A"
         _change_sign  = "+" if (change_pct or 0) >= 0 else ""
         _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
 
@@ -12044,7 +10899,7 @@ def render_brand_profile(row, brand_id):
         w_ant = max(round(v_last / v_max * PW), 4)
         w_act = max(round(v_cur  / v_max * PW), 4)
 
-        grow_color = "#6FF24B" if v_cur >= v_last else "#E5332A"
+        grow_color = "#BFFF00" if v_cur >= v_last else "#E5332A"
 
         lbl_ant = _fmt_compact(v_last)
         lbl_act = _fmt_compact(v_cur)
@@ -12169,7 +11024,7 @@ def render_brand_profile(row, brand_id):
 
 
 
-    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#4E63D9"):
+    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#3B4883"):
         return f"""
 <div style="background:#f7f8fc;border-radius:12px;padding:14px 16px;min-height:160px;">
   <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:8px;">{emoji} {title}</div>
@@ -12194,7 +11049,7 @@ def render_brand_profile(row, brand_id):
         ), unsafe_allow_html=True)
 
     with _c2:
-        _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF8A3D" if _be_pct_over_current > 20 else "#009175"
+        _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF7124" if _be_pct_over_current > 20 else "#009175"
         _aov_rounded       = round(_aov / 1000) * 1000
         _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
         # Ratio: cuántas promos cubre 1 orden limpia con su margen neto
@@ -12226,7 +11081,7 @@ def render_brand_profile(row, brand_id):
             _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
         elif _cr_above_bench:
             _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
-            _inc_color = "#4E63D9"
+            _inc_color = "#3B4883"
             _c3_main   = f"+{_delta_pp}pp sobre benchmark"
             _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
             _c3_pitch  = (
@@ -12273,11 +11128,11 @@ def render_brand_profile(row, brand_id):
                 _d4_diag     = "Problema doble"
                 _d4_diag_sub = "Tráfico bajo y conversión baja"
             elif not _traffic_ok:
-                _d4_color    = "#FF8A3D"
+                _d4_color    = "#FF7124"
                 _d4_diag     = "Problema: Tráfico"
                 _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
             elif not _cvr_ok:
-                _d4_color    = "#FF8A3D"
+                _d4_color    = "#FF7124"
                 _d4_diag     = "Problema: Conversión"
                 _d4_diag_sub = "Hay visitas · la tienda no convierte"
             else:
@@ -12407,9 +11262,9 @@ def render_brand_profile(row, brand_id):
     actions = actions_for_badge
 
     fill_colors_map = {
-        'health-green':  '#6FF24B',
+        'health-green':  '#BFFF00',
         'health-yellow': '#8B9DFF',
-        'health-orange': '#FF8A3D',
+        'health-orange': '#FF7124',
         'health-red':    '#E5332A',
     }
     pct_colors_map = {
@@ -12439,7 +11294,7 @@ def render_brand_profile(row, brand_id):
         score_pct   = float(score_match.group(1)) if score_match else 100.0
         score_pct   = max(0.0, min(100.0, score_pct))
 
-        ring_color = '#1D2659' if lever_cls == 'lever-menu' else '#6FF24B'
+        ring_color = '#202124' if lever_cls == 'lever-menu' else '#BFFF00'
         pct_color  = pct_colors_map.get(health_cls, '#5A7A00')
         emoji      = area_emojis_map.get(lever_cls, '📊')
 
@@ -13647,8 +12502,8 @@ def page_brand_finder():
 
             # Badge de marca nueva
             new_badge_html = (
-                "<div style='display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#FF8A3D22,#FF8A3D44);"
-                "border:1.5px solid #FF8A3D;border-radius:8px;padding:6px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:#FF8A3D;'>"
+                "<div style='display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#FF712422,#FF712444);"
+                "border:1.5px solid #FF7124;border-radius:8px;padding:6px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:#FF7124;'>"
                 "🆕 Marca nueva · Asignacion Junio · Sin ficha en Growth OS todavía</div>"
             )
             st.markdown(new_badge_html, unsafe_allow_html=True)
@@ -14300,7 +13155,7 @@ def page_weekly_calendar():
         with col:
             st.markdown(f"""
             <div class="agenda-card" style="text-align:center;">
-                <div style="font-weight:800; color:#4E63D9;">{day_label}</div>
+                <div style="font-weight:800; color:#3B4883;">{day_label}</div>
                 <div class="small-muted">{day_date}</div>
                 <div style="margin-top:10px; font-size:24px; font-weight:800;">{day_count}</div>
             </div>
@@ -14309,9 +13164,9 @@ def page_weekly_calendar():
     st.markdown("""
     <div style="margin: 10px 0 22px;">
         <span style="color:#EF4444;">●</span> Overdue &nbsp;&nbsp;
-        <span style="color:#FF8A3D;">●</span> High &nbsp;&nbsp;
+        <span style="color:#FF7124;">●</span> High &nbsp;&nbsp;
         <span style="color:#8B9DFF;">●</span> Mid &nbsp;&nbsp;
-        <span style="color:#4E63D9;">●</span> Low &nbsp;&nbsp;
+        <span style="color:#3B4883;">●</span> Low &nbsp;&nbsp;
         <span style="color:#94A3B8;">●</span> Done hidden
     </div>
     """, unsafe_allow_html=True)
