@@ -4509,11 +4509,11 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     background: rgba(255,255,255,0.09) !important;
 }}
 /* Lever accent borders on priority overview cards */
-.priority-overview-card.lever-ops   {{ border-top: 3px solid #8B9ED4 !important; }}
-.priority-overview-card.lever-menu  {{ border-top: 3px solid #3B4883 !important; }}
-.priority-overview-card.lever-md    {{ border-top: 3px solid #8B9ED4 !important; }}
-.priority-overview-card.lever-pro   {{ border-top: 3px solid #6FF24B !important; }}
-.priority-overview-card.lever-ads   {{ border-top: 3px solid #FF7124 !important; }}
+.priority-overview-card.lever-ops   {{ }}
+.priority-overview-card.lever-menu  {{ }}
+.priority-overview-card.lever-md    {{ }}
+.priority-overview-card.lever-pro   {{ }}
+.priority-overview-card.lever-ads   {{ }}
 
 /* ── 360° ACTION CARD HEALTH CLASSES ── */
 /* Color overrides per health level — border-left accent */
@@ -4523,11 +4523,11 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 .action-card.health-red    {{ }}
 
 /* Lever top-border accent on 360 action cards */
-.action-card.lever-ops   {{ border-top: 2px solid #8B9ED4 !important; }}
-.action-card.lever-menu  {{ border-top: 2px solid #3B4883 !important; }}
-.action-card.lever-md    {{ border-top: 2px solid #8B9ED4 !important; }}
-.action-card.lever-pro   {{ border-top: 2px solid #6FF24B !important; }}
-.action-card.lever-ads   {{ border-top: 2px solid #FF7124 !important; }}
+.action-card.lever-ops   {{ }}
+.action-card.lever-menu  {{ }}
+.action-card.lever-md    {{ }}
+.action-card.lever-pro   {{ }}
+.action-card.lever-ads   {{ }}
 
 /* 360 action card typography */
 .action-area {{
@@ -11857,6 +11857,9 @@ def render_brand_profile(row, brand_id):
         )
         st.markdown(_aov_card, unsafe_allow_html=True)
 
+    # ── Analytics section wrapper ─────────────────────────────────────────────
+    st.markdown("<div class='wide-info-card'><div class='wide-info-title'>Analytics</div>", unsafe_allow_html=True)
+
     # ── Calculadora Consultiva · 4 métricas financieras automáticas ──────────
     # Estas tarjetas cruzan los datos ya disponibles del aliado para generar
     # los 4 argumentos financieros listos para usar en la reunión con el dueño.
@@ -12488,6 +12491,9 @@ def render_brand_profile(row, brand_id):
                 f"<div style='padding:4px 0;'>{_cs_html}</div>",
                 unsafe_allow_html=True
             )
+
+    # ── Close Analytics wrapper ───────────────────────────────────────────────
+    st.markdown("</div>", unsafe_allow_html=True)
 
     return name
 
