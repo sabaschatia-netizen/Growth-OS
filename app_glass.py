@@ -3434,8 +3434,8 @@ def page_day_queue():
         if pd.isna(pd.to_datetime(last_dt, errors="coerce")):
             days_ago   = None
             contact_badge = "🔴 Sin contacto"
-            badge_color   = "#fde8e8"
-            badge_text    = "#c62828"
+            badge_color   = "rgba(229,51,42,0.10)"
+            badge_text    = "#E5332A"
         else:
             days_ago = (datetime.now() - pd.to_datetime(last_dt)).days
             if days_ago == 0:
@@ -3448,8 +3448,8 @@ def page_day_queue():
                 contact_badge = f"🟠 Hace {days_ago}d"
             else:
                 contact_badge = f"🔴 Hace {days_ago}d"
-            badge_color = "#f1f8e9" if (days_ago or 99) <= 7 else ("#fffde7" if (days_ago or 99) <= 14 else "#fff3e0" if (days_ago or 99) <= 21 else "#fde8e8")
-            badge_text  = "#2e7d32" if (days_ago or 99) <= 7 else ("#f57f17" if (days_ago or 99) <= 14 else "#e65100" if (days_ago or 99) <= 21 else "#c62828")
+            badge_color = "rgba(111,242,75,0.08)" if (days_ago or 99) <= 7 else ("rgba(255,113,36,0.08)" if (days_ago or 99) <= 14 else "rgba(255,113,36,0.08)" if (days_ago or 99) <= 21 else "rgba(229,51,42,0.10)")
+            badge_text  = "#6FF24B" if (days_ago or 99) <= 7 else ("#D95A10" if (days_ago or 99) <= 14 else "#D95A10" if (days_ago or 99) <= 21 else "#E5332A")
 
         # Load current lever status
         ads_current_raw = get_current_ads_metrics(brand_id)
@@ -3495,10 +3495,10 @@ def page_day_queue():
                     f"<span style='background:{badge_color};color:{badge_text};font-size:12px;"
                     f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;'>"
                     f"{contact_badge}</span>"
-                    f"<span style='background:#EEF2FF;color:#3949AB;font-size:12px;font-weight:600;"
+                    f"<span style='background:rgba(59,72,131,0.12);color:#3B4883;font-size:12px;font-weight:600;"
                     f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
                     f"{'✅ Ads' if ads_active else '⬜ Sin Ads'}</span>"
-                    f"<span style='background:#E8F5E9;color:#2E7D32;font-size:12px;font-weight:600;"
+                    f"<span style='background:rgba(111,242,75,0.08);color:#6FF24B;font-size:12px;font-weight:600;"
                     f"padding:3px 10px;border-radius:20px;'>"
                     f"{'✅ MD' if md_active else '⬜ Sin MD'}</span>",
                     unsafe_allow_html=True
@@ -3527,9 +3527,9 @@ def page_day_queue():
                 _lever_label = f"💸 MD — activar {_disc}% en {_hero}"
 
             st.markdown(
-                f"<div style='font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;"
+                f"<div style='font-size:12px;font-weight:700;color:#DBBBA7;text-transform:uppercase;"
                 f"margin:12px 0 4px;'>Palanca recomendada</div>"
-                f"<div style='font-size:14px;font-weight:600;color:#1D2659;margin-bottom:12px;'>"
+                f"<div style='font-size:14px;font-weight:600;color:#272D4E;margin-bottom:12px;'>"
                 f"{_lever_label}</div>",
                 unsafe_allow_html=True
             )
@@ -13594,18 +13594,18 @@ def page_weekly_calendar():
     _today_count    = int((active_agenda["_parsed_date"] == today).sum())
     _tomorrow_count = int((active_agenda["_parsed_date"] == today + timedelta(days=1)).sum())
     _overdue_count  = int((active_agenda["_parsed_date"] < today).sum()) if not active_agenda.empty else 0
-    _today_color    = "#c62828" if _today_count >= 5 else ("#e65100" if _today_count >= 3 else "#2e7d32")
-    _tmrw_color     = "#e65100" if _tomorrow_count >= 5 else "#555"
-    _overdue_color  = "#c62828" if _overdue_count > 0 else "#aaa"
+    _today_color    = "#E5332A" if _today_count >= 5 else ("#D95A10" if _today_count >= 3 else "#6FF24B")
+    _tmrw_color     = "#D95A10" if _tomorrow_count >= 5 else "#555"
+    _overdue_color  = "#E5332A" if _overdue_count > 0 else "#aaa"
     st.markdown(
         f'''<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-        <div style="background:#f9f9f9;border:1px solid #e5e5e5;border-radius:8px;padding:8px 16px;font-size:13px;">
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
             📅 <b>Hoy:</b> <span style="color:{_today_color};font-weight:700;">{_today_count} tareas</span>
         </div>
-        <div style="background:#f9f9f9;border:1px solid #e5e5e5;border-radius:8px;padding:8px 16px;font-size:13px;">
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
             📆 <b>Mañana:</b> <span style="color:{_tmrw_color};font-weight:700;">{_tomorrow_count} tareas</span>
         </div>
-        <div style="background:#f9f9f9;border:1px solid #e5e5e5;border-radius:8px;padding:8px 16px;font-size:13px;">
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
             ⚠️ <b>Vencidas:</b> <span style="color:{_overdue_color};font-weight:700;">{_overdue_count} tareas</span>
         </div>
         </div>''',
@@ -13637,7 +13637,7 @@ def page_weekly_calendar():
         with col:
             st.markdown(f"""
             <div class="agenda-card" style="text-align:center;">
-                <div style="font-weight:800; color:#4E63D9;">{day_label}</div>
+                <div style="font-weight:800; color:#3B4883;">{day_label}</div>
                 <div class="small-muted">{day_date}</div>
                 <div style="margin-top:10px; font-size:24px; font-weight:800;">{day_count}</div>
             </div>
@@ -13645,11 +13645,11 @@ def page_weekly_calendar():
 
     st.markdown("""
     <div style="margin: 10px 0 22px;">
-        <span style="color:#EF4444;">●</span> Overdue &nbsp;&nbsp;
-        <span style="color:#FF8A3D;">●</span> High &nbsp;&nbsp;
-        <span style="color:#8B9DFF;">●</span> Mid &nbsp;&nbsp;
-        <span style="color:#4E63D9;">●</span> Low &nbsp;&nbsp;
-        <span style="color:#94A3B8;">●</span> Done hidden
+        <span style="color:#E5332A;">●</span> Overdue &nbsp;&nbsp;
+        <span style="color:#FF7124;">●</span> High &nbsp;&nbsp;
+        <span style="color:#8B9ED4;">●</span> Mid &nbsp;&nbsp;
+        <span style="color:#3B4883;">●</span> Low &nbsp;&nbsp;
+        <span style="color:#DBBBA7;">●</span> Done hidden
     </div>
     """, unsafe_allow_html=True)
 
@@ -13687,7 +13687,7 @@ def page_weekly_calendar():
 
                 if is_overdue:
                     st.markdown(
-                        "<div style='margin-top:12px; color:#EF4444; font-weight:800;'>OVERDUE</div>",
+                        "<div style='margin-top:12px; color:#E5332A; font-weight:800;'>OVERDUE</div>",
                         unsafe_allow_html=True
                     )
 
@@ -13870,8 +13870,8 @@ def page_brand_update():
         else:
             _elapsed_label = st.session_state[_last_saved_key].strftime("%H:%M")
         st.markdown(
-            f'''<div style="background:#f1f8e9;border:1px solid #a5d6a7;border-radius:8px;
-            padding:8px 14px;font-size:12px;color:#2e7d32;font-weight:600;margin-bottom:10px;">
+            f'''<div style="background:rgba(111,242,75,0.08);border:1px solid rgba(111,242,75,0.25);border-radius:8px;
+            padding:8px 14px;font-size:12px;color:#6FF24B;font-weight:600;margin-bottom:10px;">
             ✓ Último guardado exitoso: {_elapsed_label}</div>''',
             unsafe_allow_html=True,
         )
