@@ -4264,6 +4264,7 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 /* ── SECTION CARD PADDING (wide-info, stack, panel) ── */
 .wide-info-card {{
     padding: 28px 28px !important;
+    margin-bottom: 24px !important;
 }}
 .stack-card {{
     padding: 22px 24px !important;
@@ -10242,19 +10243,19 @@ def render_campaign_designer_html(design):
         # Level 1 — Hero
         f"<div style='background:linear-gradient(135deg,#272D4E,#3B4883);color:#fff;border-radius:16px;"
         f"padding:18px 22px;font-size:16px;font-weight:900;text-align:center;width:62%;"
-        f"box-shadow:0 6px 18px rgba(78,99,217,.40);line-height:1.3'>"
+        f"line-height:1.3'>"
         f"🥇 Hero<br><span style='font-size:13px;font-weight:700;opacity:.9'>{p1_name}</span>"
         f"</div>"
         # Level 2 — Backup
         f"<div style='background:linear-gradient(135deg,#FF7124,#D95A10);color:#fff;border-radius:16px;"
         f"padding:16px 22px;font-size:15px;font-weight:900;text-align:center;width:81%;"
-        f"box-shadow:0 5px 14px rgba(255,138,61,.35);line-height:1.3'>"
+        f"line-height:1.3'>"
         f"🥈 Backup<br><span style='font-size:12px;font-weight:700;opacity:.9'>{p2_name}</span>"
         f"</div>"
         # Level 3 — Tactical
         f"<div style='background:linear-gradient(135deg,#6FF24B,#6FF24B);color:#272D4E;border-radius:16px;"
         f"padding:14px 22px;font-size:14px;font-weight:900;text-align:center;width:100%;"
-        f"box-shadow:0 4px 12px rgba(111,242,75,.30);line-height:1.3'>"
+        f"line-height:1.3'>"
         f"🥉 Tactical<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p3_name}</span>"
         f"</div>"
         f"</div>"
