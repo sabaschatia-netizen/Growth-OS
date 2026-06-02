@@ -11857,6 +11857,23 @@ def render_brand_profile(row, brand_id):
         )
         st.markdown(_aov_card, unsafe_allow_html=True)
 
+    # ── Business Information (before Analytics) ──────────────────────────────
+    campaign_names = get_md_campaign_names_for_brand(name)
+    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
+    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
+    _cvr_bench = get_cvr_category_benchmark(category)
+    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
+
+    # ── 360° Action (before Analytics) ───────────────────────────────────────
+    actions_html = "".join([_merged_action_card(a) for a in actions])
+    st.markdown(f"""
+<div class="wide-info-card tactical-flow-card">
+    <div class="wide-info-title">360° Action</div>
+    {meta_html}
+    <div class="action-grid">{actions_html}</div>
+</div>
+""", unsafe_allow_html=True)
+
     # ── Analytics section wrapper ─────────────────────────────────────────────
     st.markdown("<div class='wide-info-card'><div class='wide-info-title'>Analytics</div>", unsafe_allow_html=True)
 
@@ -11935,172 +11952,126 @@ def render_brand_profile(row, brand_id):
   </div>
 </div>"""
 
-    _c1, _c2, _c3, _c4 = st.columns(4)
+    # ── Compute card values for all 4 analytics cards ───────────────────────
+    _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF7124" if _be_pct_over_current > 20 else "#6FF24B"
+    _aov_rounded        = round(_aov / 1000) * 1000
+    _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
+    _promos_per_order   = round(_margin_per_order / _promo_cost_per_order, 1) if _promo_cost_per_order > 0 else 0
+    _coverage_line      = f" · 1 orden limpia cubre {_promos_per_order}x promos" if _promos_per_order > 0 else ""
+    _be_pitch = (
+        f"Con un descuento del 20% sobre un ticket de {fmt_ars(_aov_rounded)}, cada orden con promo te cuesta {fmt_ars(_promo_cost_rounded)}. "
+        + (f"Pero tu margen por orden es {fmt_ars(round(_margin_per_order))} — eso alcanza para cubrir {_promos_per_order} promos con un solo pedido limpio. " if _promos_per_order >= 1 else "")
+        + f"Con {_be_orders} pedido{'s' if _be_orders != 1 else ''} extra ya cubrís ese costo — sin tocar tu estructura."
+        + (" Es una meta razonable con tráfico de temporada." if _be_pct_over_current <= 30 else " Es exigente pero alcanzable si hay un evento de alto tráfico." if _be_pct_over_current <= 60 else " Es muy exigente — evaluá acotar los productos en promo para bajar el umbral.")
+    )
+    _cr_display    = f"{round(_cr_current_norm*100,1)}%" if _cr_current_norm > 0 else "s/d"
+    _bench_display = f"{round(_cr_benchmark_norm*100,1)}%" if _cr_benchmark_norm > 0 else "s/d"
+    _bench_source  = "real categ." if _cr_bench_cat and _cr_bench_cat > 0 else "ref. general"
+    _traffic_disp  = f"{round(_traffic_monthly):,}".replace(",", ".") if _traffic_monthly > 0 else None
+    if _cr_current_norm <= 0:
+        _inc_color = "#aaa"
+        _c3_main   = "Sin dato de CR"
+        _c3_sub    = f"Benchmark {_bench_display} ({_bench_source}) · activá ads para medir tráfico"
+        _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
+    elif _cr_above_bench:
+        _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
+        _inc_color = "#E8DFD5"
+        _c3_main   = f"+{_delta_pp}pp sobre benchmark"
+        _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
+        _c3_pitch  = (
+            f"Tu CR ({_cr_display}) ya está {_delta_pp}pp por encima del promedio de tu categoría ({_bench_display}). "
+            + (f"Con {_traffic_disp} visitas mensuales reales, el problema no es la tienda — es el volumen de tráfico." if _traffic_disp else "El problema no es la tienda — es el volumen de tráfico.")
+        )
+    else:
+        _inc_color = "#6FF24B" if _gmv_incremental > 0 else "#aaa"
+        _c3_main   = fmt_ars(round(_gmv_incremental)) if _gmv_incremental > 0 else "Sin dato suficiente"
+        _c3_sub    = f"CR {_cr_display} → benchmark {_bench_display} ({_bench_source}) · {_traffic_source}"
+        _c3_pitch  = (
+            f"Tu tienda convierte al {_cr_display}, el promedio de tu categoría está en {_bench_display}. "
+            + (f"Con tus {_traffic_disp} visitas mensuales, si llegás al benchmark sumás {fmt_ars(round(_gmv_incremental))} por mes — sin invertir más en pauta." if _traffic_disp and _gmv_incremental > 0 else f"Si llegás al benchmark, sumarías {fmt_ars(round(_gmv_incremental))} por mes con el mismo tráfico que ya tenés." if _gmv_incremental > 0 else "Activá ads para empezar a generar tráfico medible.")
+        )
 
-    with _c1:
-        st.markdown(_consultive_card(
-            "💰", "Margen neto / orden",
-            fmt_ars(round(_margin_per_order)),
-            f"{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%",
-            "pitch",
-            f"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir alquiler, nómina y servicios. Cuantos más pedidos, más rápido cubrís esos fijos y empieza la ganancia real.",
-            color="#6FF24B"
-        ), unsafe_allow_html=True)
-
-    with _c2:
-        _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF7124" if _be_pct_over_current > 20 else "#6FF24B"
-        _aov_rounded       = round(_aov / 1000) * 1000
-        _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
-        # Ratio: cuántas promos cubre 1 orden limpia con su margen neto
-        _promos_per_order  = round(_margin_per_order / _promo_cost_per_order, 1) if _promo_cost_per_order > 0 else 0
-        _coverage_line     = f" · 1 orden limpia cubre {_promos_per_order}x promos" if _promos_per_order > 0 else ""
-        st.markdown(_consultive_card(
-            "⚖️", "Punto de equilibrio MD 20%",
-            f"+{_be_orders} orden{'es' if _be_orders != 1 else ''}",
-            f"Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}",
-            "pitch",
-            (
-                f"Con un descuento del 20% sobre un ticket de {fmt_ars(_aov_rounded)}, cada orden con promo te cuesta {fmt_ars(_promo_cost_rounded)}. "
-                + (f"Pero tu margen por orden es {fmt_ars(round(_margin_per_order))} — eso alcanza para cubrir {_promos_per_order} promos con un solo pedido limpio. " if _promos_per_order >= 1 else "")
-                + f"Con {_be_orders} pedido{'s' if _be_orders != 1 else ''} extra ya cubrís ese costo — sin tocar tu estructura."
-                + (" Es una meta razonable con tráfico de temporada." if _be_pct_over_current <= 30 else " Es exigente pero alcanzable si hay un evento de alto tráfico." if _be_pct_over_current <= 60 else " Es muy exigente — evaluá acotar los productos en promo para bajar el umbral.")
-            ),
-            color=_be_color
-        ), unsafe_allow_html=True)
-
-    with _c3:
-        _cr_display    = f"{round(_cr_current_norm*100,1)}%" if _cr_current_norm > 0 else "s/d"
-        _bench_display = f"{round(_cr_benchmark_norm*100,1)}%" if _cr_benchmark_norm > 0 else "s/d"
-        _bench_source  = "real categ." if _cr_bench_cat and _cr_bench_cat > 0 else "ref. general"
-        _traffic_disp  = f"{round(_traffic_monthly):,}".replace(",", ".") if _traffic_monthly > 0 else None
-        if _cr_current_norm <= 0:
-            _inc_color = "#aaa"
-            _c3_main   = "Sin dato de CR"
-            _c3_sub    = f"Benchmark {_bench_display} ({_bench_source}) · activá ads para medir tráfico"
-            _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
-        elif _cr_above_bench:
-            _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
-            _inc_color = "#3B4883"
-            _c3_main   = f"+{_delta_pp}pp sobre benchmark"
-            _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
-            _c3_pitch  = (
-                f"Tu CR ({_cr_display}) ya está {_delta_pp}pp por encima del promedio de tu categoría ({_bench_display}). "
-                + (f"Con {_traffic_disp} visitas mensuales reales, el problema no es la tienda — es el volumen de tráfico." if _traffic_disp else "El problema no es la tienda — es el volumen de tráfico.")
-            )
+    _t_bench  = get_traffic_category_benchmark(category)
+    _traffic_ok  = (_traffic_weekly is not None and _t_bench is not None and _traffic_weekly >= _t_bench * 0.85)
+    _cvr_ok      = (_cr_current_norm > 0 and _cr_benchmark_norm > 0 and _cr_current_norm >= _cr_benchmark_norm * 0.85)
+    _has_traffic = _traffic_weekly is not None and _traffic_weekly > 0
+    _has_cvr     = _cr_current_norm > 0
+    if not _has_traffic and not _has_cvr:
+        _d4_color = "#aaa"; _d4_main = "Sin datos"
+        _d4_sub   = "No hay Traffic ni CVR registrado esta semana"
+        _d4_pitch = "Activá ads para empezar a generar tráfico y CVR medibles."
+    else:
+        if not _traffic_ok and not _cvr_ok:
+            _d4_color = "#E5332A"; _d4_diag = "Problema doble"; _d4_diag_sub = "Tráfico bajo y conversión baja"
+        elif not _traffic_ok:
+            _d4_color = "#FF7124"; _d4_diag = "Problema: Tráfico"; _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
+        elif not _cvr_ok:
+            _d4_color = "#FF7124"; _d4_diag = "Problema: Conversión"; _d4_diag_sub = "Hay visitas · la tienda no convierte"
         else:
-            _inc_color = "#6FF24B" if _gmv_incremental > 0 else "#aaa"
-            _c3_main   = fmt_ars(round(_gmv_incremental)) if _gmv_incremental > 0 else "Sin dato suficiente"
-            _c3_sub    = f"CR {_cr_display} → benchmark {_bench_display} ({_bench_source}) · {_traffic_source}"
-            _c3_pitch  = (
-                f"Tu tienda convierte al {_cr_display}, el promedio de tu categoría está en {_bench_display}. "
-                + (f"Con tus {_traffic_disp} visitas mensuales, si llegás al benchmark sumás {fmt_ars(round(_gmv_incremental))} por mes — sin invertir más en pauta." if _traffic_disp and _gmv_incremental > 0 else f"Si llegás al benchmark, sumarías {fmt_ars(round(_gmv_incremental))} por mes con el mismo tráfico que ya tenés." if _gmv_incremental > 0 else "Activá ads para empezar a generar tráfico medible.")
-            )
-        st.markdown(_consultive_card(
-            "📈", "GMV incremental si CR llega al benchmark",
-            _c3_main,
-            _c3_sub,
-            "pitch",
-            _c3_pitch,
-            color=_inc_color
-        ), unsafe_allow_html=True)
-
-    with _c4:
-        # ── Diagnóstico Traffic + CVR (A = problema dominante, B = órdenes perdidas) ──
-        _t_bench  = get_traffic_category_benchmark(category)
-        _cvr_brand = get_traffic_for_brand(name)  # weekly traffic (reuse map)
-        # CVR actual ya está en _cr_current_norm
-        _traffic_ok  = (_traffic_weekly is not None and _t_bench is not None and _traffic_weekly >= _t_bench * 0.85)
-        _cvr_ok      = (_cr_current_norm > 0 and _cr_benchmark_norm > 0 and _cr_current_norm >= _cr_benchmark_norm * 0.85)
-        _has_traffic = _traffic_weekly is not None and _traffic_weekly > 0
-        _has_cvr     = _cr_current_norm > 0
-
-        if not _has_traffic and not _has_cvr:
-            _d4_color   = "#aaa"
-            _d4_main    = "Sin datos"
-            _d4_sub     = "No hay Traffic ni CVR registrado esta semana"
-            _d4_pitch   = "Activá ads para empezar a generar tráfico y CVR medibles."
-            _d4_lost    = None
+            _d4_color = "#6FF24B"; _d4_diag = "Ambas métricas OK"; _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
+        _lost_orders = round(_traffic_weekly * max(_cr_benchmark_norm - _cr_current_norm, 0)) if (_has_traffic and _has_cvr and not _cvr_ok) else 0
+        _d4_main = _d4_diag
+        _tw_disp = f"{round(_traffic_weekly):,}".replace(",", ".") if _has_traffic else "s/d"
+        _tb_disp = f"{round(_t_bench):,}".replace(",", ".") if _t_bench else "s/d"
+        _d4_sub  = f"{_d4_diag_sub} · " + (f"{_lost_orders} ords/sem perdidas por CVR bajo" if _lost_orders > 0 else f"Traffic {_tw_disp} vs bench {_tb_disp}/sem")
+        if _d4_diag == "Problema: Tráfico":
+            _traffic_gap = max((_t_bench - _traffic_weekly), 0) if _t_bench and _traffic_weekly else 0
+            _step_visits = round(_traffic_gap * 0.30) if _traffic_gap > 0 else 0
+            _step_cost_ars = _step_visits * 650
+            _step_orders = round(_step_visits * _cr_current_norm, 1) if _cr_current_norm > 0 else 0
+            _step_gmv = round(_step_orders * _aov) if _aov > 0 else 0
+            _step_cost_disp = f"ARS {_step_cost_ars:,.0f}".replace(",", ".")
+            _step_gmv_disp  = fmt_ars(round(_step_gmv / 1000) * 1000) if _step_gmv > 0 else ""
+            _traffic_proj = (f" Para arrancar: compramos {_step_visits} visitas más por semana — son {_step_cost_disp}/sem. Con tu conversión del {_cr_display} eso son {_step_orders} pedidos extra · {_step_gmv_disp} GMV/sem." if _step_visits > 0 and _step_gmv > 0 else "")
+            _d4_pitch = f"Tu tienda convierte al {_cr_display} — está por encima del promedio de tu categoría. El problema es que ves {_tw_disp} visitas por semana contra un benchmark de {_tb_disp}. Más tráfico con esta tasa de conversión se convierte directo en pedidos." + _traffic_proj
+        elif _d4_diag == "Problema: Conversión":
+            _d4_pitch = f"Tenés {_tw_disp} visitas por semana — el tráfico no es el problema. Pero tu tienda convierte al {_cr_display} cuando el promedio de tu categoría es {_bench_display}. " + (f"Eso son {_lost_orders} pedidos por semana que te estás perdiendo sin gastar un peso más en pauta." if _lost_orders > 0 else "Con mejoras en menú y fotos ese CVR sube sin invertir más en pauta.")
+        elif _d4_diag == "Problema doble":
+            _d4_pitch = f"Dos frentes abiertos: traffic de {_tw_disp} vs benchmark {_tb_disp} y CVR de {_cr_display} vs {_bench_display}. " + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "") + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
         else:
-            # Diagnóstico A — problema dominante
-            if not _traffic_ok and not _cvr_ok:
-                _d4_color    = "#E5332A"
-                _d4_diag     = "Problema doble"
-                _d4_diag_sub = "Tráfico bajo y conversión baja"
-            elif not _traffic_ok:
-                _d4_color    = "#FF7124"
-                _d4_diag     = "Problema: Tráfico"
-                _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
-            elif not _cvr_ok:
-                _d4_color    = "#FF7124"
-                _d4_diag     = "Problema: Conversión"
-                _d4_diag_sub = "Hay visitas · la tienda no convierte"
-            else:
-                _d4_color    = "#6FF24B"
-                _d4_diag     = "Ambas métricas OK"
-                _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
+            _d4_pitch = f"Traffic en {_tw_disp}/sem y CVR en {_cr_display} — ambas métricas sobre el benchmark de tu categoría. Estás en condiciones de escalar: más presupuesto en ads se convierte directo en GMV."
 
-            # Diagnóstico B — órdenes perdidas por semana
-            if _has_traffic and _has_cvr and not _cvr_ok:
-                _lost_orders = round(_traffic_weekly * max(_cr_benchmark_norm - _cr_current_norm, 0))
-            else:
-                _lost_orders = 0
-
-            _d4_main = _d4_diag
-            _tw_disp = f"{round(_traffic_weekly):,}".replace(",", ".") if _has_traffic else "s/d"
-            _tb_disp = f"{round(_t_bench):,}".replace(",", ".") if _t_bench else "s/d"
-            _d4_sub  = (
-                f"{_d4_diag_sub} · "
-                + (f"{_lost_orders} ords/sem perdidas por CVR bajo" if _lost_orders > 0 else f"Traffic {_tw_disp} vs bench {_tb_disp}/sem")
-            )
-
-            if _d4_diag == "Problema: Tráfico":
-                # Proyección de primer paso: 30% del gap al benchmark
-                _traffic_gap      = max((_t_bench - _traffic_weekly), 0) if _t_bench and _traffic_weekly else 0
-                _step_visits      = round(_traffic_gap * 0.30) if _traffic_gap > 0 else 0
-                _step_cost_ars    = _step_visits * 650
-                _step_orders      = round(_step_visits * _cr_current_norm, 1) if _cr_current_norm > 0 else 0
-                _step_gmv         = round(_step_orders * _aov) if _aov > 0 else 0
-                _step_cost_disp   = f"ARS {_step_cost_ars:,.0f}".replace(",", ".")
-                _step_gmv_disp    = fmt_ars(round(_step_gmv / 1000) * 1000) if _step_gmv > 0 else ""
-                if _step_visits > 0 and _step_gmv > 0:
-                    _traffic_proj = (
-                        f" Para arrancar: compramos {_step_visits} visitas más por semana — son {_step_cost_disp}/sem. "
-                        f"Con tu conversión del {_cr_display} eso son {_step_orders} pedidos extra · {_step_gmv_disp} GMV/sem."
-                    )
-                else:
-                    _traffic_proj = ""
-                _d4_pitch = (
-                    f"Tu tienda convierte al {_cr_display} — está por encima del promedio de tu categoría. "
-                    f"El problema es que ves {_tw_disp} visitas por semana contra un benchmark de {_tb_disp}. "
-                    f"Más tráfico con esta tasa de conversión se convierte directo en pedidos."
-                    + _traffic_proj
-                )
-            elif _d4_diag == "Problema: Conversión":
-                _d4_pitch = (
-                    f"Tenés {_tw_disp} visitas por semana — el tráfico no es el problema. "
-                    f"Pero tu tienda convierte al {_cr_display} cuando el promedio de tu categoría es {_bench_display}. "
-                    + (f"Eso son {_lost_orders} pedidos por semana que te estás perdiendo sin gastar un peso más en pauta." if _lost_orders > 0 else "Con mejoras en menú y fotos ese CVR sube sin invertir más en pauta.")
-                )
-            elif _d4_diag == "Problema doble":
-                _d4_pitch = (
-                    f"Dos frentes abiertos: traffic de {_tw_disp} vs benchmark {_tb_disp} y CVR de {_cr_display} vs {_bench_display}. "
-                    + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "")
-                    + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
-                )
-            else:
-                _d4_pitch = (
-                    f"Traffic en {_tw_disp}/sem y CVR en {_cr_display} — ambas métricas sobre el benchmark de tu categoría. "
-                    f"Estás en condiciones de escalar: más presupuesto en ads se convierte directo en GMV."
-                )
-
-        st.markdown(_consultive_card(
-            "🔍", "Diagnóstico Traffic & CVR",
-            _d4_main,
-            _d4_sub,
-            "pitch",
-            _d4_pitch,
-            color=_d4_color
-        ), unsafe_allow_html=True)
+    # ── Render 4 analytics cards as pure HTML grid inside the wide-info-card ─
+    st.markdown(f"""
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
+  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
+    <div style="font-size:26px;font-weight:900;color:#6FF24B;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
+    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Cuantos más pedidos, más rápido empieza la ganancia real."</div>
+    </div>
+  </div>
+  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>
+    <div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{'es' if _be_orders != 1 else ''}</div>
+    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
+    </div>
+  </div>
+  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">📈 GMV incremental si CR llega al benchmark</div>
+    <div style="font-size:26px;font-weight:900;color:{_inc_color};line-height:1.1;">{_c3_main}</div>
+    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_c3_sub}</div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_c3_pitch}"</div>
+    </div>
+  </div>
+  <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">🔍 Diagnóstico Traffic &amp; CVR</div>
+    <div style="font-size:26px;font-weight:900;color:{_d4_color};line-height:1.1;">{_d4_main}</div>
+    <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_d4_sub}</div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
+      <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_d4_pitch}"</div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 
     # Tactical Flow lives after General Information.
@@ -12282,21 +12253,7 @@ def render_brand_profile(row, brand_id):
         f"</div>"
     )
 
-    actions_html = "".join([_merged_action_card(a) for a in actions])
-    st.markdown(f"""
-<div class="wide-info-card tactical-flow-card">
-    <div class="wide-info-title">360° Action</div>
-    {meta_html}
-    <div class="action-grid">{actions_html}</div>
-</div>
-""", unsafe_allow_html=True)
-
-    campaign_names = get_md_campaign_names_for_brand(name)
-    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
-
-    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
-    _cvr_bench = get_cvr_category_benchmark(category)
-    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
+    # [360 and Business Info moved before Analytics — rendered earlier]
 
     campaign_design = design_campaign_for_brand(
         name,
@@ -12313,7 +12270,7 @@ def render_brand_profile(row, brand_id):
         actions,
         brand_id=brand_id,
     )
-    st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
+    # [Campaign Designer moved after Analytics — rendered later]
 
     # ── 💡 DATOS PARA EL PITCH — cuadro fijo, rule-based, sin API ────────────
     _pi_category = category.split("·")[0].strip() if "·" in category else category.strip()
@@ -12494,6 +12451,9 @@ def render_brand_profile(row, brand_id):
 
     # ── Close Analytics wrapper ───────────────────────────────────────────────
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Campaign Designer (after Analytics) ───────────────────────────────────
+    st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
 
     return name
 
