@@ -12013,23 +12013,6 @@ def render_brand_profile(row, brand_id):
 
 
 
-    # ── Business Information ──────────────────────────────────────────────────
-    campaign_names = get_md_campaign_names_for_brand(name)
-    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
-    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
-    _cvr_bench = get_cvr_category_benchmark(category)
-    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
-
-    # ── 360° Action ───────────────────────────────────────────────────────────
-    actions_html = "".join([_merged_action_card(a) for a in actions])
-    st.markdown(f"""
-<div class="wide-info-card tactical-flow-card">
-    <div class="wide-info-title">360° Action</div>
-    {meta_html}
-    <div class="action-grid">{actions_html}</div>
-</div>
-""", unsafe_allow_html=True)
-
     # ── Analytics section wrapper ─────────────────────────────────────────────
     st.markdown("<div class='wide-info-card'><div class='wide-info-title'>Analytics</div>", unsafe_allow_html=True)
 
@@ -12079,6 +12062,8 @@ def render_brand_profile(row, brand_id):
     # It uses Smart Priorities as its only input source for call guidance.
     booster = booster_for_badge
     actions = actions_for_badge
+
+
     campaign_design = design_campaign_for_brand(
         name,
         category,
@@ -12253,6 +12238,23 @@ def render_brand_profile(row, brand_id):
         f"<div class='priority-levers' style='grid-column:1/-1;'>{lever_chips}</div>"
         f"</div>"
     )
+
+    # ── Business Information ──────────────────────────────────────────────────
+    campaign_names = get_md_campaign_names_for_brand(name)
+    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
+    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
+    _cvr_bench = get_cvr_category_benchmark(category)
+    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
+
+    # ── 360° Action ───────────────────────────────────────────────────────────
+    actions_html = "".join([_merged_action_card(a) for a in actions])
+    st.markdown(f"""
+<div class="wide-info-card tactical-flow-card">
+    <div class="wide-info-title">360° Action</div>
+    {meta_html}
+    <div class="action-grid">{actions_html}</div>
+</div>
+""", unsafe_allow_html=True)
 
     campaign_design = design_campaign_for_brand(
         name,
