@@ -6882,12 +6882,24 @@ def get_last_comment_meta_map(limit=2):
     for bid, group in comments.groupby("brand_id"):
         group = group.copy().sort_values(by="_dt", ascending=True, na_position="last")
         last_dt = group["_dt"].dropna().iloc[-1] if not group["_dt"].dropna().empty else pd.NaT
-        notes = [clean(x, "").strip() for x in group["comment"].tolist() if clean(x, "").strip()]
-        statuses = [clean(x, "").strip() for x in group.get("opportunity_status", []) if clean(x, "").strip()]
+        statuses = [clean(x, "").strip() for x in group.get("opportunity_status", pd.Series([], dtype=str)).tolist() if clean(x, "").strip()]
+
+        # Notes: prefer real (non-ghost) comments; fall back to all comments if only ghosts exist
+        def _is_ghost_comment(row):
+            txt = clean(row.get("comment", ""), "").strip().lower()
+            st_val = clean(row.get("opportunity_status", ""), "").strip().lower()
+            return "ghost" in st_val or txt.startswith("👻")
+
+        all_comments = [clean(r.get("comment", ""), "").strip() for _, r in group.iterrows() if clean(r.get("comment", ""), "").strip()]
+        real_comments = [clean(r.get("comment", ""), "").strip() for _, r in group.iterrows()
+                         if clean(r.get("comment", ""), "").strip() and not _is_ghost_comment(r)]
+
+        notes_source = real_comments if real_comments else all_comments
+
         result[normalize_brand_id(bid)] = {
             "last_dt": last_dt,
             "last_update": _format_followup_last_update(last_dt),
-            "notes": " | ".join(notes[-limit:]) if notes else "-",
+            "notes": " | ".join(notes_source[-limit:]) if notes_source else "-",
             "status": statuses[-1] if statuses else "OFF 😴",
         }
     return result
@@ -7172,16 +7184,47 @@ def page_follow_up_list():
     follow_df["_proximo_fmt"] = follow_df["_last_comment_dt"].apply(_fmt_proximo)
 
     st.markdown("## Active Account Follow-Ups")
-    # ── Contador semanal de contactos ─────────────────────────────────────────
-    _week_start = date.today() - timedelta(days=date.today().weekday())
+    # ── Contador efectivo: Hoy / Semana / Mes (excluye Ghosts) ───────────────
+    _today      = date.today()
+    _week_start = _today - timedelta(days=_today.weekday())
     _week_end   = _week_start + timedelta(days=6)
     _comments_df_fu = _load_comments_df()
+
+    def _is_ghost_status(val):
+        return "ghost" in str(val).lower()
+
+    _contacts_today = 0
     _contacts_this_week = 0
+    _contacts_this_month = 0
+
     if not _comments_df_fu.empty and "_dt" in _comments_df_fu.columns:
-        _w_dt = pd.to_datetime(_comments_df_fu["_dt"], errors="coerce")
-        _w_mask = _w_dt.apply(lambda x: (not pd.isna(x)) and (_week_start <= x.date() <= _week_end))
-        _contacts_this_week = int(_w_mask.sum())
-    _week_label = f"{_week_start.strftime('%d %b')} – {_week_end.strftime('%d %b')}"
+        _fu_dt      = pd.to_datetime(_comments_df_fu["_dt"], errors="coerce")
+        _fu_status  = _comments_df_fu.get("opportunity_status", pd.Series([""] * len(_comments_df_fu)))
+        _fu_comment = _comments_df_fu.get("comment", pd.Series([""] * len(_comments_df_fu)))
+
+        # Effective = not ghost (by status OR comment starting with 👻)
+        _not_ghost = ~_fu_status.apply(_is_ghost_status) & ~_fu_comment.apply(
+            lambda c: str(c).strip().startswith("👻")
+        )
+
+        _mask_today = _fu_dt.apply(
+            lambda x: (not pd.isna(x)) and (x.date() == _today)
+        ) & _not_ghost
+
+        _mask_week = _fu_dt.apply(
+            lambda x: (not pd.isna(x)) and (_week_start <= x.date() <= _week_end)
+        ) & _not_ghost
+
+        _mask_month = _fu_dt.apply(
+            lambda x: (not pd.isna(x)) and (x.year == _today.year) and (x.month == _today.month)
+        ) & _not_ghost
+
+        _contacts_today      = int(_mask_today.sum())
+        _contacts_this_week  = int(_mask_week.sum())
+        _contacts_this_month = int(_mask_month.sum())
+
+    _week_label  = f"{_week_start.strftime('%d %b')} – {_week_end.strftime('%d %b')}"
+    _month_label = _today.strftime("%B %Y")
 
     # ── Filtro por zona de temperatura ────────────────────────────────────────
     _temp_filter = st.selectbox(
@@ -7379,13 +7422,36 @@ def page_follow_up_list():
     """, unsafe_allow_html=True)
 
     _showing = len(follow_df_filtered)
-    _wk_color = "#6FF24B" if _contacts_this_week >= 15 else ("#FF7124" if _contacts_this_week >= 8 else "#E5332A")
+
+    # Color thresholds: today ≥5 green, ≥2 orange, else red
+    #                   week  ≥15 green, ≥8 orange, else red
+    #                   month ≥60 green, ≥30 orange, else red
+    _today_color = "#6FF24B" if _contacts_today >= 5 else ("#FF7124" if _contacts_today >= 2 else "#E5332A")
+    _wk_color    = "#6FF24B" if _contacts_this_week >= 15 else ("#FF7124" if _contacts_this_week >= 8 else "#E5332A")
+    _mo_color    = "#6FF24B" if _contacts_this_month >= 60 else ("#FF7124" if _contacts_this_month >= 30 else "#E5332A")
+
     st.markdown(f"""
-<div style="display:inline-flex;align-items:center;gap:12px;background:rgba(78,99,217,.07);
-    border:1.5px solid rgba(78,99,217,.25);border-radius:12px;padding:10px 18px;margin-bottom:12px;">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">📞 Contactos esta semana</div>
-    <div style="font-size:26px;font-weight:900;color:{_wk_color};line-height:1;">{_contacts_this_week}</div>
-    <div style="font-size:11px;color:#DBBBA7;">{_week_label} &nbsp;·&nbsp;
+<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+    <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(111,242,75,.06);
+        border:1.5px solid rgba(111,242,75,.22);border-radius:12px;padding:10px 18px;">
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;letter-spacing:1px;">📞 HOY</div>
+        <div style="font-size:30px;font-weight:900;color:{_today_color};line-height:1;">{_contacts_today}</div>
+        <div style="font-size:11px;color:#8B9ED4;">contactos efectivos</div>
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(78,99,217,.07);
+        border:1.5px solid rgba(78,99,217,.25);border-radius:12px;padding:10px 18px;">
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;letter-spacing:1px;">📅 SEMANA</div>
+        <div style="font-size:30px;font-weight:900;color:{_wk_color};line-height:1;">{_contacts_this_week}</div>
+        <div style="font-size:11px;color:#8B9ED4;">{_week_label}</div>
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(255,113,36,.06);
+        border:1.5px solid rgba(255,113,36,.22);border-radius:12px;padding:10px 18px;">
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;letter-spacing:1px;">🗓️ MES</div>
+        <div style="font-size:30px;font-weight:900;color:{_mo_color};line-height:1;">{_contacts_this_month}</div>
+        <div style="font-size:11px;color:#8B9ED4;">{_month_label}</div>
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px 14px;font-size:11px;color:#8B9ED4;">
         <span style="color:#6FF24B;">🟢 {n_activo}</span> &nbsp;·&nbsp;
         <span style="color:#6FF24B;">🟡 {n_cadencia}</span> &nbsp;·&nbsp;
         <span style="color:#FF7124;">🟠 {n_alerta}</span> &nbsp;·&nbsp;
