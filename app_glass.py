@@ -8011,7 +8011,11 @@ def page_productivity_heatmap():
         if pct is None:
             return "background:rgba(255,255,255,0.05);color:#aaa;"
         t = min(pct / 100, 1.0)
-        bg   = _lerp_hex(lo_bg, hi_bg, t)
+        # Only interpolate if both colors are hex (#RRGGBB); otherwise pick by threshold
+        if lo_bg.startswith("#") and hi_bg.startswith("#"):
+            bg = _lerp_hex(lo_bg, hi_bg, t)
+        else:
+            bg = hi_bg if t > 0.45 else lo_bg
         text = hi_text if t > 0.45 else lo_text
         return f"background:{bg};color:{text};"
 
