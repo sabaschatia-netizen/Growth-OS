@@ -41,7 +41,7 @@ BACKUP_FOLDER = "backups"
 ARS_PER_USD = 1400
 COP_PER_USD = 3900
 ADS_REVENUE_TARGET_USD = 16038
-CONTACTS_START_DATE = date(2026, 5, 16)
+CONTACTS_START_DATE = date(2026, 6, 1)
 
 # Main visual identity requested by Sabas
 # Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
@@ -2368,13 +2368,12 @@ def get_last_comments_map(limit=2):
 
 def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE):
     """
-    Reads the Productivity sheet and counts contacts by channel from
-    column "medio de contacto" (col C, index 2):
-      - Zoho Voice      → calls
-      - Treble          → chats (WhatsApp)
-      - Videoconferencia → meets
-    Also reads the Week column (col B, index 1) to filter by start_date.
-    Returns a dict with the same shape as get_comment_contact_stats.
+    Reads the Productivity sheet and counts contacts by channel:
+      - Amazon Connect  -> calls
+      - WhatsApp        -> chats
+      - Videoconferencia -> meets
+    No Contactado comes from columna 'Contactado?' == 'NO'.
+    Filters by Date column >= start_date (June 1 2026).
     """
     if not os.path.exists(excel_path):
         return None
@@ -2383,39 +2382,52 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
     except Exception:
         return None
 
-    if "medio de contacto" not in [str(c).strip().lower() for c in raw.columns]:
-        # Try by position (col C = index 2)
-        if len(raw.columns) < 3:
-            return None
-        raw = raw.rename(columns={raw.columns[2]: "medio de contacto"})
-
     # Normalise column names for easy access
     raw.columns = [str(c).strip() for c in raw.columns]
-    medio_col = next((c for c in raw.columns if c.lower() == "medio de contacto"), None)
+    medio_col      = next((c for c in raw.columns if c.lower() == "medio de contacto"), None)
+    contactado_col = next((c for c in raw.columns if "contactado" in c.lower() and "contacto" not in c.lower().replace("contactado", "")), None)
+    # More robust search for the 'Contactado?' column
+    if not contactado_col:
+        contactado_col = next((c for c in raw.columns if c.strip().lower() in ["¿contactado?", "contactado?"]), None)
+    date_col  = next((c for c in raw.columns if c.lower() == "date"), None)
     week_col  = next((c for c in raw.columns if c.lower() == "week"), None)
 
     if not medio_col:
-        return None
+        if len(raw.columns) >= 3:
+            medio_col = raw.columns[2]
+        else:
+            return None
 
     df = raw.copy()
 
-    # Filter by start_date if Week column exists
-    if week_col:
+    # Filter from June 1 (use Date column preferably, fall back to Week)
+    if date_col:
+        df["_date_dt"] = pd.to_datetime(df[date_col], errors="coerce")
+        df = df[df["_date_dt"].notna() & (df["_date_dt"] >= pd.Timestamp(start_date))].copy()
+    elif week_col:
         df["_week_dt"] = pd.to_datetime(df[week_col], errors="coerce")
         df = df[df["_week_dt"].notna() & (df["_week_dt"] >= pd.Timestamp(start_date))].copy()
 
-    # Drop rows with no channel value
-    df = df[df[medio_col].notna()].copy()
-    df["_medio"] = df[medio_col].astype(str).str.strip().str.lower()
+    # Count No Contactado: rows where 'Contactado?' == 'NO'
+    if contactado_col:
+        df["_contactado"] = df[contactado_col].astype(str).str.strip().str.upper()
+        not_cont = int((df["_contactado"] == "NO").sum())
+        df_effective = df[df["_contactado"] == "SI"].copy()
+    else:
+        not_cont = 0
+        df_effective = df.copy()
 
-    total      = len(df)
-    calls      = int(df["_medio"].str.contains("zoho",           case=False, na=False).sum())
-    chats      = int(df["_medio"].str.contains("treble",         case=False, na=False).sum())
-    meets      = int(df["_medio"].str.contains("videoconferencia|videoconf|video", case=False, na=False).sum())
-    not_cont   = 0   # Productivity only has contacted rows; no-answer tracked in comments CSV
+    # Channel counting on effective rows only
+    df_effective = df_effective[df_effective[medio_col].notna()].copy()
+    df_effective["_medio"] = df_effective[medio_col].astype(str).str.strip().str.lower()
+
+    total_effective = len(df_effective)
+    calls = int(df_effective["_medio"].str.contains("amazon connect|amazon", case=False, na=False).sum())
+    chats = int(df_effective["_medio"].str.contains("whatsapp", case=False, na=False).sum())
+    meets = int(df_effective["_medio"].str.contains("videoconferencia|videoconf|video", case=False, na=False).sum())
 
     return {
-        "total_effective": total,
+        "total_effective": total_effective,
         "calls": calls,
         "chats": chats,
         "meets": meets,
@@ -2428,7 +2440,7 @@ def get_comment_contact_stats(start_date=CONTACTS_START_DATE, fallback_total=0):
     """
     Contact performance stats.
     Primary source: Productivity sheet · column "medio de contacto"
-      Zoho Voice → calls, Treble → chats, Videoconferencia → meets.
+      Amazon Connect → calls, WhatsApp → chats, Videoconferencia → meets.
     Fallback: comments CSV (legacy channel tagging).
     not_contacted is always read from the comments CSV.
     """
@@ -4782,23 +4794,65 @@ def get_live_campaign_coverage_counts():
     total = len(portfolio_ids) if portfolio_ids else 0
 
     ads_ids = set()
-    ads_df = load_current_ads_data(portfolio_only=True)
-    if not ads_df.empty:
-        for _, r in ads_df.iterrows():
-            if any(to_number(r.get(c), 0) > 0 for c in ["bookings net", "bookings weekly net", "revenue net", "sales ads usd"]):
-                bid = normalize_brand_id(r.get("_id"))
-                if bid:
-                    ads_ids.add(bid)
-
-    md_ids = set()
-    for pro_flag in [False, True]:
-        md_df = load_current_md_data(portfolio_only=True, pro=pro_flag)
-        if not md_df.empty:
-            for _, r in md_df.iterrows():
-                if to_number(r.get("_orders"), 0) > 0 or to_number(r.get("_campaigns"), 0) > 0:
+    # Load raw Current ADS sheet directly to apply the BOOKINGS NET >= 1 USD rule
+    try:
+        _raw_ads = _read_current_sheet(CURRENT_ADS_SHEET)
+        if not _raw_ads.empty:
+            # Normalise column names
+            _raw_ads.columns = [normalize(c) for c in _raw_ads.columns]
+            _bid_col = _first_existing_col(_raw_ads, ["code", "brand id", "brand_id", "id"])
+            _book_col = _first_existing_col(_raw_ads, ["bookings net", "bookings_net"])
+            if _bid_col and _book_col:
+                _raw_ads["_book_num"] = pd.to_numeric(_raw_ads[_book_col], errors="coerce").fillna(0)
+                _raw_ads["_bid_norm"] = _raw_ads[_bid_col].apply(normalize_brand_id)
+                for _, r in _raw_ads[_raw_ads["_book_num"] >= 1].iterrows():
+                    bid = r["_bid_norm"]
+                    if bid:
+                        ads_ids.add(bid)
+    except Exception:
+        # Fallback to cached data
+        ads_df = load_current_ads_data(portfolio_only=True)
+        if not ads_df.empty:
+            for _, r in ads_df.iterrows():
+                if to_number(r.get("bookings net"), 0) >= 1:
                     bid = normalize_brand_id(r.get("_id"))
                     if bid:
+                        ads_ids.add(bid)
+
+    md_ids = set()
+    # MD active = BRANDS MD # == 1 in Current MD sheet
+    # MD PRO active = BRANDS MD # PRO == 1 in Current MD pro sheet
+    # Count union (brand counted once even if it has both)
+    try:
+        _raw_md = _read_current_sheet(CURRENT_MD_SHEET)
+        if not _raw_md.empty:
+            _raw_md.columns = [normalize(c) for c in _raw_md.columns]
+            _md_bid_col   = _first_existing_col(_raw_md, ["brand id", "brand_id", "id"])
+            _md_flag_col  = _first_existing_col(_raw_md, ["brands md #", "brands md#", "brands md"])
+            if _md_bid_col and _md_flag_col:
+                _raw_md["_flag_num"] = pd.to_numeric(_raw_md[_md_flag_col], errors="coerce").fillna(0)
+                _raw_md["_bid_norm"] = _raw_md[_md_bid_col].apply(normalize_brand_id)
+                for _, r in _raw_md[_raw_md["_flag_num"] == 1].iterrows():
+                    bid = r["_bid_norm"]
+                    if bid:
                         md_ids.add(bid)
+    except Exception:
+        pass
+    try:
+        _raw_mdp = _read_current_sheet(CURRENT_MD_PRO_SHEET)
+        if not _raw_mdp.empty:
+            _raw_mdp.columns = [normalize(c) for c in _raw_mdp.columns]
+            _mdp_bid_col  = _first_existing_col(_raw_mdp, ["brand id", "brand_id", "id"])
+            _mdp_flag_col = _first_existing_col(_raw_mdp, ["brands md # pro", "brands md# pro", "brands md #pro", "brands md pro"])
+            if _mdp_bid_col and _mdp_flag_col:
+                _raw_mdp["_flag_num"] = pd.to_numeric(_raw_mdp[_mdp_flag_col], errors="coerce").fillna(0)
+                _raw_mdp["_bid_norm"] = _raw_mdp[_mdp_bid_col].apply(normalize_brand_id)
+                for _, r in _raw_mdp[_raw_mdp["_flag_num"] == 1].iterrows():
+                    bid = r["_bid_norm"]
+                    if bid:
+                        md_ids.add(bid)
+    except Exception:
+        pass
 
     growth_df = load_growth_data()
     ads_ids.update(_status_col_active_ids(growth_df, ["ads", "ads status"]))
@@ -5451,16 +5505,16 @@ def page_management_dashboard():
         '</div>'
         # ── Stacked horizontal bar ──────────────────────────────────────────
         '<div style="display:flex;height:28px;border-radius:999px;overflow:hidden;width:100%;margin-bottom:14px;">'
-        f'<div style="width:{calls_pct}%;background:#FF7124;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Zoho Voice {calls_pct}%">'
+        f'<div style="width:{calls_pct}%;background:#FF7124;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Amazon Connect {calls_pct}%">'
         f'{"📞 " + str(calls_pct) + "%" if calls_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{chats_pct}%;background:#8B9ED4;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 Treble {chats_pct}%">'
+        f'<div style="width:{chats_pct}%;background:#8B9ED4;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 WhatsApp {chats_pct}%">'
         f'{"💬 " + str(chats_pct) + "%" if chats_pct >= 7 else ""}'
         '</div>'
         f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#6FF24B;white-space:nowrap;overflow:hidden;" title="🖥️ Videocall {meets_pct}%">'
         f'{"🖥️ " + str(meets_pct) + "%" if meets_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{ghost_pct}%;background:#E5332A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Answer {ghost_pct}%">'
+        f'<div style="width:{ghost_pct}%;background:#E5332A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Contactado {ghost_pct}%">'
         f'{"👻 " + str(ghost_pct) + "%" if ghost_pct >= 7 else ""}'
         '</div>'
         '</div>'
@@ -5468,12 +5522,12 @@ def page_management_dashboard():
         '<div style="display:flex;gap:20px;flex-wrap:wrap;">'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#FF7124;flex-shrink:0;"></div>'
-        f'<span style="color:#FF7124;">📞 Zoho Voice</span>'
+        f'<span style="color:#FF7124;">📞 Amazon Connect</span>'
         f'<span style="color:#DBBBA7;font-weight:600;">{_cs_calls} &middot; {calls_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#8B9ED4;flex-shrink:0;"></div>'
-        f'<span style="color:#8B9ED4;">💬 Treble</span>'
+        f'<span style="color:#8B9ED4;">💬 WhatsApp</span>'
         f'<span style="color:#DBBBA7;font-weight:600;">{_cs_chats} &middot; {chats_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
@@ -5483,7 +5537,7 @@ def page_management_dashboard():
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#E5332A;flex-shrink:0;"></div>'
-        f'<span style="color:#E5332A;">👻 No Answer</span>'
+        f'<span style="color:#E5332A;">👻 No Contactado</span>'
         f'<span style="color:#DBBBA7;font-weight:600;">{_cs_ghost} &middot; {ghost_pct}%</span>'
         '</div>'
         '</div>'
