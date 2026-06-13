@@ -2505,7 +2505,14 @@ def get_comment_contact_stats(start_date=CONTACTS_START_DATE, fallback_total=0):
     # ── Primary: Productivity sheet ───────────────────────────────────────────
     prod_stats = _load_productivity_contact_stats(EXCEL_FILE, start_date)
 
-    # ── not_contacted always comes from the comments CSV ──────────────────────
+    # ── Primary: use not_contacted from Productivity sheet (col F = Fase) ────
+    # When Productivity data is available, not_contacted comes directly from it
+    # (rows where Fase == "Aliado no contactado"). The comments CSV is only a
+    # fallback for when the Productivity sheet is unavailable.
+    if prod_stats is not None:
+        return prod_stats
+
+    # ── Fallback: comments CSV (only when Productivity sheet is unavailable) ──
     comments = _load_comments_df()
     not_contacted = 0
     if not comments.empty and "_dt" in comments.columns:
@@ -2517,10 +2524,6 @@ def get_comment_contact_stats(start_date=CONTACTS_START_DATE, fallback_total=0):
                 axis=1,
             )
             not_contacted = int(recent["_not_contacted"].sum())
-
-    if prod_stats is not None:
-        prod_stats["not_contacted"] = not_contacted
-        return prod_stats
 
     # ── Fallback: comments CSV ────────────────────────────────────────────────
     empty_stats = {
