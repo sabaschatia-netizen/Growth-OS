@@ -1351,7 +1351,9 @@ def get_current_md_metrics(brand_id, pro=False):
     gmv = pd.to_numeric(result["_gmv_usd"], errors="coerce").fillna(0).sum()
     campaigns = pd.to_numeric(result["_campaigns"], errors="coerce").fillna(0).sum()
     orders = pd.to_numeric(result["_orders"], errors="coerce").fillna(0).sum()
-    roi = (gmv / sales) if sales else pd.to_numeric(result["_roi_raw"], errors="coerce").fillna(0).mean()
+    # ROI comes directly from col J of the sheet
+    roi = pd.to_numeric(result["_roi_raw"], errors="coerce").replace(0, float("nan")).mean()
+    roi = roi if not (roi != roi) else 0  # NaN guard
 
     return {
         "active": orders > 0,
@@ -1402,7 +1404,9 @@ def get_current_md_totals(pro=False):
     gmv = pd.to_numeric(df["_gmv_usd"], errors="coerce").fillna(0).sum()
     campaigns = pd.to_numeric(df["_campaigns"], errors="coerce").fillna(0).sum()
     orders = pd.to_numeric(df["_orders"], errors="coerce").fillna(0).sum()
-    roi = (gmv / sales) if sales else pd.to_numeric(df["_roi_raw"], errors="coerce").fillna(0).mean()
+    # ROI comes directly from col J of the sheet — never recalculate from gmv/sales
+    roi = pd.to_numeric(df["_roi_raw"], errors="coerce").replace(0, float("nan")).mean()
+    roi = roi if not (roi != roi) else 0  # NaN guard
 
     return {
         "sales_usd": sales,
@@ -2405,26 +2409,33 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
     except Exception:
         return None
 
-    # Normalise column names for easy access
+    # Keep original column names (stripped) for positional access
     raw.columns = [str(c).strip() for c in raw.columns]
+    cols_lower = [c.lower() for c in raw.columns]
 
-    # Medio de Contacto = col C (index 2), ¿Contactado? = col E (index 4)
-    # Pin by position first, then try by name as fallback
-    medio_col      = raw.columns[2] if len(raw.columns) > 2 else None
-    contactado_col = raw.columns[4] if len(raw.columns) > 4 else None  # col E = ¿Contactado?
-    date_col  = next((c for c in raw.columns if c.lower() == "date"), None)
-    week_col  = next((c for c in raw.columns if c.lower() == "week"), None)
+    # Resolve columns by NAME first (most reliable), fall back to position
+    # Col C (idx 2)  = Medio de Contacto
+    # Col E (idx 4)  = ¿Contactado?
+    # Col I (idx 8)  = Month
+    # Col J (idx 9)  = Week
+    # Col K (idx 10) = Date
+    medio_col      = next((raw.columns[i] for i, c in enumerate(cols_lower) if "medio de contacto" in c), None)
+    contactado_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if "contactado" in c and "contacto" not in c.replace("contactado","")), None)
+    # Fallback by position if name search failed
+    if not medio_col and len(raw.columns) > 2:
+        medio_col = raw.columns[2]
+    if not contactado_col and len(raw.columns) > 4:
+        contactado_col = raw.columns[4]
 
-    # Name-based fallback for medio de contacto
-    if not medio_col or "contacto" not in str(medio_col).lower():
-        medio_col = next((c for c in raw.columns if "medio de contacto" in c.lower()), medio_col)
+    date_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "date"), None)
+    week_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "week"), None)
 
     if not medio_col:
         return None
 
     df = raw.copy()
 
-    # Filter from June 1 (use Date column preferably, fall back to Week)
+    # Filter from start_date (June 1) using Date column, fall back to Week
     if date_col:
         df["_date_dt"] = pd.to_datetime(df[date_col], errors="coerce")
         df = df[df["_date_dt"].notna() & (df["_date_dt"] >= pd.Timestamp(start_date))].copy()
@@ -2432,8 +2443,8 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
         df["_week_dt"] = pd.to_datetime(df[week_col], errors="coerce")
         df = df[df["_week_dt"].notna() & (df["_week_dt"] >= pd.Timestamp(start_date))].copy()
 
-    # Count No Contactado: rows where 'Contactado?' == 'NO'
-    if contactado_col:
+    # Count No Answer: col E (¿Contactado?) == "NO"  — ALL rows after date filter
+    if contactado_col and contactado_col in df.columns:
         df["_contactado"] = df[contactado_col].astype(str).str.strip().str.upper()
         not_cont = int((df["_contactado"] == "NO").sum())
         df_effective = df[df["_contactado"] == "SI"].copy()
@@ -2441,7 +2452,7 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
         not_cont = 0
         df_effective = df.copy()
 
-    # Channel counting on effective rows only
+    # Channel counting on effective (SI) rows only
     df_effective = df_effective[df_effective[medio_col].notna()].copy()
     df_effective["_medio"] = df_effective[medio_col].astype(str).str.strip().str.lower()
 
@@ -5169,7 +5180,7 @@ def page_management_dashboard():
         f'<div style="font-size:20px;font-weight:900;color:#FF7124;line-height:1;">{ads_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#FF7124;">&#6FF24B; ADS</div>'
+        f'<div style="font-size:12px;font-weight:900;color:#FF7124;">ADS</div>'
         f'<div style="font-size:11px;color:#DBBBA7;font-weight:700;">{live_coverage["ads"]} brands</div>'
         f'</div></div>'
         # MD donut
@@ -5180,7 +5191,7 @@ def page_management_dashboard():
         f'<div style="font-size:20px;font-weight:900;color:#8B9ED4;line-height:1;">{md_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#8B9ED4;">&#6FF24B; MD</div>'
+        f'<div style="font-size:12px;font-weight:900;color:#8B9ED4;">MD</div>'
         f'<div style="font-size:11px;color:#DBBBA7;font-weight:700;">{live_coverage["md"]} brands</div>'
         f'</div></div>'
         '</div>'
@@ -5472,7 +5483,7 @@ def page_management_dashboard():
   <div class="stack-label">MD SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_md_usd}</div>
   <div class="stack-sub mgmt-conv">{_md_ars} &middot; {_md_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#8B9ED4;">&#6FF24B; {_md_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#8B9ED4;">📊 {_md_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {md_gauge}
   </div>
@@ -5485,7 +5496,7 @@ def page_management_dashboard():
   <div class="stack-label">MD PRO SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_mdp_usd}</div>
   <div class="stack-sub mgmt-conv">{_mdp_ars} &middot; {_mdp_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#6FF24B;">&#6FF24B; {_mdp_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#6FF24B;">📊 {_mdp_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {mdpro_gauge}
   </div>
@@ -5561,7 +5572,7 @@ def page_management_dashboard():
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#E5332A;flex-shrink:0;"></div>'
-        f'<span style="color:#E5332A;">👻 No Contactado</span>'
+        f'<span style="color:#E5332A;">👻 No Answer</span>'
         f'<span style="color:#DBBBA7;font-weight:600;">{_cs_ghost} &middot; {ghost_pct}%</span>'
         '</div>'
         '</div>'
