@@ -1388,6 +1388,27 @@ def get_markdown_dollar_total():
     return pd.to_numeric(df[col], errors="coerce").fillna(0).sum()
 
 
+def _read_md_roi_from_j290(pro=False):
+    """
+    Reads the ROI value directly from cell J290 of Current MD or Current MD pro.
+    This is the authoritative portfolio-level ROI figure as computed by the sheet.
+    """
+    sheet = CURRENT_MD_PRO_SHEET if pro else CURRENT_MD_SHEET
+    if not os.path.exists(EXCEL_FILE):
+        return 0
+    try:
+        wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
+        if sheet not in wb.sheetnames:
+            # Fallback to non-pro sheet if pro not found
+            sheet = CURRENT_MD_SHEET
+        ws = wb[sheet]
+        roi_val = ws["J290"].value
+        wb.close()
+        return to_number(roi_val, 0)
+    except Exception:
+        return 0
+
+
 def get_current_md_totals(pro=False):
     df = load_current_md_data(portfolio_only=True, pro=pro)
 
@@ -1404,9 +1425,8 @@ def get_current_md_totals(pro=False):
     gmv = pd.to_numeric(df["_gmv_usd"], errors="coerce").fillna(0).sum()
     campaigns = pd.to_numeric(df["_campaigns"], errors="coerce").fillna(0).sum()
     orders = pd.to_numeric(df["_orders"], errors="coerce").fillna(0).sum()
-    # ROI comes directly from col J of the sheet — never recalculate from gmv/sales
-    roi = pd.to_numeric(df["_roi_raw"], errors="coerce").replace(0, float("nan")).mean()
-    roi = roi if not (roi != roi) else 0  # NaN guard
+    # ROI read directly from cell J290 of the sheet — authoritative portfolio-level figure
+    roi = _read_md_roi_from_j290(pro=pro)
 
     return {
         "sales_usd": sales,
@@ -2415,17 +2435,19 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
 
     # Resolve columns by NAME first (most reliable), fall back to position
     # Col C (idx 2)  = Medio de Contacto
-    # Col E (idx 4)  = ¿Contactado?
+    # Col F (idx 5)  = Fase  → "Aliado no contactado" = No Answer
     # Col I (idx 8)  = Month
     # Col J (idx 9)  = Week
     # Col K (idx 10) = Date
-    medio_col      = next((raw.columns[i] for i, c in enumerate(cols_lower) if "medio de contacto" in c), None)
-    contactado_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if "contactado" in c and "contacto" not in c.replace("contactado","")), None)
+    medio_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if "medio de contacto" in c), None)
     # Fallback by position if name search failed
     if not medio_col and len(raw.columns) > 2:
         medio_col = raw.columns[2]
-    if not contactado_col and len(raw.columns) > 4:
-        contactado_col = raw.columns[4]
+
+    # Columna F (índice 5) = Fase — "Aliado no contactado" identifica No Answer
+    fase_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "fase"), None)
+    if not fase_col and len(raw.columns) > 5:
+        fase_col = raw.columns[5]
 
     date_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "date"), None)
     week_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "week"), None)
@@ -2443,11 +2465,12 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
         df["_week_dt"] = pd.to_datetime(df[week_col], errors="coerce")
         df = df[df["_week_dt"].notna() & (df["_week_dt"] >= pd.Timestamp(start_date))].copy()
 
-    # Count No Answer: col E (¿Contactado?) == "NO"  — ALL rows after date filter
-    if contactado_col and contactado_col in df.columns:
-        df["_contactado"] = df[contactado_col].astype(str).str.strip().str.upper()
-        not_cont = int((df["_contactado"] == "NO").sum())
-        df_effective = df[df["_contactado"] == "SI"].copy()
+    # Count No Answer: col F (Fase) == "Aliado no contactado" — ALL rows after date filter
+    if fase_col and fase_col in df.columns:
+        df["_fase"] = df[fase_col].astype(str).str.strip().str.lower()
+        not_cont = int(df["_fase"].str.contains("aliado no contactado", case=False, na=False).sum())
+        # Effective rows = those NOT marked as "Aliado no contactado"
+        df_effective = df[~df["_fase"].str.contains("aliado no contactado", case=False, na=False)].copy()
     else:
         not_cont = 0
         df_effective = df.copy()
