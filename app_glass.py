@@ -1233,9 +1233,16 @@ def _prepare_numeric_col(df, col_name):
 
 @st.cache_data(ttl=120)
 def load_current_md_data(portfolio_only=False, pro=False):
-    # Control de hojas mixto: si todo viene en "Current MD", usamos esa misma hoja
+    """
+    Loads Current MD or Current MD pro sheet.
+    Sales  → column E (index 4): MARKDOWN $ / MARKDOWN PRO USR $   (already in USD)
+    ROI    → column J (index 9): ROI / ROI MD PRIME
+    Orders → used only to filter active rows.
+    Conversion: USD values are converted to ARS (* ARS_PER_USD) and COP (* COP_PER_USD)
+    at display time via money_from_usd() in the dashboard cards.
+    """
     sheet = CURRENT_MD_PRO_SHEET if pro else CURRENT_MD_SHEET
-    
+
     try:
         import openpyxl
         wb = openpyxl.load_workbook(EXCEL_FILE, read_only=True)
@@ -1243,20 +1250,34 @@ def load_current_md_data(portfolio_only=False, pro=False):
         wb.close()
     except Exception:
         sheet_names = []
-        
-    # Si la hoja PRO dedicada no existe, procesamos la hoja principal de MD
+
     if pro and CURRENT_MD_PRO_SHEET not in sheet_names:
         sheet = CURRENT_MD_SHEET
-        
-    df = _read_current_sheet(sheet)
-    if df.empty and pro:
-        sheet = CURRENT_MD_SHEET
-        df = _read_current_sheet(sheet)
 
-    if df.empty:
+    # ── Read raw with positional columns so we can pin col E and col J ──────
+    if not os.path.exists(EXCEL_FILE):
+        return pd.DataFrame()
+    try:
+        raw = pd.read_excel(EXCEL_FILE, sheet_name=sheet, header=0)
+    except Exception:
         return pd.DataFrame()
 
-    # Normalización dura de encabezados
+    if raw.empty:
+        if pro:
+            try:
+                raw = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_MD_SHEET, header=0)
+            except Exception:
+                return pd.DataFrame()
+        if raw.empty:
+            return pd.DataFrame()
+
+    df = raw.copy()
+
+    # ── Positional anchors (0-based): col E = idx 4, col J = idx 9 ──────────
+    COL_E_IDX = 4   # MARKDOWN $ / MARKDOWN PRO USR $  → sales (USD)
+    COL_J_IDX = 9   # ROI / ROI MD PRIME               → roi
+
+    # Normalise headers for name-based lookups (ID, orders, campaigns, gmv)
     df.columns = [normalize(c).replace("_", " ").strip() for c in df.columns]
 
     id_col = _first_existing_col(df, ["brand id", "brand_id", "code", "id", "tienda id"])
@@ -1265,27 +1286,29 @@ def load_current_md_data(portfolio_only=False, pro=False):
 
     df["_id"] = df[id_col].apply(normalize_brand_id)
 
-    # Diccionario de prioridades estricto para no confundir la inversión con el GMV
+    # ── Sales: col E (idx 4) → already USD ───────────────────────────────────
+    col_e_name = df.columns[COL_E_IDX] if COL_E_IDX < len(df.columns) else None
+    df["_sales_usd"] = _prepare_numeric_col(df, col_e_name) if col_e_name else pd.Series([0]*len(df), index=df.index)
+
+    # ── ROI: col J (idx 9) ────────────────────────────────────────────────────
+    col_j_name = df.columns[COL_J_IDX] if COL_J_IDX < len(df.columns) else None
+    df["_roi_raw"] = _prepare_numeric_col(df, col_j_name) if col_j_name else pd.Series([0]*len(df), index=df.index)
+
+    # ── GMV, campaigns, orders: name-based (display / filtering use only) ────
     if pro:
-        sales_col = _first_existing_col(df, ["sales md prime", "sales md pro", "sales_md_pro", "sales pro", "sales md", "sales", "ventas pro", "inversion pro"])
-        roi_col = _first_existing_col(df, ["roi md prime", "roi md pro", "roi_md_pro", "roi pro", "roi"])
-        gmv_col = _first_existing_col(df, ["gmv pro usr", "gmv pro", "gmv_pro", "gmv pro user", "gmv md pro", "gmv", "gmv usd"])
+        gmv_col       = _first_existing_col(df, ["gmv pro usr", "gmv pro", "gmv pro user", "gmv md pro", "gmv", "gmv usd"])
         campaigns_col = _first_existing_col(df, ["campaigns pro #", "campaings pro #", "campaigns pro", "campaigns_pro", "campaigns"])
-        orders_col = _first_existing_col(df, ["orders md pro usr", "orders md pro usr #", "orders md pro", "orders_md_pro", "orders pro", "orders", "ordenes pro", "pedidos pro"])
+        orders_col    = _first_existing_col(df, ["orders md pro usr", "orders md pro usr #", "orders md pro", "orders_md_pro", "orders pro", "orders", "ordenes pro"])
     else:
-        sales_col = _first_existing_col(df, ["sales md $", "sales md", "sales_md", "ventas md", "inversion md", "sales", "ventas"])
-        roi_col = _first_existing_col(df, ["roi", "roi md", "roi_md"])
-        gmv_col = _first_existing_col(df, ["markdown $", "markdown$", "markdown usd", "gmv md $", "gmv md", "gmv_md", "gmv total md", "gmv total", "gmv", "gmv usd"])
+        gmv_col       = _first_existing_col(df, ["gmv md $", "gmv md", "gmv_md", "gmv total md", "gmv total", "gmv", "gmv usd"])
         campaigns_col = _first_existing_col(df, ["campaings #", "campaigns #", "campaigns", "campaigns md"])
-        orders_col = _first_existing_col(df, ["orders md #", "orders md", "orders_md", "ordenes md", "pedidos md", "orders", "ordenes", "pedidos"])
+        orders_col    = _first_existing_col(df, ["orders md #", "orders md", "orders_md", "ordenes md", "pedidos md", "orders", "ordenes", "pedidos"])
 
-    df["_sales_usd"] = _prepare_numeric_col(df, sales_col)
-    df["_roi_raw"] = _prepare_numeric_col(df, roi_col)
-    df["_gmv_usd"] = _prepare_numeric_col(df, gmv_col)
-    df["_campaigns"] = _prepare_numeric_col(df, campaigns_col)
-    df["_orders"] = _prepare_numeric_col(df, orders_col)
+    df["_gmv_usd"]    = _prepare_numeric_col(df, gmv_col)
+    df["_campaigns"]  = _prepare_numeric_col(df, campaigns_col)
+    df["_orders"]     = _prepare_numeric_col(df, orders_col)
 
-    # Filtro de seguridad: mantiene vivas las filas con órdenes reales en la columna seleccionada
+    # Keep only rows with real orders
     df = df[df["_orders"] > 0].copy()
 
     if portfolio_only:
@@ -2384,19 +2407,20 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
 
     # Normalise column names for easy access
     raw.columns = [str(c).strip() for c in raw.columns]
-    medio_col      = next((c for c in raw.columns if c.lower() == "medio de contacto"), None)
-    contactado_col = next((c for c in raw.columns if "contactado" in c.lower() and "contacto" not in c.lower().replace("contactado", "")), None)
-    # More robust search for the 'Contactado?' column
-    if not contactado_col:
-        contactado_col = next((c for c in raw.columns if c.strip().lower() in ["¿contactado?", "contactado?"]), None)
+
+    # Medio de Contacto = col C (index 2), ¿Contactado? = col E (index 4)
+    # Pin by position first, then try by name as fallback
+    medio_col      = raw.columns[2] if len(raw.columns) > 2 else None
+    contactado_col = raw.columns[4] if len(raw.columns) > 4 else None  # col E = ¿Contactado?
     date_col  = next((c for c in raw.columns if c.lower() == "date"), None)
     week_col  = next((c for c in raw.columns if c.lower() == "week"), None)
 
+    # Name-based fallback for medio de contacto
+    if not medio_col or "contacto" not in str(medio_col).lower():
+        medio_col = next((c for c in raw.columns if "medio de contacto" in c.lower()), medio_col)
+
     if not medio_col:
-        if len(raw.columns) >= 3:
-            medio_col = raw.columns[2]
-        else:
-            return None
+        return None
 
     df = raw.copy()
 
@@ -5511,7 +5535,7 @@ def page_management_dashboard():
         f'<div style="width:{chats_pct}%;background:#8B9ED4;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 WhatsApp {chats_pct}%">'
         f'{"💬 " + str(chats_pct) + "%" if chats_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#6FF24B;white-space:nowrap;overflow:hidden;" title="🖥️ Videocall {meets_pct}%">'
+        f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#6FF24B;white-space:nowrap;overflow:hidden;" title="🖥️ Meet {meets_pct}%">'
         f'{"🖥️ " + str(meets_pct) + "%" if meets_pct >= 7 else ""}'
         '</div>'
         f'<div style="width:{ghost_pct}%;background:#E5332A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Contactado {ghost_pct}%">'
@@ -5532,7 +5556,7 @@ def page_management_dashboard():
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#6FF24B;flex-shrink:0;"></div>'
-        f'<span style="color:#6FF24B;">🖥️ Videocall</span>'
+        f'<span style="color:#6FF24B;">🖥️ Meet</span>'
         f'<span style="color:#DBBBA7;font-weight:600;">{_cs_meets} &middot; {meets_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
