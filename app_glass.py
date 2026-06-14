@@ -6383,21 +6383,57 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     target_120      = target_usd * 1.2
     base_covered    = active_usd + projected_usd
 
-    at_100      = base_covered >= target_usd
-    bar_ceiling = target_120 if at_100 else target_usd
+    target_140      = target_usd * 1.4
+    at_100          = base_covered >= target_usd
+    at_120          = base_covered >= target_120
+    at_140          = base_covered >= target_140
+    pct_covered     = base_covered / target_usd if target_usd > 0 else 0
+
+    # Bar ceiling escalates: <100% → 100%, 100–120% → 120%, 120–140% → 140%, 140%+ → 140%
+    if at_140:
+        bar_ceiling = target_140
+    elif at_120:
+        bar_ceiling = target_140
+    elif at_100:
+        bar_ceiling = target_120
+    else:
+        bar_ceiling = target_usd
 
     pct_active    = min(active_usd / bar_ceiling, 1.0) * 100
     pct_projected = min(projected_usd / bar_ceiling, max(0.0, 1.0 - pct_active / 100)) * 100
 
-    if at_100:
+    if at_120:
+        # Ya superó 120% — peleando por 140%
+        tramo_next          = target_usd * 0.2          # tramo de 120% a 140%
+        pipeline_capped     = min(pipeline_usd, tramo_next)
+        gap_usd             = max(tramo_next - pipeline_usd, 0)
+        pct_pipeline        = (pipeline_capped / bar_ceiling) * 100
+        pct_gap             = (gap_usd / bar_ceiling) * 100
+        overall_label       = "{:.0f}% cubierto".format(pct_covered * 100)
+        gap_label           = "Gap a 140%"
+        marker_pct_100      = target_usd / bar_ceiling * 100
+        marker_pct_120      = target_120 / bar_ceiling * 100
+        marker_html         = (
+            '<div style="position:absolute;top:-2px;left:{:.1f}%;width:2px;height:18px;background:rgba(255,255,255,0.35);border-radius:1px;"></div>'.format(marker_pct_100) +
+            '<div style="position:absolute;top:-2px;left:{:.1f}%;width:2px;height:18px;background:rgba(255,255,255,0.65);border-radius:1px;"></div>'.format(marker_pct_120)
+        )
+        scale_html          = '<div style="display:flex;justify-content:space-between;font-size:10px;color:{};margin-bottom:8px;padding:0 2px;"><span>0</span><span>100%</span><span>120%</span><span>140%</span></div>'.format(color_muted)
+        if at_140:
+            status_label    = "🏆 +140% — Modo bestia"
+            status_color    = "#6FF24B"
+        else:
+            status_label    = "🔥 Peleando 140%"
+            status_color    = "#6FF24B"
+    elif at_100:
+        # Superó 100% — peleando por 120%
         tramo_120       = target_usd * 0.2
         pipeline_capped = min(pipeline_usd, tramo_120)
         gap_usd         = max(tramo_120 - pipeline_usd, 0)
         pct_pipeline    = (pipeline_capped / bar_ceiling) * 100
         pct_gap         = (gap_usd / bar_ceiling) * 100
-        overall_label   = "{:.0f}% cubierto".format(base_covered / target_usd * 100)
-        status_color    = "#6FF24B"
-        status_label    = "On track to close"
+        overall_label   = "{:.0f}% cubierto".format(pct_covered * 100)
+        status_color    = "#4B9CF2"
+        status_label    = "⚡ Peleando 120%"
         gap_label       = "Gap a 120%"
         marker_html     = '<div style="position:absolute;top:-2px;left:{:.1f}%;width:2px;height:18px;background:rgba(255,255,255,0.45);border-radius:1px;"></div>'.format(target_usd / bar_ceiling * 100)
         scale_html      = '<div style="display:flex;justify-content:space-between;font-size:10px;color:{};margin-bottom:8px;padding:0 2px;"><span>0</span><span>100%</span><span>120%</span></div>'.format(color_muted)
@@ -6409,8 +6445,8 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         pct_gap         = (gap_usd / bar_ceiling) * 100
         overall_pct     = min((base_covered + pipeline_usd) / target_usd * 100, 100)
         overall_label   = "{:.0f}% cubierto".format(overall_pct)
-        status_color    = "#FF7124" if base_covered / target_usd >= 0.70 else "#E5332A"
-        status_label    = "Needs focus" if base_covered / target_usd >= 0.70 else "Gap critical"
+        status_color    = "#FF7124" if pct_covered >= 0.70 else "#E5332A"
+        status_label    = "Needs focus" if pct_covered >= 0.70 else "Gap critical"
         gap_label       = "Gap"
         marker_html     = ""
         scale_html      = '<div style="margin-bottom:8px;"></div>'
