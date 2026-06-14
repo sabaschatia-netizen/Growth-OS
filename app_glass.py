@@ -4356,28 +4356,35 @@ def page_day_queue():
             # ── Buscar en Google: nombre, teléfono y ubicación del local ───────
             saved_link = _get_saved_brand_link(brand_id)
             search_url = _build_google_search_url(name, category, contact_number)
-            gl_col1, gl_col2 = st.columns([1, 3])
-            with gl_col1:
-                st.link_button("🔎 Buscar en Google", search_url, use_container_width=True)
-            with gl_col2:
-                new_link = st.text_input(
-                    "Link encontrado (se guarda y no se vuelve a pedir)",
-                    value=saved_link,
-                    key=f"glink_{card_key}",
-                    placeholder="Pegá aquí el link de Google Maps / Google del local…",
-                    label_visibility="collapsed",
-                )
+
+            st.markdown(
+                f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
+                f"border-radius:10px;padding:10px 14px;margin:10px 0;'>"
+                f"<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.5);"
+                f"text-transform:uppercase;margin-bottom:6px;'>Buscar local en Google</div>"
+                f"<a href='{html.escape(search_url)}' target='_blank' rel='noopener noreferrer' "
+                f"style='display:inline-block;background:rgba(59,72,131,0.25);color:#A9BBFF;"
+                f"font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;"
+                f"text-decoration:none;border:1px solid rgba(139,158,212,0.35);'>"
+                f"🔎 Buscar \"{html.escape(strip_brand_id_prefix(name))}\" en Google</a>"
+                + (f"<div style='margin-top:8px;'><a href='{html.escape(saved_link)}' target='_blank' "
+                   f"rel='noopener noreferrer' style='color:#6FF24B;font-size:13px;text-decoration:none;'>"
+                   f"📍 Link guardado del local</a></div>" if saved_link else "")
+                + f"</div>",
+                unsafe_allow_html=True
+            )
+
+            new_link = st.text_input(
+                "Pegar link encontrado (Google Maps / ficha del local) — se guarda y no se vuelve a pedir",
+                value=saved_link,
+                key=f"glink_{card_key}",
+                placeholder="Pegá aquí el link de Google Maps / Google del local…",
+            )
             if new_link.strip() and new_link.strip() != saved_link:
                 if _save_brand_link(brand_id, name, new_link.strip()):
                     st.success("Link guardado ✅")
                     st.rerun()
-            if saved_link:
-                st.markdown(
-                    f"<div style='font-size:12px;margin:2px 0 8px;'>"
-                    f"<a href='{html.escape(saved_link)}' target='_blank' style='color:#8B9ED4;'>"
-                    f"📍 Ver local guardado: {html.escape(strip_brand_id_prefix(name))}</a></div>",
-                    unsafe_allow_html=True
-                )
+
 
             # ── Stickers de métricas ───────────────────────────────────────────
             stickers_html = ""
