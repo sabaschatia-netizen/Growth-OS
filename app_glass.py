@@ -1,5 +1,6 @@
 # GROWTH OS 360 ACTION PATCH · MANAGEMENT + FINDER + PALETTE
 import streamlit as st
+import streamlit.components.v1 as st_components
 import pandas as pd
 import openpyxl
 import math
@@ -14727,7 +14728,7 @@ def _render_followup_form(row, brand_id, name):
             )
             _event_status = st.selectbox(
                 "Task Status",
-                ["Pending", "In Progress", "Done", "Cancelled"],
+                ["Campaign Follow Up", "Campaign Negotiation", "Contractual Changes"],
                 index=0,
                 key=f"event_status_{suffix}_{brand_id}"
             )
@@ -15252,109 +15253,170 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
 
     total_height = (HOUR_END - HOUR_START) * SLOT_HEIGHT
 
-    # Líneas horizontales de separación de horas
+    # ── Líneas horizontales ───────────────────────────────────────────────────
     grid_lines_html = ""
     for h in range(HOUR_START, HOUR_END + 1):
         top = (h - HOUR_START) * SLOT_HEIGHT
         color = "rgba(255,255,255,0.10)" if h % 2 == 0 else "rgba(255,255,255,0.04)"
-        grid_lines_html += f'<div style="position:absolute;top:{top}px;left:0;right:0;height:1px;background:{color};"></div>'
+        grid_lines_html += f'<div class="grid-line" style="top:{top}px;background:{color};"></div>'
 
-    # Línea de "ahora" (solo si hoy está en la semana)
+    # ── Línea de "ahora" ──────────────────────────────────────────────────────
     now_line_html = ""
     if today in [d if isinstance(d, date) else d.date() for d in days]:
         now_h = datetime.now().hour + datetime.now().minute / 60
         if HOUR_START <= now_h < HOUR_END:
             now_top = int((now_h - HOUR_START) * SLOT_HEIGHT)
-            day_idx = (today - (days[0] if isinstance(days[0], date) else days[0].date())).days
-            now_line_html = f"""
-            <div style="position:absolute;top:{now_top}px;left:0;right:0;z-index:10;pointer-events:none;">
-                <div style="height:2px;background:#E5332A;opacity:.85;"></div>
-                <div style="position:absolute;top:-4px;left:-4px;width:8px;height:8px;border-radius:50%;background:#E5332A;"></div>
+            now_line_html = f"""<div class="now-line" style="top:{now_top}px;">
+                <div class="now-line-bar"></div>
+                <div class="now-dot"></div>
             </div>"""
 
-    # Construir columnas de días con tarjetas posicionadas
+    # ── Columnas de días ──────────────────────────────────────────────────────
     day_cols_html = ""
-    # También recopilamos botones de Done para renderizarlos con Streamlit
-    done_buttons = []  # list of (key, excel_row, idx, name)
+    done_buttons = []
 
     for d in days:
         ddate = d if isinstance(d, date) else d.date()
         is_today = ddate == today
-        bg = "rgba(59,72,131,0.06)" if is_today else "transparent"
-        border_r = "1px solid rgba(255,255,255,0.06)"
+        bg = "rgba(59,72,131,0.08)" if is_today else "transparent"
 
         events = _events_for_day(ddate)
-
         cards_html = ""
+
         for row in events:
             excel_row = row.get("_excel_row")
             if excel_row in done_rows:
                 continue
-            idx = excel_row  # use as unique key fragment
 
             task     = clean(get_from_row(row, ["task"], "Task"))
             name_ev  = clean(get_from_row(row, ["name"], "—"))
             channel  = clean(get_from_row(row, ["channel"], ""))
             priority = clean(get_from_row(row, ["priority"], "Mid"))
-            notes    = clean(get_from_row(row, ["notes"], ""))
             hour_val = row.get("_hour")
             is_overdue = ddate < today
 
             colors = _task_color(task, priority)
-
-            if hour_val is not None and HOUR_START <= hour_val < HOUR_END:
-                top = int((hour_val - HOUR_START) * SLOT_HEIGHT)
-                height = max(SLOT_HEIGHT - 4, 36)
-                pos_style = f"position:absolute;top:{top}px;left:2px;right:2px;height:{height}px;overflow:hidden;z-index:5;"
-            else:
-                # Sin hora válida: apila al inicio
-                top = 0
-                pos_style = "position:relative;margin-bottom:4px;"
-
-            overdue_border = "border-top:2px solid #E5332A;" if is_overdue else ""
             time_raw = get_from_row(row, ["time"], "")
             time_str = parse_agenda_time(time_raw)
 
-            short_name = name_ev[:18] + "…" if len(name_ev) > 18 else name_ev
-            short_task = task[:22] + "…" if len(task) > 22 else task
+            short_name = (name_ev[:18] + "…") if len(name_ev) > 18 else name_ev
+            short_task = (task[:22] + "…") if len(task) > 22 else task
 
-            cards_html += f"""
-            <div title="{html.escape(name_ev)} · {html.escape(task)}" style="
-                {pos_style}
-                background:{colors['bg']};
-                border-left:3px solid {colors['border']};
-                border-radius:0 6px 6px 0;
-                padding:4px 6px;
-                cursor:default;
-                {overdue_border}
-            ">
-                <div style="font-size:10px;font-weight:700;color:{colors['text']};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{short_task}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{short_name}</div>
-                <div style="font-size:9px;color:rgba(255,255,255,.5);">{time_str}{" · " + channel if channel else ""}{"  ⚠️" if is_overdue else ""}</div>
+            if hour_val is not None and HOUR_START <= hour_val < HOUR_END:
+                top = int((hour_val - HOUR_START) * SLOT_HEIGHT)
+                h_px = max(SLOT_HEIGHT - 4, 36)
+                pos = f"top:{top}px;height:{h_px}px;"
+            else:
+                pos = "top:0px;height:44px;"
+
+            overdue_border = "border-top:2px solid #E5332A;" if is_overdue else ""
+            overdue_badge = "<span style='font-size:9px;font-weight:700;color:#E5332A;'>⚠ OVERDUE</span>" if is_overdue else ""
+            ch_str = f" · {html.escape(channel)}" if channel else ""
+
+            cards_html += f"""<div class="evt" style="{pos}background:{colors['bg']};border-left:3px solid {colors['border']};{overdue_border}"
+                title="{html.escape(name_ev)} · {html.escape(task)}">
+                <div class="evt-task" style="color:{colors['text']};">{html.escape(short_task)}</div>
+                <div class="evt-name">{html.escape(short_name)}</div>
+                <div class="evt-time">{html.escape(time_str)}{ch_str} {overdue_badge}</div>
             </div>"""
 
-            done_buttons.append((excel_row, idx, name_ev, task))
+            done_buttons.append((excel_row, excel_row, name_ev, task))
 
-        # Línea de "ahora" dentro de la columna del día de hoy
         col_now = now_line_html if is_today else ""
 
-        day_cols_html += f"""
-        <div style="position:relative;height:{total_height}px;background:{bg};border-right:{border_r};min-width:0;">
+        day_cols_html += f"""<div class="day-col" style="background:{bg};">
             {grid_lines_html}
             {col_now}
             {cards_html}
         </div>"""
 
-    full_grid_html = f"""
-    <div style="display:grid;grid-template-columns:52px repeat(7,1fr);gap:0;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;margin-bottom:20px;">
-        <!-- Columna de horas -->
-        <div style="position:relative;height:{total_height}px;background:rgba(255,255,255,0.02);border-right:1px solid rgba(255,255,255,0.08);">
-            {hour_labels_html}
-        </div>
-        {day_cols_html}
+    st_components.html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8">
+    <style>
+      * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+      body {{ background: transparent; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
+      .cal-grid {{
+        display: grid;
+        grid-template-columns: 52px repeat(7, 1fr);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        overflow: hidden;
+      }}
+      .hour-col {{
+        position: relative;
+        height: {total_height}px;
+        background: rgba(255,255,255,0.02);
+        border-right: 1px solid rgba(255,255,255,0.08);
+      }}
+      .hour-label {{
+        position: absolute;
+        left: 0; width: 48px;
+        font-size: 10px;
+        color: rgba(232,223,213,0.4);
+        text-align: right;
+        padding-right: 6px;
+        line-height: 1;
+        transform: translateY(-6px);
+      }}
+      .day-col {{
+        position: relative;
+        height: {total_height}px;
+        border-right: 1px solid rgba(255,255,255,0.06);
+        min-width: 0;
+      }}
+      .grid-line {{
+        position: absolute;
+        left: 0; right: 0;
+        height: 1px;
+      }}
+      .now-line {{
+        position: absolute;
+        left: 0; right: 0;
+        z-index: 10;
+        pointer-events: none;
+      }}
+      .now-line-bar {{ height: 2px; background: #E5332A; opacity: .85; }}
+      .now-dot {{
+        position: absolute;
+        top: -4px; left: -4px;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #E5332A;
+      }}
+      .evt {{
+        position: absolute;
+        left: 2px; right: 2px;
+        border-radius: 0 6px 6px 0;
+        padding: 4px 6px;
+        overflow: hidden;
+        cursor: default;
+        z-index: 5;
+      }}
+      .evt-task {{
+        font-size: 10px; font-weight: 700;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }}
+      .evt-name {{
+        font-size: 10px; color: rgba(255,255,255,.85);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }}
+      .evt-time {{
+        font-size: 9px; color: rgba(255,255,255,.5);
+      }}
+    </style>
+    </head>
+    <body>
+    <div class="cal-grid">
+      <div class="hour-col">
+        {hour_labels_html}
+      </div>
+      {day_cols_html}
     </div>
-    """
-    st.markdown(full_grid_html, unsafe_allow_html=True)
+    </body>
+    </html>
+    """, height=total_height + 24, scrolling=False)
 
     # ── Botones Done (Streamlit nativo, fuera del HTML) ───────────────────────
     if done_buttons:
