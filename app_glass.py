@@ -6747,6 +6747,39 @@ def page_opportunity_list():
     ads_df["_revenue_proj_weekly_usd"] = ads_df["_suggested_booking_usd"] * 0.90
     ads_df["_revenue_proj_monthly_usd"] = ads_df["_revenue_proj_weekly_usd"] * weeks_left
 
+    # ── Opportunity score comercial (Opción C) ──────────────────────────────
+    # Mide qué tan rentable/probable es cerrar el brand HOY, no qué tan
+    # "sana" está su operación. Reemplaza el _opportunity_score genérico
+    # (que pondera GMV/CR/Pro/AOV de salud) por uno orientado a revenue real.
+    #   - Rev Proj mensual (60%): revenue que entra al target si se cierra hoy.
+    #   - Probabilidad de cierre por status comercial (30%): un brand
+    #     "En negociación"/"Interesado" cierra más rápido que uno sin contacto.
+    #   - GMV actual proyectado (10%): tamaño del aliado, como tie-breaker.
+    _ads_status_prob_map = {
+        "🏆": 1.0,   # Deal cerrado / acuerdo alcanzado
+        "⏳": 0.9,   # En negociación
+        "✅": 0.6,   # Sin novedad (contacto activo, sin avance)
+        "👻": 0.2,   # Sin contacto / no contesta
+        "🚀": 0.5,   # Activo (ya corriendo, baja prioridad de "cierre")
+        "❌": 0.0,   # Rechazado
+    }
+    ads_df["_ads_status_norm"] = ads_df["_commercial_status_raw"].apply(_normalize_commercial_status)
+    ads_df["_ads_status_prob"] = ads_df["_ads_status_norm"].map(_ads_status_prob_map).fillna(0.2)
+
+    ads_df["_ads_current_gmv_ars"] = ads_df["_id"].apply(
+        lambda x: _current_gmv_map.get(normalize_brand_id(x), 0)
+    )
+
+    _rev_proj_norm = _normalize_series(ads_df["_revenue_proj_monthly_usd"])
+    _status_prob_norm = _normalize_series(ads_df["_ads_status_prob"])
+    _gmv_current_norm = _normalize_series(ads_df["_ads_current_gmv_ars"])
+
+    ads_df["_opportunity_score"] = (
+        _rev_proj_norm * 0.60
+        + _status_prob_norm * 0.30
+        + _gmv_current_norm * 0.10
+    )
+
     ads_df = ads_df.sort_values(
         by=["_opp_group", "_opportunity_score"],
         ascending=[True, False],
