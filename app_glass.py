@@ -195,6 +195,20 @@ def normalize_brand_id(value):
     return text
 
 
+def strip_brand_id_prefix(value):
+    """
+    Quita el ID de marca de un texto tipo 'AR16026 - Bonafide' y deja solo 'Bonafide'.
+    Usar siempre para lo que se muestra al usuario / aliado (títulos, mensajes, etc).
+    """
+    text = clean(value, "")
+    if not text:
+        return text
+    match = re.match(r"^\s*(?:AR\s*-?\s*\d+|\d+)\s*[-–—:]\s*(.+)$", text, flags=re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
 def get_id_column_name(df):
     """
     Finds the ID column even if Excel/Pandas reads it with spaces or unusual casing.
@@ -3481,7 +3495,7 @@ def _first_priority_action(action_map):
 
 
 def _brand_template_context(row, brand_id, opportunity_status=""):
-    name = clean(get_from_row(row, ["name", "brand name", "restaurant name"]))
+    name = strip_brand_id_prefix(clean(get_from_row(row, ["name", "brand name", "restaurant name"])))
     category_raw = clean(get_from_row(row, ["category"]))
     category, stickers = _split_category_and_stickers(category_raw)
 
@@ -3825,7 +3839,82 @@ def _save_day_queue_cursor(brand_id, brand_name):
         pass
 
 
-def _build_day_queue_message(name, category, lever, ads_current, md_current, cr, gmv_ars, aov_ars, campaign_design):
+def _collect_priority_topics(brand_id, name, ads_current, md_current, ads_roi):
+    """
+    Detecta los 'temas importantes' que deben mencionarse en los mensajes de Day Queue:
+    - Upselling de campaña (Ads con ROI >= 3, espacio para escalar)
+    - Fotos del menú por debajo del 90%
+    - Chasing/Purchasing Experience por debajo del 90%
+    - Solicitud de Catálogo PDF pendiente
+    - Cancelaciones
+    - Reclamaciones / reclamos
+
+    Devuelve una lista de strings cortos, en orden de prioridad, listos para
+    insertarse en los templates de mensaje.
+    """
+    topics = []
+
+    # Upselling: Ads activo con buen retorno -> hay espacio para escalar inversión.
+    ads_active = bool(ads_current.get("active", False))
+    if ads_active and to_number(ads_roi, 0) >= 3:
+        topics.append("upselling de campaña de Ads (escalar presupuesto por buen retorno)")
+
+    # Señales de Smart Priorities (Fotos, Chasing Experience, PDF, Cancelaciones, Reclamaciones)
+    sp_signals = get_priority_signals_for_brand(brand_id, name)
+    seen_kinds = set()
+    if sp_signals.get("found"):
+        for lv in sp_signals.get("levers", []):
+            kind = _classify_priority_lever(lv.get("metric", ""))
+            if kind in seen_kinds:
+                continue
+            if kind == "ops_claims":
+                topics.append("reclamaciones / reclamos abiertos")
+                seen_kinds.add(kind)
+            elif kind == "ops_cancellations":
+                topics.append("cancelaciones por encima de lo esperado")
+                seen_kinds.add(kind)
+            elif kind == "menu_photos":
+                topics.append("fotos del menú por debajo del 90%")
+                seen_kinds.add(kind)
+            elif kind == "menu_purchase_experience":
+                topics.append("chasing experience por debajo del 90%")
+                seen_kinds.add(kind)
+            elif kind == "menu_pdf":
+                topics.append("solicitud de catálogo en PDF pendiente")
+                seen_kinds.add(kind)
+
+    # Chequeo directo de métricas de menú por si Smart Priorities no las trae.
+    try:
+        _menu = get_menu_health_for_brand(brand_id, name) if "get_menu_health_for_brand" in dir() else {}
+    except Exception:
+        _menu = {}
+    if isinstance(_menu, dict):
+        _photos_val = to_number(_menu.get("photos"), 0)
+        _purch_val = to_number(_menu.get("purchasing_experience"), 0)
+        if _photos_val and _photos_val < 0.90 and "menu_photos" not in seen_kinds:
+            topics.append("fotos del menú por debajo del 90%")
+            seen_kinds.add("menu_photos")
+        if _purch_val and _purch_val < 0.90 and "menu_purchase_experience" not in seen_kinds:
+            topics.append("chasing experience por debajo del 90%")
+            seen_kinds.add("menu_purchase_experience")
+
+    return topics
+
+
+def _format_priority_topics_line(topics):
+    """Convierte la lista de temas en una frase lista para insertar en el mensaje."""
+    if not topics:
+        return ""
+    if len(topics) == 1:
+        items = topics[0]
+    elif len(topics) == 2:
+        items = f"{topics[0]} y {topics[1]}"
+    else:
+        items = ", ".join(topics[:-1]) + f" y {topics[-1]}"
+    return f"Además, hay puntos para revisar juntos: {items}."
+
+
+def _build_day_queue_message(name, category, lever, ads_current, md_current, cr, gmv_ars, aov_ars, campaign_design, priority_topics=None):
     """
     Rule-based pre-call message generator.
     Returns (subject, whatsapp_body, email_body) — no API, fully offline.
@@ -3889,10 +3978,16 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
                       f"Te llamo hoy para revisarla juntos.")
         subject = f"Propuesta comercial para {name} — Rappi"
 
+    topics_line = _format_priority_topics_line(priority_topics or [])
+
     greeting_wa    = f"Hola, soy Sabas de Rappi 👋 {pain_wa}"
+    if topics_line:
+        greeting_wa += f" {topics_line}"
+
     greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n"
                       f"{pain_email}\n\n"
-                      f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina")
+                      + (f"{topics_line}\n\n" if topics_line else "")
+                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina")
 
     return subject, greeting_wa, greeting_email
 
@@ -3982,6 +4077,7 @@ def page_day_queue():
 
         # Name & category — try Priority Data cols first, fall back to Growth OS
         name = clean(row.get("_brand_col") or row.get("_name"), f"Marca {brand_id}")
+        name = strip_brand_id_prefix(name)
         opp_score = round(float(to_number(row.get("_score") or row.get("_opportunity_score"), 0)), 1)
 
         # Pull full brand metrics from Growth OS
@@ -4048,9 +4144,14 @@ def page_day_queue():
             booster, {}, brand_id=brand_id
         )
 
+        # ── Temas importantes para el mensaje (revisión 360) ───────────────
+        priority_topics = _collect_priority_topics(
+            brand_id, name, ads_current, md_current, ads_roi
+        )
+
         subject, wa_body, email_body = _build_day_queue_message(
             name, category, lever, ads_current, md_current,
-            cr_raw, gmv_ars, aov_ars, campaign_design
+            cr_raw, gmv_ars, aov_ars, campaign_design, priority_topics
         )
 
         # ── Card ──────────────────────────────────────────────────────────────
