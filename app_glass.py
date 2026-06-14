@@ -12997,17 +12997,10 @@ def render_brand_profile(row, brand_id):
         </div>
         <div class="hero-info-item">
             <div class="hero-info-label">Contact</div>
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div class="hero-info-value" id="contact-num-{normalize_brand_id(brand_id)}">{html.escape(fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"])))}</div>
-                <button onclick="(function(){{var t=document.getElementById('contact-num-{normalize_brand_id(brand_id)}').innerText;navigator.clipboard.writeText(t).then(function(){{var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}}).catch(function(){{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}});}})();"
-                    id="copy-btn-{normalize_brand_id(brand_id)}"
-                    title="Copiar número"
-                    style="background:rgba(59,72,131,0.25);border:1px solid rgba(59,72,131,0.5);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:#8B9ED4;line-height:1.6;transition:all .15s;"
-                    onmouseover="this.style.background='rgba(59,72,131,0.45)'"
-                    onmouseout="this.style.background='rgba(59,72,131,0.25)'"
-                >📋</button>
-            </div>
+            <div class="hero-info-value" id="contact-num-{normalize_brand_id(brand_id)}">{html.escape(fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"])))}&nbsp;<button onclick="(function(){{var t=document.getElementById('contact-num-{normalize_brand_id(brand_id)}').innerText.trim();navigator.clipboard.writeText(t).then(function(){{var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}}).catch(function(){{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{{document.execCommand('copy');}}catch(e){{}}document.body.removeChild(ta);var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}});}})();" id="copy-btn-{normalize_brand_id(brand_id)}" title="Copiar número" style="background:rgba(59,72,131,0.28);border:1px solid rgba(59,72,131,0.55);border-radius:5px;padding:1px 6px;font-size:11px;cursor:pointer;color:#8B9ED4;vertical-align:middle;margin-left:2px;">📋</button></div>
         </div>
+        <div class="hero-info-item">
+            <div class="hero-info-label">Email</div>
             <div class="hero-info-value">{html.escape(clean(get_from_row(row, ["email"])))}</div>
         </div>
         <div class="hero-info-item">
@@ -13031,8 +13024,43 @@ def render_brand_profile(row, brand_id):
 </div>
 """, unsafe_allow_html=True)
 
-
-
+    # ── JS para botón copiar teléfono (st_components ejecuta JS real) ─────────
+    _phone_val = fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"]))
+    _bid_safe  = normalize_brand_id(brand_id)
+    import json as _json_phone
+    st_components.html(f"""
+<script>
+(function() {{
+  var phone = {_json_phone.dumps(_phone_val)};
+  // Busca el botón en el documento padre (el iframe de st_components puede acceder al padre en Streamlit)
+  function findBtn() {{
+    try {{
+      var btn = window.parent.document.getElementById('copy-btn-{_bid_safe}');
+      if (!btn) return;
+      btn.onclick = function() {{
+        navigator.clipboard.writeText(phone).then(function() {{
+          btn.textContent = '✅';
+          setTimeout(function() {{ btn.textContent = '📋'; }}, 1800);
+        }}).catch(function() {{
+          var ta = window.parent.document.createElement('textarea');
+          ta.value = phone;
+          window.parent.document.body.appendChild(ta);
+          ta.select();
+          try {{ window.parent.document.execCommand('copy'); }} catch(e) {{}}
+          window.parent.document.body.removeChild(ta);
+          btn.textContent = '✅';
+          setTimeout(function() {{ btn.textContent = '📋'; }}, 1800);
+        }});
+      }};
+    }} catch(e) {{}}
+  }}
+  // Intentar inmediatamente y luego con delay por si el DOM aún no está listo
+  findBtn();
+  setTimeout(findBtn, 400);
+  setTimeout(findBtn, 900);
+}})();
+</script>
+""", height=0, scrolling=False)
 
     # ── Historia del aliado (changelog) ──────────────────────────────────────
     try:
