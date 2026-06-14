@@ -12018,9 +12018,20 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
             cue_parts.append(f"TopRes: {top_res_str}.")
         elif descr:
             cue_parts.append(f"SP: {descr}.")
+        # Extract SP rate from description text (e.g. "SP: 250935: 6,25%")
+        _sp_rate_match = re.search(r'(\d+[,.]?\d*)\s*%', descr)
+        _sp_rate = float(_sp_rate_match.group(1).replace(",", ".")) / 100 if _sp_rate_match else None
         if aov_ars > 0:
-            _claim_cost_aliado = round(aov_ars * 0.50)
-            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_cost_aliado)} por reclamo (aliado absorbe ~50%).")
+            if _sp_rate and orders_monthly > 0:
+                _affected_orders = round(orders_monthly * _sp_rate)
+                _gmv_risk_total  = round(_affected_orders * aov_ars * 0.50 / 1000) * 1000
+                cue_parts.append(
+                    f"~{_affected_orders} órdenes afectadas/mes ({fmt_percent2(_sp_rate)} de {round(orders_monthly)} pedidos). "
+                    f"GMV en riesgo: ~{fmt_ars(_gmv_risk_total)}/mes (aliado absorbe ~50%)."
+                )
+            else:
+                _claim_cost_aliado = round(aov_ars * 0.50)
+                cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_cost_aliado)} por reclamo (aliado absorbe ~50%).")
         cue = " ".join(cue_parts)
         cls = "health-orange"
     elif kind == "ops_cancellations":
@@ -12030,13 +12041,19 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
             cue_parts.append(f"TopRes: {top_res_str}.")
         elif descr:
             cue_parts.append(f"SP: {descr}.")
+        # Rate source priority: Top Restaurants -> description text -> fallback
         _cancel_rate = cancel if top_res.get("found") and cancel else 0
+        if not _cancel_rate:
+            _cancel_rate_match = re.search(r'(\d+[,.]?\d*)\s*%', descr)
+            _cancel_rate = float(_cancel_rate_match.group(1).replace(",", ".")) / 100 if _cancel_rate_match else 0
         if aov_ars > 0:
-            _cancel_cost_orden = round(aov_ars * 0.65)
             if _cancel_rate > 0 and orders_monthly > 0:
-                _cancel_orders_mes = round(orders_monthly * _cancel_rate)
+                _cancel_orders_mes  = round(orders_monthly * _cancel_rate)
                 _cancel_gmv_perdido = round(_cancel_orders_mes * aov_ars * 0.65 / 1000) * 1000
-                cue_parts.append(f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes ({_cancel_orders_mes} cancelaciones · aliado absorbe 65%).")
+                cue_parts.append(
+                    f"~{_cancel_orders_mes} órdenes canceladas/mes ({fmt_percent2(_cancel_rate)} de {round(orders_monthly)} pedidos). "
+                    f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes (aliado absorbe 65%)."
+                )
             else:
                 cue_parts.append(f"GMV en riesgo: ~{fmt_ars(round(aov_ars * 0.65))} por cancelación (aliado absorbe 65%).")
         cue = " ".join(cue_parts)
@@ -12060,7 +12077,11 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
             cue_parts.append(f"TopRes: {top_res_str}.")
         if ava_val and ava_val > 0 and current_gmv_ars > 0:
             _ava_gap = max(0, 1.0 - ava_val)
-            # Upside proporcional sobre el GMV real del mes
+            # Lost orders: proportional to gap vs availability ratio
+            if orders_monthly > 0 and _ava_gap > 0:
+                _lost_orders = round(orders_monthly * (_ava_gap / ava_val))
+                cue_parts.append(f"~{_lost_orders} órdenes perdidas/mes por indisponibilidad ({fmt_percent0(ava_val)} → 100%).")
+            # GMV upside: proportional recovery on current GMV
             _ava_upside = round(current_gmv_ars * (_ava_gap / ava_val) / 1000) * 1000
             if _ava_upside > 0:
                 cue_parts.append(f"Upside estimado: ~{fmt_ars(_ava_upside)}/mes si availability sube de {fmt_percent0(ava_val)} a 100%.")
