@@ -15106,19 +15106,66 @@ def _last_four_periods(df):
 
 def page_campaign_weekly_tracker():
     render_header("Campaign Weekly Tracker", "Last 4 weeks · Ads CPC and Markdown performance monitor")
-    df = _load_campaign_weekly_tracker_df()
-    col_a, col_b = st.columns([2,1])
-    with col_a:
-        st.caption("Baseline was created as Q2 W20 2026. Use the button after each weekly export to capture the new week.")
-    with col_b:
-        if st.button("Capture current week snapshot"):
+
+    # ── Reset histórico: si el CSV existe con datos pre-junio 2026, borrarlo ──
+    # El nuevo ciclo empieza desde el primer snapshot manual del próximo domingo.
+    _reset_col, _capture_col = st.columns([2, 1])
+    with _reset_col:
+        st.caption(
+            f"Histórico reiniciado — el nuevo ciclo empieza con el primer snapshot manual. "
+            f"Capturá cada domingo después de exportar Current ADS y Current MD."
+        )
+    with _capture_col:
+        if st.button("📸 Capture current week snapshot"):
+            # Wipe CSV completely before saving so old periods don't persist
+            if os.path.exists(CAMPAIGN_WEEKLY_TRACKER_FILE):
+                os.remove(CAMPAIGN_WEEKLY_TRACKER_FILE)
             saved = _save_campaign_snapshot(_campaign_period_label())
-            st.success(f"Snapshot saved for {_campaign_period_label()}: {saved} active campaign rows.")
+            st.success(f"Snapshot guardado para {_campaign_period_label()}: {saved} filas activas.")
             st.rerun()
+
+    # ── Targets desde Earnings ───────────────────────────────────────────────
+    raw_earnings = load_earnings_data()
+    _ads_target_usd = to_number(cell(raw_earnings, 2, 1)) if not raw_earnings.empty else ADS_REVENUE_TARGET_USD
+    _ads_result_usd = to_number(cell(raw_earnings, 2, 2)) if not raw_earnings.empty else 0
+    _md_target_usd  = to_number(cell(raw_earnings, 2, 5)) if not raw_earnings.empty else 0
+    _md_result_usd  = to_number(cell(raw_earnings, 2, 6)) if not raw_earnings.empty else 0
+    _ads_target_usd = _ads_target_usd if _ads_target_usd > 0 else ADS_REVENUE_TARGET_USD
+
+    # ── KPIs superiores: todos en vivo desde el Excel ────────────────────────
+    live_coverage = get_live_campaign_coverage_counts()
+
+    # Ads Revenue en vivo: suma revenue_net de Current ADS (portfolio)
+    _live_ads_df = load_current_ads_data(portfolio_only=True)
+    _live_ads_revenue = (
+        pd.to_numeric(_live_ads_df["revenue net"], errors="coerce").fillna(0).sum()
+        if not _live_ads_df.empty and "revenue net" in _live_ads_df.columns
+        else 0.0
+    )
+
+    # MD GMV en vivo: suma _gmv_usd de Current MD + Current MD PRO (portfolio)
+    _live_md_df     = load_current_md_data(portfolio_only=True, pro=False)
+    _live_md_pro_df = load_current_md_data(portfolio_only=True, pro=True)
+    _live_md_gmv = (
+        pd.to_numeric(_live_md_df["_gmv_usd"], errors="coerce").fillna(0).sum()
+        if not _live_md_df.empty else 0.0
+    ) + (
+        pd.to_numeric(_live_md_pro_df["_gmv_usd"], errors="coerce").fillna(0).sum()
+        if not _live_md_pro_df.empty else 0.0
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Active Ads",         fmt_number(live_coverage["ads"]))
+    c2.metric("Active MD / MD PRO", fmt_number(live_coverage["md"]))
+    c3.metric("Ads Revenue (vivo)",  fmt_usd(_live_ads_revenue))
+    c4.metric("MD GMV (vivo)",       fmt_usd(_live_md_gmv))
+
+    # ── Tabla Ads CPC Monitor (desde snapshots históricos) ───────────────────
     df = _load_campaign_weekly_tracker_df()
     names = _brand_name_map()
     if df.empty:
-        st.info("No weekly campaign data yet. Stats and tables will appear here once a snapshot has rows.")
+        st.markdown("### Ads CPC Monitor")
+        st.info("Sin historial de snapshots todavía. Capturá el primer snapshot este domingo para empezar a ver la tabla.")
         return
     periods = _last_four_periods(df)
     work = df[df["period"].astype(str).isin(periods)].copy()
@@ -15128,22 +15175,8 @@ def page_campaign_weekly_tracker():
     latest_period = periods[-1] if periods else "-"
     latest = work[work["period"].astype(str) == latest_period].copy()
     ads_latest = latest[latest["channel"] == "Ads"].copy()
-    md_latest = latest[latest["channel"].isin(["Markdown", "Markdown PRO"])].copy()
+    md_latest  = latest[latest["channel"].isin(["Markdown", "Markdown PRO"])].copy()
 
-    # ── Load targets from Earnings sheet ────────────────────────────────────
-    raw_earnings = load_earnings_data()
-    _ads_target_usd = to_number(cell(raw_earnings, 2, 1)) if not raw_earnings.empty else ADS_REVENUE_TARGET_USD
-    _ads_result_usd = to_number(cell(raw_earnings, 2, 2)) if not raw_earnings.empty else 0
-    _md_target_usd  = to_number(cell(raw_earnings, 2, 5)) if not raw_earnings.empty else 0
-    _md_result_usd  = to_number(cell(raw_earnings, 2, 6)) if not raw_earnings.empty else 0
-    _ads_target_usd = _ads_target_usd if _ads_target_usd > 0 else ADS_REVENUE_TARGET_USD
-
-    live_coverage = get_live_campaign_coverage_counts()
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Active Ads", fmt_number(live_coverage["ads"]))
-    c2.metric("Active MD / MD PRO", fmt_number(live_coverage["md"]))
-    c3.metric("Ads Revenue", fmt_usd(ads_latest["revenue_usd"].sum() if not ads_latest.empty else 0))
-    c4.metric("MD GMV", fmt_usd(md_latest["gmv_usd"].sum() if not md_latest.empty else 0))
     st.markdown("### Ads CPC Monitor")
     if ads_latest.empty:
         ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Strategic Note"])
