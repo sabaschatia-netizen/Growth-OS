@@ -14102,50 +14102,113 @@ def render_brand_profile(row, brand_id):
     _cur_gmv = fmt_ars(current_gmv_ars) if current_gmv_ars and current_gmv_ars > 0 else "sin dato"
     _cur_aov = fmt_ars(current_aov_ars) if current_aov_ars and current_aov_ars > 0 else "sin dato"
 
+    # Calcular variaciones para enriquecer el prompt BvB
+    _bvb_gmv_may_vs_abr = ""
+    _bvb_gmv_jun_vs_may = ""
+    _bvb_aov_may_vs_abr = ""
+    _bvb_aov_jun_vs_may = ""
+    if abril_gmv_ars > 0 and may_gmv_ars > 0:
+        _v = round((may_gmv_ars - abril_gmv_ars) / abril_gmv_ars * 100, 1)
+        _bvb_gmv_may_vs_abr = f"{'+' if _v >= 0 else ''}{_v}%"
+    if may_gmv_ars > 0 and current_gmv_ars > 0:
+        _v = round((current_gmv_ars - may_gmv_ars) / may_gmv_ars * 100, 1)
+        _bvb_gmv_jun_vs_may = f"{'+' if _v >= 0 else ''}{_v}%"
+    if abril_aov_ars > 0 and may_aov_ars > 0:
+        _v = round((may_aov_ars - abril_aov_ars) / abril_aov_ars * 100, 1)
+        _bvb_aov_may_vs_abr = f"{'+' if _v >= 0 else ''}{_v}%"
+    if may_aov_ars > 0 and current_aov_ars > 0:
+        _v = round((current_aov_ars - may_aov_ars) / may_aov_ars * 100, 1)
+        _bvb_aov_jun_vs_may = f"{'+' if _v >= 0 else ''}{_v}%"
+
     _prompt_bvb = (
-        f"Generá una imagen tipo informe ejecutivo de ventas para la marca \"{name}\" "
-        f"({category}). "
-        f"Mostrá la evolución de los últimos 3 meses con estos datos reales:\n\n"
-        f"ABRIL → GMV: {_abr_gmv} | AOV: {_abr_aov}\n"
-        f"MAYO  → GMV: {_may_gmv} | AOV: {_may_aov}\n"
-        f"JUNIO → GMV: {_cur_gmv} | AOV: {_cur_aov}\n\n"
-        f"El informe debe incluir: gráficos de tendencia de GMV y AOV mes a mes, "
-        f"% de variación entre cada mes, y un resumen visual de la evolución de la marca. "
-        f"Estilo: moderno, oscuro, profesional. Idioma: español."
+        f"Generá una imagen informe de ventas para Rappi Argentina con este diseño exacto:\n\n"
+        f"DISEÑO VISUAL OBLIGATORIO:\n"
+        f"- Fondo: azul marino oscuro profundo (#0D1B4B o similar navy muy oscuro)\n"
+        f"- Header superior: logo de Rappi a la izquierda (ícono naranja con fondo naranja, letra R blanca), "
+        f"al lado el nombre de la marca en blanco bold grande, a la derecha 'Argentina' y el período '{APP_PERIOD}' en texto claro\n"
+        f"- Dividido en DOS paneles horizontales iguales, cada uno con borde redondeado\n"
+        f"- Panel izquierdo — GMV (Ventas Totales Plataforma): borde verde si la tendencia es positiva, rojo si es negativa\n"
+        f"- Panel derecho — AOV (Ticket Promedio por Pedido): borde verde si la tendencia es positiva, rojo si es negativa\n"
+        f"- Cada panel tiene: título en blanco bold arriba, gráfico de línea con puntos en los 3 meses (Abr → May → Jun), "
+        f"los valores en cada punto en texto blanco/verde bold, flechas '→' entre meses\n"
+        f"- Abajo de cada panel: caja con 'Actual', el valor grande bold, y el % de cambio con flecha ↑ verde o ↓ rojo\n"
+        f"- Tipografía: sans-serif bold, números muy grandes, estilo dashboard profesional\n"
+        f"- Pie de imagen: '{APP_PERIOD}' centrado en texto gris tenue\n\n"
+        f"DATOS REALES A USAR:\n"
+        f"Marca: {name} — Categoría: {category}\n\n"
+        f"GMV:\n"
+        f"  Abr: {_abr_gmv}\n"
+        f"  May: {_may_gmv}{(' (' + _bvb_gmv_may_vs_abr + ' vs Abr)') if _bvb_gmv_may_vs_abr else ''}\n"
+        f"  Jun: {_cur_gmv}{(' (' + _bvb_gmv_jun_vs_may + ' vs May)') if _bvb_gmv_jun_vs_may else ''}\n\n"
+        f"AOV:\n"
+        f"  Abr: {_abr_aov}\n"
+        f"  May: {_may_aov}{(' (' + _bvb_aov_may_vs_abr + ' vs Abr)') if _bvb_aov_may_vs_abr else ''}\n"
+        f"  Jun: {_cur_aov}{(' (' + _bvb_aov_jun_vs_may + ' vs May)') if _bvb_aov_jun_vs_may else ''}\n\n"
+        f"El color del borde del panel GMV debe ser ROJO si Jun < Abr, VERDE si Jun > Abr. Igual para AOV.\n"
+        f"Idioma: español. No agregues texto adicional fuera de la imagen."
     )
 
     _mctx = get_market_context(category, "GMV", brand_gmv=current_gmv_ars or growth_gmv_ars)
     _percentil  = _mctx.get("brand_percentile", "N/D")
-    _cvr_brand  = f"{round(_cr_current_norm * 100, 1)}%" if _cr_current_norm and _cr_current_norm > 0 else "sin dato"
-    _cvr_cat    = f"{round(_cr_benchmark_norm * 100, 1)}%" if _cr_benchmark_norm and _cr_benchmark_norm > 0 else "sin dato"
+    _cvr_brand  = f"{round(_cr_current_norm * 100, 1)}%" if _cr_current_norm and _cr_current_norm > 0 else "s/d"
+    _cvr_cat    = f"{round(_cr_benchmark_norm * 100, 1)}%" if _cr_benchmark_norm and _cr_benchmark_norm > 0 else "s/d"
+    _cvr_is_below = (_cr_current_norm and _cr_benchmark_norm and _cr_current_norm < _cr_benchmark_norm)
 
+    _traffic_bench = get_traffic_category_benchmark(category)
     if _traffic_weekly and _traffic_weekly > 0:
-        _traffic_line = (
-            f"- Tráfico semanal de la marca: {round(_traffic_weekly):,} impresiones · "
-            f"Tráfico semanal promedio categoría: {round(get_traffic_category_benchmark(category) or 0):,} impresiones"
-        )
+        _traffic_brand_str = f"{round(_traffic_weekly):,}/sem"
+        _traffic_cat_str   = f"{round(_traffic_bench or 0):,}/sem" if _traffic_bench else "s/d"
+        _traffic_note      = ""
     else:
-        _traffic_line = (
-            "- Tráfico: sin data disponible para esta marca. "
-            "Partimos de la suposición de que la marca recibe aproximadamente un 20% menos de tráfico "
-            "que el promedio de su competencia en la categoría — no uses números específicos para el tráfico."
+        _traffic_brand_str = "s/d"
+        _traffic_cat_str   = f"{round(_traffic_bench or 0):,}/sem" if _traffic_bench else "s/d"
+        _traffic_note      = (
+            "Para tráfico: la marca no tiene data disponible (mostrar 's/d' o '0'). "
+            "En la barra de comparación visual, asumí que la marca tiene ~20% menos de tráfico que la categoría — "
+            "pero NO escribas un número inventado, solo mostrá la barra más corta con la etiqueta 's/d'."
         )
+
+    _gmv_incremental = ""
+    if _gmv_incremental_val := (
+        ((_traffic_monthly if (_traffic_monthly := (_traffic_weekly * 4 if _traffic_weekly and _traffic_weekly > 0 else 0)) > 0
+          else (round((current_gmv_ars or growth_gmv_ars) / (_cr_current_norm * (_cr_benchmark_norm or 0.045)) if _cr_current_norm and _cr_current_norm > 0 else 0))
+         ) * _cr_benchmark_norm * (current_aov_ars or growth_aov_ars if (current_aov_ars or growth_aov_ars) > 0 else 0))
+        - (current_gmv_ars or growth_gmv_ars)
+        if _cr_benchmark_norm and not _cvr_is_below is False
+        else 0
+    ):
+        _gmv_incremental = fmt_ars(max(0, _gmv_incremental_val))
 
     _prompt_bvc = (
-        f"Generá una imagen tipo informe ejecutivo comparativo para la marca \"{name}\" "
-        f"vs su categoría \"{category}\" en Rappi Argentina. "
-        f"Usá estos datos reales:\n\n"
-        f"- Percentil GMV de la marca dentro de la categoría: {_percentil}\n"
-        f"- GMV actual de la marca: {fmt_ars(current_gmv_ars or growth_gmv_ars)}\n"
-        f"- GMV promedio de la categoría: {_mctx.get('market_gmv_avg', 'N/D')}\n"
-        f"- GMV del top competidor: {_mctx.get('market_top_gmv', 'N/D')}\n"
-        f"- Conversión (CVR) de la marca: {_cvr_brand}\n"
-        f"- Conversión (CVR) promedio categoría: {_cvr_cat}\n"
-        f"{_traffic_line}\n\n"
-        f"El informe debe incluir: posición percentil visual, comparativa de CVR marca vs categoría, "
-        f"comparativa de tráfico con la aclaración de datos disponibles, "
-        f"y un insight ejecutivo sobre la oportunidad de mejora. "
-        f"Estilo: moderno, oscuro, profesional. Idioma: español."
+        f"Generá una imagen informe comparativo para Rappi Argentina con este diseño exacto:\n\n"
+        f"DISEÑO VISUAL OBLIGATORIO:\n"
+        f"- Fondo: azul marino oscuro profundo (#0D1B4B o similar navy muy oscuro)\n"
+        f"- Header superior: logo de Rappi a la izquierda (ícono naranja con fondo naranja, letra R blanca), "
+        f"al lado el nombre '{name}' en blanco bold grande, a la derecha 'Argentina' y '{APP_PERIOD}'\n"
+        f"- Tres paneles en fila con bordes redondeados:\n\n"
+        f"  PANEL 1 — CONVERSIÓN (CVR):\n"
+        f"  Borde ROJO si la marca está bajo el benchmark de categoría, VERDE si está igual o arriba.\n"
+        f"  Contiene: título 'CONVERSIÓN (CVR)' en mayúsculas, un gauge/velocímetro semicircular "
+        f"donde la aguja apunta al valor de la marca, texto '% BENCHMARK CATEGORÍA' debajo del gauge, "
+        f"abajo dos valores: '{_cvr_brand} marca' vs '{_cvr_cat} categoría', "
+        f"y un badge {'ROJO con ⚠️ BAJO BENCHMARK' if _cvr_is_below else 'VERDE con ✅ SOBRE BENCHMARK'} al fondo.\n\n"
+        f"  PANEL 2 — TRÁFICO SEMANAL:\n"
+        f"  Borde NARANJA. Título 'TRÁFICO SEMANAL' en mayúsculas. "
+        f"Una barra horizontal de progreso: la barra de la marca vs el total de la categoría. "
+        f"A la izquierda '{_traffic_brand_str} actual', a la derecha '{_traffic_cat_str} categoría'. "
+        f"Abajo: '{_traffic_brand_str} actual' vs '{_traffic_cat_str} categoría' en texto bold. "
+        f"{_traffic_note}\n\n"
+        f"  PANEL 3 — OPORTUNIDAD GMV:\n"
+        f"  Borde VERDE. Título 'OPORTUNIDAD GMV' en mayúsculas. "
+        f"{'Valor grande en verde: ' + _gmv_incremental + ' ARS — texto debajo: GMV incremental estimado — footer: si CVR → benchmark de categoría' if _gmv_incremental else 'Texto: oportunidad calculada si CVR alcanza el benchmark de la categoría.'}\n\n"
+        f"- Pie de imagen: resumen en una línea del diagnóstico principal, en texto gris tenue.\n\n"
+        f"DATOS REALES:\n"
+        f"Marca: {name} — Categoría: {category}\n"
+        f"CVR marca: {_cvr_brand} | CVR categoría: {_cvr_cat}\n"
+        f"Tráfico marca: {_traffic_brand_str} | Tráfico categoría: {_traffic_cat_str}\n"
+        f"Percentil GMV en categoría: {_percentil}\n"
+        f"GMV actual: {fmt_ars(current_gmv_ars or growth_gmv_ars)} | GMV promedio categoría: {_mctx.get('market_gmv_avg', 'N/D')}\n\n"
+        f"Idioma: español. No agregues texto adicional fuera de la imagen."
     )
 
     # Escapar los prompts para usarlos dentro de JS (JSON-safe)
