@@ -6638,7 +6638,27 @@ def page_opportunity_list():
     _today = date.today()
     _days_in_month = _cal.monthrange(_today.year, _today.month)[1]
     _remaining_days = _days_in_month - _today.day
+    _elapsed_days_opp = _today.day
     weeks_left = max(_remaining_days / 7, 0.5)
+
+    # ── Semana del mes actual (para proyectar GMV de Current GMV al mes completo) ──
+    # week_of_month: 1 = primera semana, 2 = segunda, etc.
+    _week_of_month_opp = max(math.ceil(_elapsed_days_opp / 7), 1)
+    # Factor de proyección: si estamos en semana 2 de 4, el GMV acumulado
+    # representa ~50% del mes → proyectamos × (4 / semana_actual)
+    _gmv_projection_factor = min(4.0 / _week_of_month_opp, 4.0)
+
+    # ── Mapa de GMV actual por brand (Current GMV sheet) ─────────────────────
+    # Usamos esto para el booking sugerido en la Opp List.
+    _current_gmv_df = load_current_gmv_data()
+    _current_gmv_map: dict = {}  # {brand_id: gmv_ars_proyectado_al_mes}
+    if not _current_gmv_df.empty and "gmv ars" in _current_gmv_df.columns:
+        for _, _cgrow in _current_gmv_df.iterrows():
+            _cgid = normalize_brand_id(_cgrow.get("_id", ""))
+            _cg_gmv = to_number(_cgrow.get("gmv ars"), 0)
+            if _cgid and _cg_gmv > 0:
+                # Proyectar GMV acumulado MTD al mes completo
+                _current_gmv_map[_cgid] = _cg_gmv * _gmv_projection_factor
 
     # ── Build ADS and MD maps ─────────────────────────────────────────────────
     def build_ads_map():
@@ -6702,14 +6722,25 @@ def page_opportunity_list():
     ads_df["Opp"] = ads_df["_opp_group"].map({0: "🏆 Acquire", 1: "⚡ Upselling"})
     ads_df["Status"] = ads_df["_commercial_status_raw"].apply(_normalize_commercial_status)
 
-    def _ads_suggested_booking(gmv_ars):
-        """Conservative weekly budget estimate: ~8% of monthly GMV / 4 weeks."""
-        gmv = to_number(gmv_ars, 0)
+    def _ads_suggested_booking(row):
+        """
+        Weekly budget estimate: 8% of projected monthly GMV / 4 weeks.
+        GMV source priority:
+          1. Current GMV sheet (GMV acumulado MTD × factor proyección al mes)
+          2. Fallback: Last GMV ARS del Growth OS (columna _gmv)
+        Projection factor = 4 / semana_del_mes (ej: semana 2 → ×2, semana 3 → ×1.33)
+        """
+        brand_id = normalize_brand_id(row.get("_id", ""))
+        # 1) Current GMV proyectado
+        gmv = _current_gmv_map.get(brand_id, 0)
+        # 2) Fallback: Last GMV ARS del Growth OS (sin proyección, ya es mensual)
+        if gmv <= 0:
+            gmv = to_number(row.get("_gmv"), 0)
         if gmv <= 0:
             return 0
         return _round_budget_up_ars(gmv * 0.08 / 4, step=1000)
 
-    ads_df["_suggested_booking_ars"] = ads_df["_gmv"].apply(_ads_suggested_booking)
+    ads_df["_suggested_booking_ars"] = ads_df.apply(_ads_suggested_booking, axis=1)
     ads_df["_suggested_booking_usd"] = ads_df["_suggested_booking_ars"] / ARS_PER_USD
     # Rev Proj = booking semanal estimado × semanas restantes del mes × 90% (umbral comisión).
     # Refleja lo que puede generar este brand si entra hoy, hasta el cierre del mes.
@@ -6775,10 +6806,22 @@ def page_opportunity_list():
             )
 
     st.caption(
-        "Acquire = inactive en Current ADS · Upselling = activo con ROI > 4.5x · "
-        "Rev Proj = 90% del booking estimado × semanas restantes del mes · "
-        "% Target = cobertura acumulada sobre el target mensual ADS."
+        f"Acquire = inactive en Current ADS · Upselling = activo con ROI > 4.5x · "
+        f"GMV base: Current GMV × proyección semana {_week_of_month_opp}/4 (factor ×{_gmv_projection_factor:.2f}) "
+        f"— fallback a Last GMV ARS si la marca no figura en Current GMV · "
+        f"Rev Proj = 90% del booking estimado × semanas restantes del mes · "
+        f"% Target = cobertura acumulada sobre el target mensual ADS."
     )
+
+    def _gmv_source_label(row):
+        """Indica si el GMV usado viene de Current GMV (proyectado) o del Growth OS (histórico)."""
+        brand_id = normalize_brand_id(row.get("_id", ""))
+        if brand_id in _current_gmv_map and _current_gmv_map[brand_id] > 0:
+            return f"📡 ARS {fmt_number(_current_gmv_map[brand_id])} (W{_week_of_month_opp}→mes)"
+        gmv_fallback = to_number(row.get("_gmv"), 0)
+        if gmv_fallback > 0:
+            return f"📁 ARS {fmt_number(gmv_fallback)} (histórico)"
+        return "-"
 
     ads_view = pd.DataFrame({
         "Rank":               ads_df["Rank"].apply(_format_rank),
@@ -6786,6 +6829,7 @@ def page_opportunity_list():
         "ID":                 ads_df["_id"].apply(_format_id),
         "Name":               ads_df["_name"],
         "Status":             ads_df["Status"],
+        "GMV base (fuente)":  ads_df.apply(_gmv_source_label, axis=1),
         "Booking/sem (est)":  ads_df["_suggested_booking_ars"].apply(
             lambda x: f"ARS {fmt_number(x)}" if x > 0 else "-"
         ),
