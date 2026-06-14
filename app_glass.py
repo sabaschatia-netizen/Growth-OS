@@ -7402,7 +7402,51 @@ def get_last_comment_meta_map(limit=2):
 
 
 @st.cache_data(ttl=120)
-def get_productivity_last_contact_map(excel_path):
+def get_productivity_effective_rows(excel_path):
+    """
+    Reads the Productivity sheet and returns a DataFrame with:
+      _date_k -> datetime from column K (Date)
+      _week_j -> datetime from column J (Week)
+      _effective -> bool, True unless col F (Fase) == "Aliado no contactado"
+    Used for HOY / SEMANA / MES contact counters in Follow-Up List.
+    Col F (idx 5)  = Fase
+    Col J (idx 9)  = Week
+    Col K (idx 10) = Date
+    """
+    if not os.path.exists(excel_path):
+        return pd.DataFrame(columns=["_date_k", "_week_j", "_effective"])
+    try:
+        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
+    except Exception:
+        return pd.DataFrame(columns=["_date_k", "_week_j", "_effective"])
+
+    raw.columns = [str(c).strip() for c in raw.columns]
+    cols_lower = [c.lower() for c in raw.columns]
+
+    fase_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "fase"), None)
+    if not fase_col and len(raw.columns) > 5:
+        fase_col = raw.columns[5]
+
+    if len(raw.columns) < 11:
+        return pd.DataFrame(columns=["_date_k", "_week_j", "_effective"])
+
+    week_col = raw.columns[9]   # J
+    date_col = raw.columns[10]  # K
+
+    out = pd.DataFrame()
+    out["_date_k"] = pd.to_datetime(raw[date_col], errors="coerce")
+    out["_week_j"] = pd.to_datetime(raw[week_col], errors="coerce")
+
+    if fase_col and fase_col in raw.columns:
+        _fase = raw[fase_col].astype(str).str.strip().str.lower()
+        out["_effective"] = ~_fase.str.contains("aliado no contactado", case=False, na=False)
+    else:
+        out["_effective"] = True
+
+    return out
+
+
+
     """
     Reads the Productivity sheet and returns a dict:
         { normalized_brand_name -> most_recent_contact_date (pd.Timestamp) }
@@ -7680,40 +7724,32 @@ def page_follow_up_list():
     follow_df["_proximo_fmt"] = follow_df["_last_comment_dt"].apply(_fmt_proximo)
 
     st.markdown("## Active Account Follow-Ups")
-    # ── Contador efectivo: Hoy / Semana / Mes (excluye Ghosts) ───────────────
+    # ── Contador efectivo: Hoy / Semana / Mes ────────────────────────────────
+    # Fuente: hoja Productivity. "Efectivo" = Fase (col F) != "Aliado no contactado".
+    #   HOY  → col K (Date) == hoy
+    #   MES  → col K (Date) dentro del mes actual
+    #   SEMANA → col J (Week) dentro de la semana actual
     _today      = date.today()
     _week_start = _today - timedelta(days=_today.weekday())
     _week_end   = _week_start + timedelta(days=6)
-    _comments_df_fu = _load_comments_df()
-
-    def _is_ghost_status(val):
-        return "ghost" in str(val).lower()
+    _prod_rows  = get_productivity_effective_rows(EXCEL_FILE)
 
     _contacts_today = 0
     _contacts_this_week = 0
     _contacts_this_month = 0
 
-    if not _comments_df_fu.empty and "_dt" in _comments_df_fu.columns:
-        _fu_dt      = pd.to_datetime(_comments_df_fu["_dt"], errors="coerce")
-        _fu_status  = _comments_df_fu.get("opportunity_status", pd.Series([""] * len(_comments_df_fu)))
-        _fu_comment = _comments_df_fu.get("comment", pd.Series([""] * len(_comments_df_fu)))
+    if not _prod_rows.empty:
+        _eff = _prod_rows[_prod_rows["_effective"]]
 
-        # Effective = not ghost (by status OR comment starting with 👻)
-        _not_ghost = ~_fu_status.apply(_is_ghost_status) & ~_fu_comment.apply(
-            lambda c: str(c).strip().startswith("👻")
-        )
-
-        _mask_today = _fu_dt.apply(
+        _mask_today = _eff["_date_k"].apply(
             lambda x: (not pd.isna(x)) and (x.date() == _today)
-        ) & _not_ghost
-
-        _mask_week = _fu_dt.apply(
-            lambda x: (not pd.isna(x)) and (_week_start <= x.date() <= _week_end)
-        ) & _not_ghost
-
-        _mask_month = _fu_dt.apply(
+        )
+        _mask_month = _eff["_date_k"].apply(
             lambda x: (not pd.isna(x)) and (x.year == _today.year) and (x.month == _today.month)
-        ) & _not_ghost
+        )
+        _mask_week = _eff["_week_j"].apply(
+            lambda x: (not pd.isna(x)) and (_week_start <= x.date() <= _week_end)
+        )
 
         _contacts_today      = int(_mask_today.sum())
         _contacts_this_week  = int(_mask_week.sum())
