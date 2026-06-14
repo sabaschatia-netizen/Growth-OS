@@ -12771,10 +12771,10 @@ def render_brand_profile(row, brand_id):
             items = "".join(f'<li style="margin-bottom:3px;">{s.capitalize()}</li>' for s in pending_signals)
             pending_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;font-size:11px;color:rgba(232,223,213,.65);">{items}</ul>'
 
-        return f"""
-        <div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>
-        {pending_html}
-        """
+        return (
+            f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
+            + pending_html
+        )
 
     _retomar_html = _build_retomar_html(_display_last_note)
 
