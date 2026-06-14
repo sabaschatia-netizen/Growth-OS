@@ -14725,6 +14725,12 @@ def _render_followup_form(row, brand_id, name):
                 index=1,
                 key=f"event_priority_{suffix}_{brand_id}"
             )
+            _event_status = st.selectbox(
+                "Task Status",
+                ["Pending", "In Progress", "Done", "Cancelled"],
+                index=0,
+                key=f"event_status_{suffix}_{brand_id}"
+            )
         with e3:
             _event_notes = st.text_area(
                 "Notes",
@@ -14741,7 +14747,7 @@ def _render_followup_form(row, brand_id, name):
             "task": default_task,
             "channel": _event_channel,
             "priority": _event_priority,
-            "status": default_task,
+            "status": _event_status,
             "notes": _event_notes.strip(),
         }
 
@@ -15083,35 +15089,56 @@ def page_weekly_calendar():
     render_header("Weekly Calendar", "Your scheduled contacts and follow-up tasks")
 
     agenda = load_agenda_data()
+    today = date.today()
 
-    if agenda.empty:
-        st.info("No agenda records found. Add rows to the Agenda sheet.")
-        return
+    # ── Semana: lunes de la semana actual ─────────────────────────────────────
+    week_start = today - timedelta(days=today.weekday())  # lunes
+    days = [week_start + timedelta(days=i) for i in range(7)]
+
+    # ── Task colors ───────────────────────────────────────────────────────────
+    TASK_COLORS = {
+        "campaign follow up":   {"bg": "rgba(59,72,131,0.85)",  "border": "#3B4883", "text": "#FFFFFF"},
+        "campaign negotiation": {"bg": "rgba(255,113,36,0.85)", "border": "#FF7124", "text": "#FFFFFF"},
+        "contractual changes":  {"bg": "rgba(29,158,117,0.85)", "border": "#1D9E75", "text": "#FFFFFF"},
+    }
+    PRIORITY_COLORS = {"high": "#E5332A", "mid": "#FF7124", "low": "#8B9ED4"}
+
+    def _task_color(task_str, priority_str):
+        tl = task_str.lower()
+        for key, val in TASK_COLORS.items():
+            if key in tl:
+                return val
+        p = priority_str.lower()
+        c = PRIORITY_COLORS.get(p, "#8B9ED4")
+        return {"bg": c, "border": c, "text": "#FFFFFF"}
 
     st.markdown("### This Week")
 
-    today = date.today()
-    agenda["_parsed_date"] = get_col(agenda, ["date", "data"]).apply(parse_agenda_date)
-    agenda["_time_display"] = get_col(agenda, ["time"]).apply(parse_agenda_time)
+    # ── Contadores ────────────────────────────────────────────────────────────
+    if not agenda.empty:
+        agenda["_parsed_date"] = get_col(agenda, ["date", "data"]).apply(parse_agenda_date)
+        agenda["_time_display"] = get_col(agenda, ["time"]).apply(parse_agenda_time)
+        status_text = get_col(agenda, ["status"]).astype(str).str.strip().str.lower()
+        done_mask = (
+            status_text.eq("done")
+            | status_text.eq("completed")
+            | status_text.eq("complete")
+            | status_text.str.contains("done", na=False)
+            | status_text.str.contains("completed", na=False)
+        )
+        active_agenda = agenda[~done_mask].copy()
+        active_agenda["_sort_date"] = active_agenda["_parsed_date"].apply(lambda x: x or date.max)
+        active_agenda = active_agenda.sort_values(by=["_sort_date", "_time_display"], ascending=True)
+    else:
+        active_agenda = pd.DataFrame()
 
-    # Hide completed items from the calendar, but keep them in Excel as history.
-    status_text = get_col(agenda, ["status"]).astype(str).str.strip().str.lower()
-    done_mask = (
-        status_text.eq("done")
-        | status_text.eq("completed")
-        | status_text.eq("complete")
-        | status_text.str.contains("done", na=False)
-        | status_text.str.contains("completed", na=False)
-    )
-    active_agenda = agenda[~done_mask].copy()
-
-    # ── Day load counter ──────────────────────────────────────────────────────
-    _today_count    = int((active_agenda["_parsed_date"] == today).sum())
-    _tomorrow_count = int((active_agenda["_parsed_date"] == today + timedelta(days=1)).sum())
+    _today_count    = int((active_agenda["_parsed_date"] == today).sum()) if not active_agenda.empty else 0
+    _tomorrow_count = int((active_agenda["_parsed_date"] == today + timedelta(days=1)).sum()) if not active_agenda.empty else 0
     _overdue_count  = int((active_agenda["_parsed_date"] < today).sum()) if not active_agenda.empty else 0
     _today_color    = "#E5332A" if _today_count >= 5 else ("#D95A10" if _today_count >= 3 else "#6FF24B")
-    _tmrw_color     = "#D95A10" if _tomorrow_count >= 5 else "#555"
-    _overdue_color  = "#E5332A" if _overdue_count > 0 else "#aaa"
+    _tmrw_color     = "#D95A10" if _tomorrow_count >= 5 else "rgba(232,223,213,.45)"
+    _overdue_color  = "#E5332A" if _overdue_count > 0 else "rgba(232,223,213,.3)"
+
     st.markdown(
         f'''<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
         <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
@@ -15127,31 +15154,6 @@ def page_weekly_calendar():
         unsafe_allow_html=True,
     )
 
-    if active_agenda.empty:
-        st.success("No pending events or tasks. Everything is Done.")
-        return
-
-    # ── Semana: lunes de la semana actual ─────────────────────────────────────
-    week_start = today - timedelta(days=today.weekday())  # lunes
-    days = [week_start + timedelta(days=i) for i in range(7)]
-
-    # ── Cabecera de días ──────────────────────────────────────────────────────
-    TASK_COLORS = {
-        "campaign follow up":   {"bg": "rgba(59,72,131,0.18)",  "border": "#3B4883", "text": "#8B9ED4"},
-        "campaign negotiation": {"bg": "rgba(255,113,36,0.15)", "border": "#FF7124", "text": "#FF7124"},
-        "contractual changes":  {"bg": "rgba(29,158,117,0.15)", "border": "#1D9E75", "text": "#1D9E75"},
-    }
-    PRIORITY_COLORS = {"high": "#E5332A", "mid": "#FF7124", "low": "#8B9ED4"}
-
-    def _task_color(task_str, priority_str):
-        tl = task_str.lower()
-        for key, val in TASK_COLORS.items():
-            if key in tl:
-                return val
-        p = priority_str.lower()
-        c = PRIORITY_COLORS.get(p, "#8B9ED4")
-        return {"bg": f"rgba(139,158,212,0.12)", "border": c, "text": c}
-
     # ── Leyenda ───────────────────────────────────────────────────────────────
     st.markdown(f"""
     <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
@@ -15163,29 +15165,28 @@ def page_weekly_calendar():
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Grilla semanal ────────────────────────────────────────────────────────
-    active_agenda["_sort_date"] = active_agenda["_parsed_date"].apply(lambda x: x or date.max)
-    active_agenda = active_agenda.sort_values(by=["_sort_date", "_time_display"], ascending=True)
-
-    # Cabecera de columnas de días
-    header_html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px;">'
+    # ── Cabecera de días ──────────────────────────────────────────────────────
+    header_html = '<div style="display:grid;grid-template-columns:52px repeat(7,1fr);gap:0;margin-bottom:0;">'
+    header_html += '<div></div>'  # spacer para columna de horas
     for d in days:
         ddate = d if isinstance(d, date) else d.date()
         is_today = ddate == today
-        day_count = int((active_agenda["_parsed_date"] == ddate).sum())
+        day_count = int((active_agenda["_parsed_date"] == ddate).sum()) if not active_agenda.empty else 0
         bg = "rgba(59,72,131,0.25)" if is_today else "rgba(255,255,255,0.04)"
-        border = "rgba(59,72,131,0.6)" if is_today else "rgba(255,255,255,0.08)"
+        border_b = "2px solid #3B4883" if is_today else "1px solid rgba(255,255,255,0.08)"
         num_color = "#FFFFFF" if is_today else "#E8DFD5"
+        num_bg = "#3B4883" if is_today else "transparent"
         count_color = "#6FF24B" if day_count > 0 else "rgba(232,223,213,.3)"
         header_html += f'''
-        <div style="background:{bg};border:1px solid {border};border-radius:10px;padding:10px 6px;text-align:center;">
+        <div style="background:{bg};border-bottom:{border_b};padding:8px 4px 8px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.06);">
             <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.5);">{d.strftime("%a").upper()}</div>
-            <div style="font-size:20px;font-weight:700;color:{num_color};line-height:1.2;margin:2px 0;">{d.strftime("%d")}</div>
-            <div style="font-size:11px;color:{count_color};font-weight:600;">{day_count} task{"s" if day_count != 1 else ""}</div>
+            <div style="display:inline-block;background:{num_bg};border-radius:50%;width:28px;height:28px;line-height:28px;font-size:16px;font-weight:700;color:{num_color};margin:2px 0;">{d.strftime("%d")}</div>
+            <div style="font-size:10px;color:{count_color};font-weight:600;">{day_count} task{"s" if day_count != 1 else ""}</div>
         </div>'''
     header_html += '</div>'
     st.markdown(header_html, unsafe_allow_html=True)
 
+    # ── Malla horaria tipo Google Calendar ───────────────────────────────────
     _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_COLORS)
 
 
@@ -15193,48 +15194,207 @@ def page_weekly_calendar():
 def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_COLORS):
     done_rows = st.session_state.setdefault("_wc_done_rows", set())
 
-    # ── Una columna por día ───────────────────────────────────────────────────
-    day_cols = st.columns(7, gap="small")
-    for col, d in zip(day_cols, days):
-        ddate = d if isinstance(d, date) else d.date()
-        day_events = active_agenda[active_agenda["_parsed_date"] == ddate]
+    # ── Parsear hora numérica de cada evento ──────────────────────────────────
+    def _parse_hour(time_val):
+        """Devuelve float (ej: 9.5 para 9:30). None si no se puede parsear."""
+        if isinstance(time_val, (time, datetime)):
+            t = time_val if isinstance(time_val, time) else time_val.time()
+            return t.hour + t.minute / 60
+        if time_val is None:
+            return None
+        try:
+            if pd.isna(time_val):
+                return None
+        except Exception:
+            pass
+        s = str(time_val).strip()
+        # "9:00 AM", "09:00", "9:30 PM"
+        for fmt in ("%I:%M %p", "%H:%M", "%I %p"):
+            try:
+                t = datetime.strptime(s, fmt)
+                return t.hour + t.minute / 60
+            except Exception:
+                pass
+        # fallback: primer número
+        m = re.search(r"(\d+)", s)
+        if m:
+            return float(m.group(1))
+        return None
 
-        with col:
-            for idx, row in day_events.iterrows():
+    if not active_agenda.empty:
+        active_agenda = active_agenda.copy()
+        active_agenda["_hour"] = get_col(active_agenda, ["time"]).apply(_parse_hour)
+
+    # ── Configuración de la malla horaria ─────────────────────────────────────
+    HOUR_START = 7     # 7 AM
+    HOUR_END   = 22    # 10 PM
+    SLOT_HEIGHT = 48   # px por hora
+
+    # Construir index de eventos por (día, hora_slot)
+    # Un slot es la hora entera (7, 8, …, 21)
+    def _events_for_day(ddate):
+        if active_agenda.empty:
+            return []
+        mask = active_agenda["_parsed_date"] == ddate
+        return active_agenda[mask].to_dict("records")
+
+    # ── HTML de la malla completa ─────────────────────────────────────────────
+    # Estructura: columna de horas + 7 columnas de días, filas = horas
+    # Usamos position:relative en cada celda para superponer tarjetas.
+
+    hour_labels_html = ""
+    for h in range(HOUR_START, HOUR_END):
+        top = (h - HOUR_START) * SLOT_HEIGHT
+        label = f"{h}:00" if h < 12 else (f"{h-12}:00 PM" if h > 12 else "12:00")
+        if h == 12:
+            label = "12:00"
+        hour_labels_html += f'<div style="position:absolute;top:{top}px;left:0;width:48px;font-size:10px;color:rgba(232,223,213,.4);text-align:right;padding-right:6px;line-height:1;">{label}</div>'
+
+    total_height = (HOUR_END - HOUR_START) * SLOT_HEIGHT
+
+    # Líneas horizontales de separación de horas
+    grid_lines_html = ""
+    for h in range(HOUR_START, HOUR_END + 1):
+        top = (h - HOUR_START) * SLOT_HEIGHT
+        color = "rgba(255,255,255,0.10)" if h % 2 == 0 else "rgba(255,255,255,0.04)"
+        grid_lines_html += f'<div style="position:absolute;top:{top}px;left:0;right:0;height:1px;background:{color};"></div>'
+
+    # Línea de "ahora" (solo si hoy está en la semana)
+    now_line_html = ""
+    if today in [d if isinstance(d, date) else d.date() for d in days]:
+        now_h = datetime.now().hour + datetime.now().minute / 60
+        if HOUR_START <= now_h < HOUR_END:
+            now_top = int((now_h - HOUR_START) * SLOT_HEIGHT)
+            day_idx = (today - (days[0] if isinstance(days[0], date) else days[0].date())).days
+            now_line_html = f"""
+            <div style="position:absolute;top:{now_top}px;left:0;right:0;z-index:10;pointer-events:none;">
+                <div style="height:2px;background:#E5332A;opacity:.85;"></div>
+                <div style="position:absolute;top:-4px;left:-4px;width:8px;height:8px;border-radius:50%;background:#E5332A;"></div>
+            </div>"""
+
+    # Construir columnas de días con tarjetas posicionadas
+    day_cols_html = ""
+    # También recopilamos botones de Done para renderizarlos con Streamlit
+    done_buttons = []  # list of (key, excel_row, idx, name)
+
+    for d in days:
+        ddate = d if isinstance(d, date) else d.date()
+        is_today = ddate == today
+        bg = "rgba(59,72,131,0.06)" if is_today else "transparent"
+        border_r = "1px solid rgba(255,255,255,0.06)"
+
+        events = _events_for_day(ddate)
+
+        cards_html = ""
+        for row in events:
+            excel_row = row.get("_excel_row")
+            if excel_row in done_rows:
+                continue
+            idx = excel_row  # use as unique key fragment
+
+            task     = clean(get_from_row(row, ["task"], "Task"))
+            name_ev  = clean(get_from_row(row, ["name"], "—"))
+            channel  = clean(get_from_row(row, ["channel"], ""))
+            priority = clean(get_from_row(row, ["priority"], "Mid"))
+            notes    = clean(get_from_row(row, ["notes"], ""))
+            hour_val = row.get("_hour")
+            is_overdue = ddate < today
+
+            colors = _task_color(task, priority)
+
+            if hour_val is not None and HOUR_START <= hour_val < HOUR_END:
+                top = int((hour_val - HOUR_START) * SLOT_HEIGHT)
+                height = max(SLOT_HEIGHT - 4, 36)
+                pos_style = f"position:absolute;top:{top}px;left:2px;right:2px;height:{height}px;overflow:hidden;z-index:5;"
+            else:
+                # Sin hora válida: apila al inicio
+                top = 0
+                pos_style = "position:relative;margin-bottom:4px;"
+
+            overdue_border = "border-top:2px solid #E5332A;" if is_overdue else ""
+            time_raw = get_from_row(row, ["time"], "")
+            time_str = parse_agenda_time(time_raw)
+
+            short_name = name_ev[:18] + "…" if len(name_ev) > 18 else name_ev
+            short_task = task[:22] + "…" if len(task) > 22 else task
+
+            cards_html += f"""
+            <div title="{html.escape(name_ev)} · {html.escape(task)}" style="
+                {pos_style}
+                background:{colors['bg']};
+                border-left:3px solid {colors['border']};
+                border-radius:0 6px 6px 0;
+                padding:4px 6px;
+                cursor:default;
+                {overdue_border}
+            ">
+                <div style="font-size:10px;font-weight:700;color:{colors['text']};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{short_task}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{short_name}</div>
+                <div style="font-size:9px;color:rgba(255,255,255,.5);">{time_str}{" · " + channel if channel else ""}{"  ⚠️" if is_overdue else ""}</div>
+            </div>"""
+
+            done_buttons.append((excel_row, idx, name_ev, task))
+
+        # Línea de "ahora" dentro de la columna del día de hoy
+        col_now = now_line_html if is_today else ""
+
+        day_cols_html += f"""
+        <div style="position:relative;height:{total_height}px;background:{bg};border-right:{border_r};min-width:0;">
+            {grid_lines_html}
+            {col_now}
+            {cards_html}
+        </div>"""
+
+    full_grid_html = f"""
+    <div style="display:grid;grid-template-columns:52px repeat(7,1fr);gap:0;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;margin-bottom:20px;">
+        <!-- Columna de horas -->
+        <div style="position:relative;height:{total_height}px;background:rgba(255,255,255,0.02);border-right:1px solid rgba(255,255,255,0.08);">
+            {hour_labels_html}
+        </div>
+        {day_cols_html}
+    </div>
+    """
+    st.markdown(full_grid_html, unsafe_allow_html=True)
+
+    # ── Botones Done (Streamlit nativo, fuera del HTML) ───────────────────────
+    if done_buttons:
+        st.markdown(
+            "<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);margin:8px 0 6px 0;'>MARK AS DONE</div>",
+            unsafe_allow_html=True
+        )
+        btn_cols = st.columns(min(len(done_buttons), 4))
+        for i, (excel_row, idx, name_ev, task) in enumerate(done_buttons):
+            with btn_cols[i % len(btn_cols)]:
+                label = f"✓ {name_ev[:16]}…" if len(name_ev) > 16 else f"✓ {name_ev}"
+                if st.button(label, key=f"done_{excel_row}_{idx}", use_container_width=True, help=task):
+                    ok, msg = mark_agenda_row_done(EXCEL_FILE, excel_row)
+                    if ok:
+                        done_rows.add(excel_row)
+                        st.success(f"✅ {name_ev}")
+                    else:
+                        st.error(msg)
+
+    # ── Eventos sin fecha asignada ────────────────────────────────────────────
+    if not active_agenda.empty:
+        undated = active_agenda[active_agenda["_parsed_date"].isna()]
+        if not undated.empty:
+            st.markdown("---")
+            st.markdown("<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);margin-bottom:10px;'>WITHOUT DATE</div>", unsafe_allow_html=True)
+            for idx, row in undated.iterrows():
                 excel_row = row.get("_excel_row", None)
                 if excel_row in done_rows:
                     continue
-
-                task    = clean(get_from_row(row, ["task"], "Task"))
-                name    = clean(get_from_row(row, ["name"], "—"))
-                task_time = parse_agenda_time(get_from_row(row, ["time"], ""))
-                channel = clean(get_from_row(row, ["channel"], ""))
-                notes   = clean(get_from_row(row, ["notes"], ""))
+                task  = clean(get_from_row(row, ["task"], "Task"))
+                name_ev = clean(get_from_row(row, ["name"], "—"))
                 priority = clean(get_from_row(row, ["priority"], "Mid"))
-                is_overdue = ddate < today
-
                 colors = _task_color(task, priority)
-                overdue_stripe = f"border-top:2px solid #E5332A;" if is_overdue else ""
-
-                card_html = f"""
-                <div style="
-                    background:{colors['bg']};
-                    border-left:3px solid {colors['border']};
-                    border-radius:0 8px 8px 0;
-                    padding:8px 10px;
-                    margin-bottom:8px;
-                    {overdue_stripe}
-                ">
-                    <div style="font-size:11px;font-weight:700;color:{colors['text']};margin-bottom:2px;line-height:1.3;">{task}</div>
-                    <div style="font-size:12px;color:#E8DFD5;font-weight:500;margin-bottom:4px;">{name}</div>
-                    <div style="font-size:10px;color:rgba(232,223,213,.5);">{task_time}{" · " + channel if channel else ""}</div>
-                    {f'<div style="font-size:10px;color:rgba(232,223,213,.4);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{notes[:50]}{"…" if len(notes)>50 else ""}</div>' if notes else ""}
-                    {"<div style='font-size:9px;font-weight:700;color:#E5332A;margin-top:3px;'>OVERDUE</div>" if is_overdue else ""}
+                st.markdown(f"""
+                <div style="background:{colors['bg']};border-left:3px solid {colors['border']};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px;">
+                    <div style="font-size:11px;font-weight:700;color:{colors['text']};">{task}</div>
+                    <div style="font-size:12px;color:#E8DFD5;">{name_ev}</div>
                 </div>
-                """
-                st.markdown(card_html, unsafe_allow_html=True)
-
-                if st.button("✓ Done", key=f"done_{excel_row}_{idx}", use_container_width=True):
+                """, unsafe_allow_html=True)
+                if st.button("✓ Done", key=f"done_nd_{excel_row}_{idx}", use_container_width=True):
                     ok, msg = mark_agenda_row_done(EXCEL_FILE, excel_row)
                     if ok:
                         done_rows.add(excel_row)
@@ -15242,32 +15402,6 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
                     else:
                         st.error(msg)
 
-    # ── Eventos sin fecha asignada ────────────────────────────────────────────
-    undated = active_agenda[active_agenda["_parsed_date"].isna()]
-    if not undated.empty:
-        st.markdown("---")
-        st.markdown("<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);margin-bottom:10px;'>WITHOUT DATE</div>", unsafe_allow_html=True)
-        for idx, row in undated.iterrows():
-            excel_row = row.get("_excel_row", None)
-            if excel_row in done_rows:
-                continue
-            task  = clean(get_from_row(row, ["task"], "Task"))
-            name  = clean(get_from_row(row, ["name"], "—"))
-            priority = clean(get_from_row(row, ["priority"], "Mid"))
-            colors = _task_color(task, priority)
-            st.markdown(f"""
-            <div style="background:{colors['bg']};border-left:3px solid {colors['border']};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px;">
-                <div style="font-size:11px;font-weight:700;color:{colors['text']};">{task}</div>
-                <div style="font-size:12px;color:#E8DFD5;">{name}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("✓ Done", key=f"done_nd_{excel_row}_{idx}", use_container_width=True):
-                ok, msg = mark_agenda_row_done(EXCEL_FILE, excel_row)
-                if ok:
-                    done_rows.add(excel_row)
-                    st.success("✅")
-                else:
-                    st.error(msg)
 
 # =========================
 # BRAND UPDATE
