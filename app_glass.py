@@ -11572,15 +11572,9 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
             cue_parts.append(f"TopRes: {top_res_str}.")
         elif descr:
             cue_parts.append(f"SP: {descr}.")
-        cue_parts.append("Pregunta: ¿producto, foto o descripción generan la discrepancia?")
         if aov_ars > 0:
             _claim_cost_aliado = round(aov_ars * 0.50)
-            cue_parts.append(
-                f"Contexto financiero: en reclamos Rappi cubre entre 0% y 100% según el caso — "
-                f"en promedio el aliado absorbe ~50% del valor. "
-                f"Con un AOV de {fmt_ars(round(aov_ars))}, cada reclamo que cae al aliado cuesta ~{fmt_ars(_claim_cost_aliado)}. "
-                f"Antes de escalar tráfico, cada reclamo que resolvés es {fmt_ars(_claim_cost_aliado)} que recuperás."
-            )
+            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_cost_aliado)} por reclamo (aliado absorbe ~50%).")
         cue = " ".join(cue_parts)
         cls = "health-orange"
     elif kind == "ops_cancellations":
@@ -11590,26 +11584,15 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
             cue_parts.append(f"TopRes: {top_res_str}.")
         elif descr:
             cue_parts.append(f"SP: {descr}.")
-        cue_parts.append("Causa probable: stock, cocina, horario o tiempo de prep.")
         _cancel_rate = cancel if top_res.get("found") and cancel else 0
         if aov_ars > 0:
             _cancel_cost_orden = round(aov_ars * 0.65)
             if _cancel_rate > 0 and orders_monthly > 0:
                 _cancel_orders_mes = round(orders_monthly * _cancel_rate)
                 _cancel_gmv_perdido = round(_cancel_orders_mes * aov_ars * 0.65 / 1000) * 1000
-                cue_parts.append(
-                    f"Impacto financiero: Rappi cubre solo el 35% del valor en cancelaciones — "
-                    f"el aliado absorbe el 65%. Con un AOV de {fmt_ars(round(aov_ars))}, "
-                    f"cada cancelación le cuesta {fmt_ars(_cancel_cost_orden)}. "
-                    f"Con un cancel rate de {fmt_percent2(_cancel_rate)} sobre ~{int(orders_monthly)} órdenes/mes, "
-                    f"son ~{_cancel_orders_mes} cancelaciones · {fmt_ars(_cancel_gmv_perdido)}/mes que no recupera."
-                )
+                cue_parts.append(f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes ({_cancel_orders_mes} cancelaciones · aliado absorbe 65%).")
             else:
-                cue_parts.append(
-                    f"Impacto financiero: Rappi cubre solo el 35% en cancelaciones — "
-                    f"el aliado absorbe el 65%. Con un AOV de {fmt_ars(round(aov_ars))}, "
-                    f"cada cancelación le cuesta {fmt_ars(_cancel_cost_orden)}."
-                )
+                cue_parts.append(f"GMV en riesgo: ~{fmt_ars(round(aov_ars * 0.65))} por cancelación (aliado absorbe 65%).")
         cue = " ".join(cue_parts)
         cls = "health-orange"
     elif kind == "ops_defects":
@@ -11629,7 +11612,13 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
         cue_parts = []
         if top_res_str:
             cue_parts.append(f"TopRes: {top_res_str}.")
-        cue_parts.append("Usa availability como freno: escalar tráfico sobre baja disponibilidad quema budget.")
+        if ava_val and ava_val > 0 and orders_monthly > 0 and aov_ars > 0:
+            _ava_gap = max(0, 1.0 - ava_val)
+            _ava_gmv_perdido = round(_ava_gap * orders_monthly * aov_ars / 1000) * 1000
+            if _ava_gmv_perdido > 0:
+                cue_parts.append(f"GMV perdido: ~{fmt_ars(_ava_gmv_perdido)}/mes (costo de oportunidad del {fmt_percent0(_ava_gap)} que falta para llegar al 100%).")
+        else:
+            cue_parts.append("Escalar tráfico sobre baja disponibilidad quema budget.")
         cue = " ".join(cue_parts)
         cls = "health-yellow"
     else:
@@ -11666,8 +11655,16 @@ def _build_menu_tactical_card(record, name, menu_metrics, campaign_design):
         cls = "health-yellow" if purchasing >= 0.75 else "health-orange"
     else:
         main = "🍔 Catalog clarity before traffic"
-        extra = f" Missing products: {fmt_number(missing)}." if missing > 0 else ""
-        argument = f"El catálogo es la vitrina de venta. Si producto, foto o descripción no están claros, el tráfico no se convierte y la campaña pierde eficiencia.{extra}"
+        issues = []
+        if photos and photos < 0.90:
+            issues.append(f"Fotos {fmt_percent0(photos)} — por debajo del 90%")
+        if missing and missing > 1:
+            issues.append(f"Missing products: {fmt_number(missing)}")
+        if purchasing and purchasing < 0.90:
+            issues.append(f"Purchasing experience {fmt_percent0(purchasing)} — por debajo del 90%")
+        if kind == "menu_pdf" or (metric and "pdf" in metric.lower()):
+            issues.append("PDF: reactualización del algoritmo recomendada")
+        argument = " · ".join(issues) if issues else "Ajustar catálogo antes de activar presión comercial."
         cue = "Pide ajustar productos top/hero antes de activar una presión comercial más fuerte."
         cls = "health-yellow"
 
