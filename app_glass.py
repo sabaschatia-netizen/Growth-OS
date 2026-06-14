@@ -968,51 +968,77 @@ def get_current_brand_metrics(brand_id):
 
 def get_current_gmv_totals():
     """
-    Portfolio-only current totals.
-    Current GMV contains all CABA, so Management Dashboard must filter it
-    to only the Brand IDs that exist in Growth OS.
+    Reads totals directly from the 'Total' summary row in the Current GMV sheet.
+    This is the authoritative figure from the exported report — matches exactly
+    what the Excel shows (GMV, Orders, AOV already computed by the export).
+    Falls back to row-sum if the Total row is not found.
     """
-    current_df = load_current_gmv_data()
+    if not os.path.exists(EXCEL_FILE):
+        return None
+    try:
+        raw = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_GMV_SHEET, engine="openpyxl")
+        # Normalise column names for flexible lookup
+        raw.columns = [str(c).strip() for c in raw.columns]
 
-    if current_df.empty:
+        # Find the Total row — Brand column contains exactly "Total"
+        brand_col = next((c for c in raw.columns if c.lower() in ["brand", "brand name", "tienda", "nombre"]), raw.columns[0])
+        total_mask = raw[brand_col].astype(str).str.strip().str.lower() == "total"
+        total_row = raw[total_mask]
+
+        if not total_row.empty:
+            row = total_row.iloc[0]
+            # Column name mapping: GMV (ARS), GMV USD, Ordenes, AOV (ARS), AOV USD
+            gmv_ars_col  = next((c for c in raw.columns if c.upper() in ["GMV"] or c.lower() in ["gmv", "gmv ars", "gmv local"]), None)
+            gmv_usd_col  = next((c for c in raw.columns if "usd" in c.lower() and "gmv" in c.lower()), None)
+            orders_col   = next((c for c in raw.columns if c.lower() in ["ordenes", "orders", "pedidos"]), None)
+            aov_ars_col  = next((c for c in raw.columns if c.upper() in ["AOV"] or c.lower() in ["aov", "aov ars", "aov local"]), None)
+            aov_usd_col  = next((c for c in raw.columns if "usd" in c.lower() and "aov" in c.lower()), None)
+
+            gmv_ars  = to_number(row.get(gmv_ars_col),  0) if gmv_ars_col  else 0
+            gmv_usd  = to_number(row.get(gmv_usd_col),  0) if gmv_usd_col  else 0
+            orders   = to_number(row.get(orders_col),   0) if orders_col   else 0
+            aov_ars  = to_number(row.get(aov_ars_col),  0) if aov_ars_col  else 0
+            aov_usd  = to_number(row.get(aov_usd_col),  0) if aov_usd_col  else 0
+
+            # Derive missing values if needed
+            if gmv_usd == 0 and gmv_ars > 0:
+                gmv_usd = gmv_ars / ARS_PER_USD
+            if aov_ars == 0 and gmv_ars > 0 and orders > 0:
+                aov_ars = gmv_ars / orders
+            if aov_usd == 0 and gmv_usd > 0 and orders > 0:
+                aov_usd = gmv_usd / orders
+
+            return {
+                "gmv_ars": gmv_ars,
+                "gmv_usd": gmv_usd,
+                "gmv_cop": gmv_usd * COP_PER_USD,
+                "orders":  orders,
+                "aov_ars": aov_ars,
+                "aov_usd": aov_usd,
+                "aov_cop": aov_usd * COP_PER_USD,
+            }
+    except Exception:
+        pass
+
+    # ── Fallback: sum all data rows (no portfolio filter) ────────────────────
+    current_df = load_current_gmv_data()
+    if current_df is None or current_df.empty:
         return None
 
-    growth_df = load_growth_data()
-    id_col = get_id_column_name(growth_df) if not growth_df.empty else None
-
-    if id_col:
-        portfolio_ids = set(growth_df[id_col].apply(normalize_brand_id).dropna().astype(str))
-        df = current_df[current_df["_id"].astype(str).isin(portfolio_ids)].copy()
-    else:
-        # Safety fallback: if Growth OS IDs cannot be read, avoid using all CABA as portfolio.
-        df = pd.DataFrame()
-
-    if df.empty:
-        return {
-            "gmv_ars": 0,
-            "gmv_usd": 0,
-            "gmv_cop": 0,
-            "orders": 0,
-            "aov_ars": 0,
-            "aov_usd": 0,
-            "aov_cop": 0,
-        }
-
-    total_gmv_ars = pd.to_numeric(df["gmv ars"], errors="coerce").fillna(0).sum()
-    total_gmv_usd = pd.to_numeric(df["gmv usd"], errors="coerce").fillna(0).sum()
-    total_orders = pd.to_numeric(df["ordenes"], errors="coerce").fillna(0).sum()
-
-    current_aov_ars = total_gmv_ars / total_orders if total_orders else 0
-    current_aov_usd = total_gmv_usd / total_orders if total_orders else 0
+    total_gmv_ars = pd.to_numeric(current_df["gmv ars"], errors="coerce").fillna(0).sum()
+    total_gmv_usd = pd.to_numeric(current_df["gmv usd"], errors="coerce").fillna(0).sum()
+    total_orders  = pd.to_numeric(current_df["ordenes"],  errors="coerce").fillna(0).sum()
+    aov_ars = total_gmv_ars / total_orders if total_orders else 0
+    aov_usd = total_gmv_usd / total_orders if total_orders else 0
 
     return {
         "gmv_ars": total_gmv_ars,
         "gmv_usd": total_gmv_usd,
         "gmv_cop": total_gmv_usd * COP_PER_USD,
-        "orders": total_orders,
-        "aov_ars": current_aov_ars,
-        "aov_usd": current_aov_usd,
-        "aov_cop": current_aov_usd * COP_PER_USD,
+        "orders":  total_orders,
+        "aov_ars": aov_ars,
+        "aov_usd": aov_usd,
+        "aov_cop": aov_usd * COP_PER_USD,
     }
 
 
