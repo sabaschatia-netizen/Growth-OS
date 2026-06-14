@@ -15595,9 +15595,14 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
     hour_labels_html = ""
     for h in range(HOUR_START, HOUR_END):
         top = (h - HOUR_START) * SLOT_HEIGHT
-        label = f"{h}:00" if h < 12 else (f"{h-12}:00 PM" if h > 12 else "12:00")
-        if h == 12:
-            label = "12:00"
+        if h == 0:
+            label = "12:00 AM"
+        elif h < 12:
+            label = f"{h}:00 AM"
+        elif h == 12:
+            label = "12:00 PM"
+        else:
+            label = f"{h-12}:00 PM"
         hour_labels_html += f'<div style="position:absolute;top:{top}px;left:0;width:48px;font-size:10px;color:rgba(232,223,213,.4);text-align:right;padding-right:6px;line-height:1;">{label}</div>'
 
     total_height = (HOUR_END - HOUR_START) * SLOT_HEIGHT
