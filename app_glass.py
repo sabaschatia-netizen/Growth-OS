@@ -11458,6 +11458,8 @@ def _classify_priority_lever(metric):
         return "menu_photos"
     if any(t in text for t in ["purchasing", "experiencia", "purchase", "compra"]):
         return "menu_purchase_experience"
+    if "pdf" in text:
+        return "menu_pdf"
     if any(t in text for t in ["missing", "faltante", "producto", "product", "catalog", "catalogo", "catálogo", "menu", "menú"]):
         return "menu_catalog"
 
@@ -11649,27 +11651,30 @@ def _build_menu_tactical_card(record, name, menu_metrics, campaign_design):
         argument = f"No lo vendas como 'faltan fotos'; véndelo como conversión. El usuario decide visualmente y las fotos actuales marcan {fmt_percent0(photos) if photos else '-'}; si no se ve comprable, Ads y MD rinden peor."
         cue = "Pide priorizar fotos de productos top y combos antes de empujar tráfico fuerte."
         cls = "health-yellow" if photos >= 0.75 else "health-orange"
+
     elif kind == "menu_purchase_experience":
         main = "🛒 Purchase experience = less friction"
         argument = f"La experiencia de compra está en {fmt_percent0(purchasing) if purchasing else '-'}. Si el usuario no entiende rápido qué compra, baja conversión y sube el riesgo de reclamos."
         cue = "Valida nombres, descripciones, modificadores y claridad del producto recibido."
         cls = "health-yellow" if purchasing >= 0.75 else "health-orange"
+
+    elif kind == "menu_pdf":
+        main = "📄 PDF · Reactualización del algoritmo"
+        argument = "El menú PDF está desactualizado respecto al algoritmo actual. Un PDF desactualizado afecta la indexación y visibilidad del catálogo en la plataforma."
+        cue = "Solicitá al aliado la reactualización del PDF del menú para alinear con el algoritmo vigente."
+        cls = "health-yellow"
+
     else:
-        main = "🍔 Catalog clarity before traffic"
+        # kind == "menu_catalog": mostrar los issues concretos sin título genérico
         issues = []
-        # Fotos: mencionar si está por debajo del 90%
         if photos is not None and photos < 0.90:
             issues.append(f"📸 Fotos {fmt_percent0(photos)} — por debajo del 90%")
-        # Missing products: mencionar si es mayor a 1
         if missing is not None and missing > 1:
             issues.append(f"📦 Missing products: {fmt_number(missing)} productos faltantes")
-        # Purchasing experience: mencionar si es menor al 90%
         if purchasing is not None and purchasing < 0.90:
             issues.append(f"🛒 Purchasing experience {fmt_percent0(purchasing)} — por debajo del 90%")
-        # PDF: reactualización del algoritmo
-        if kind == "menu_pdf" or (metric and "pdf" in metric.lower()):
-            issues.append("📄 PDF: reactualización del algoritmo recomendada")
-        argument = " · ".join(issues) if issues else "Ajustar catálogo antes de activar presión comercial."
+        main = " · ".join(issues) if issues else "🍔 Ajustar catálogo antes de activar presión comercial"
+        argument = "Corregir estas métricas antes de escalar tráfico o activar pauta — si la base no convierte, el gasto es ineficiente."
         cue = "Pide ajustar productos top/hero antes de activar una presión comercial más fuerte."
         cls = "health-yellow"
 
