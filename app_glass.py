@@ -16952,9 +16952,13 @@ Respondé SOLO con este formato JSON, sin texto adicional:
                         try:
                             resp = requests.post(
                                 "https://api.anthropic.com/v1/messages",
-                                headers={"Content-Type": "application/json", "anthropic-version": "2023-06-01"},
+                                headers={
+                                    "Content-Type": "application/json",
+                                    "anthropic-version": "2023-06-01",
+                                    "x-api-key": st.secrets["ANTHROPIC_API_KEY"],
+                                },
                                 json={
-                                    "model": "claude-sonnet-4-20250514",
+                                    "model": "claude-sonnet-4-6",
                                     "max_tokens": 1000,
                                     "system": system_prompt,
                                     "messages": [{"role": "user", "content": "Evaluá la respuesta."}],
