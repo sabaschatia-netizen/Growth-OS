@@ -40,7 +40,7 @@ BACKUP_FOLDER = "backups"
 
 ARS_PER_USD = 1400
 COP_PER_USD = 3900
-ADS_REVENUE_TARGET_USD = 16038
+ADS_REVENUE_TARGET_USD = 17574
 CONTACTS_START_DATE = date(2026, 6, 1)
 
 # Main visual identity requested by Sabas
@@ -1391,27 +1391,74 @@ def get_current_md_metrics(brand_id, pro=False):
     }
 
 
+def _read_md_totals_from_sheet(pro=False):
+    """
+    Reads the Total row directly from Current MD or Current MD pro.
+    Col D = GMV TOTAL $, Col E = MARKDOWN $ (or MARKDOWN PRO USR $),
+    Col F = MARKDOWN % (E/D) — only counted when E > 0.
+    """
+    sheet = CURRENT_MD_PRO_SHEET if pro else CURRENT_MD_SHEET
+    if not os.path.exists(EXCEL_FILE):
+        return {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0}
+    try:
+        wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
+        if sheet not in wb.sheetnames:
+            sheet = CURRENT_MD_SHEET
+        ws = wb[sheet]
+        total_row_idx = None
+        for r in range(1, ws.max_row + 1):
+            val = ws.cell(r, 1).value
+            if val is not None and str(val).strip().lower() == "total":
+                total_row_idx = r
+        result = {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0}
+        if total_row_idx:
+            d_val = ws.cell(total_row_idx, 4).value  # GMV TOTAL $
+            e_val = ws.cell(total_row_idx, 5).value  # MARKDOWN $ / MARKDOWN PRO USR $
+            f_val = ws.cell(total_row_idx, 6).value  # MARKDOWN % — E/D ratio
+            result["gmv_total_usd"] = to_number(d_val, 0)
+            result["markdown_usd"]  = to_number(e_val, 0) if e_val else 0
+            # F = E/D — only valid when E > 0
+            if result["markdown_usd"] > 0:
+                result["markdown_pct"] = to_number(f_val, 0) if f_val else (
+                    result["markdown_usd"] / result["gmv_total_usd"]
+                    if result["gmv_total_usd"] > 0 else 0
+                )
+        wb.close()
+        return result
+    except Exception:
+        return {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0}
+
+
+def _read_md_targets_from_earnings():
+    """
+    Reads MD and MD Pro penetration targets from the Earnings sheet.
+    Earnings row 3 (pandas index 2, header=None):
+      col index 5 (Excel col F) = MD target %      (e.g. 0.0667 = 6.67%)
+      col index 6 (Excel col G) = MD Pro target %  (e.g. 0.0727 = 7.27%)
+    """
+    defaults = {"md_target_pct": 0.0667, "md_pro_target_pct": 0.0727}
+    if not os.path.exists(EXCEL_FILE):
+        return defaults
+    try:
+        raw = load_earnings_data()
+        if raw.empty:
+            return defaults
+        md_pct     = to_number(raw.iloc[2, 5], 0)   # col F
+        md_pro_pct = to_number(raw.iloc[2, 6], 0)   # col G
+        return {
+            "md_target_pct":     md_pct     if md_pct     > 0 else defaults["md_target_pct"],
+            "md_pro_target_pct": md_pro_pct if md_pro_pct > 0 else defaults["md_pro_target_pct"],
+        }
+    except Exception:
+        return defaults
+
+
 def get_markdown_dollar_total():
     """
-    Suma la columna MARKDOWN $ del sheet Current MD (normal, no PRO).
-    Este es el numerador oficial para la penetración MD de cartera (8.51%).
-    No mezcla con PRO ni con otras columnas de GMV.
+    Returns the active MD GMV (MARKDOWN $) from the Total row of Current MD.
+    Source: col E of the Total row — only counted when E > 0 (E/D = col F).
     """
-    df = _read_current_sheet(CURRENT_MD_SHEET)
-    if df.empty:
-        return 0
-    # normalize() ya convierte "MARKDOWN $" → "markdown $"
-    col = _first_existing_col(df, ["markdown $", "markdown$", "markdown usd"])
-    if not col:
-        return 0
-    # Filter to portfolio only
-    id_col = _first_existing_col(df, ["brand id", "brand_id", "code", "id", "tienda id"])
-    if id_col:
-        portfolio_ids = get_portfolio_ids()
-        if portfolio_ids:
-            df["_id_norm"] = df[id_col].apply(normalize_brand_id)
-            df = df[df["_id_norm"].astype(str).isin(portfolio_ids)].copy()
-    return pd.to_numeric(df[col], errors="coerce").fillna(0).sum()
+    return _read_md_totals_from_sheet(pro=False)["markdown_usd"]
 
 
 def _read_md_roi_from_j290(pro=False):
@@ -6472,30 +6519,44 @@ def page_opportunity_list():
         st.error("Could not load Growth OS data or ID column.")
         return
 
-    # ── Load targets from Earnings sheet (pre-fill) ──────────────────────────
+    # ── Load targets ─────────────────────────────────────────────────────────
+    # ADS target: hardcoded (ADS_REVENUE_TARGET_USD constant = 17,574 USD)
+    ads_target_from_sheet = ADS_REVENUE_TARGET_USD
+    # ADS result: Earnings col C row 3 (index 2,2)
     raw_earnings = load_earnings_data()
-    ads_target_from_sheet = to_number(cell(raw_earnings, 2, 1)) if not raw_earnings.empty else ADS_REVENUE_TARGET_USD
     ads_result_from_sheet = to_number(cell(raw_earnings, 2, 2)) if not raw_earnings.empty else 0
-    md_target_from_sheet  = to_number(cell(raw_earnings, 2, 5)) if not raw_earnings.empty else 0
-    md_result_from_sheet  = to_number(cell(raw_earnings, 2, 6)) if not raw_earnings.empty else 0
+
+    # MD targets: read % from Earnings sheet (col F=MD, col G=MD Pro), row 3
+    _md_targets = _read_md_targets_from_earnings()
+    md_target_pct     = _md_targets["md_target_pct"]      # e.g. 0.0667
+    md_pro_target_pct = _md_targets["md_pro_target_pct"]  # e.g. 0.0727
+
+    # MD activo: read directly from Total row of Current MD sheets (col E, only when E > 0)
+    _md_totals     = _read_md_totals_from_sheet(pro=False)
+    _md_pro_totals = _read_md_totals_from_sheet(pro=True)
+    active_md_gmv_usd     = _md_totals["markdown_usd"]      # col E total row, Current MD
+    active_md_pro_gmv_usd = _md_pro_totals["markdown_usd"]  # col E total row, Current MD pro
+    md_gmv_total_usd      = _md_totals["gmv_total_usd"]     # col D total row (same in both)
+
+    # MD GMV targets = GMV Total (col D) × target % from Earnings
+    md_gmv_target_usd     = md_gmv_total_usd * md_target_pct
+    md_pro_gmv_target_usd = md_gmv_total_usd * md_pro_target_pct
+    # Combined target for the progress bar (MD + MD Pro together)
+    active_md_combined_usd = active_md_gmv_usd + active_md_pro_gmv_usd
+    md_combined_target_usd = md_gmv_target_usd + md_pro_gmv_target_usd
+
+    # For backward compat with portfolio_gmv_usd references below
+    portfolio_gmv_totals = get_current_gmv_totals()
+    portfolio_gmv_usd = to_number(portfolio_gmv_totals.get("gmv_usd"), 0) if portfolio_gmv_totals else 0
 
     # ── Target input block ───────────────────────────────────────────────────
-    ads_target_usd, md_target_usd, weeks_left = _render_target_input_block(
-        ads_target_from_sheet, md_target_from_sheet
+    ads_target_usd, _md_target_input_unused, weeks_left = _render_target_input_block(
+        ads_target_from_sheet, md_combined_target_usd
     )
 
     # ── Build current-active revenue totals (what's already running) ─────────
     ads_totals = get_current_ads_totals()
     active_ads_revenue_usd = to_number(ads_totals.get("revenue_usd"), 0)
-
-    # Numerador MD: suma de columna MARKDOWN $ del sheet Current MD (normal únicamente).
-    active_md_gmv_usd = get_markdown_dollar_total()
-
-    # MD GMV target = GMV total del portfolio × 8.51%
-    MD_PORTFOLIO_PENE = 0.0851
-    portfolio_gmv_totals = get_current_gmv_totals()
-    portfolio_gmv_usd = to_number(portfolio_gmv_totals.get("gmv_usd"), 0) if portfolio_gmv_totals else 0
-    md_gmv_target_usd = portfolio_gmv_usd * MD_PORTFOLIO_PENE
 
     # ── Build ADS and MD maps ─────────────────────────────────────────────────
     def build_ads_map():
@@ -6809,10 +6870,10 @@ def page_opportunity_list():
         ascending=[True, False],
     ).reset_index(drop=True)
 
-    # ── MD barra de progreso: activo vs target portfolio ─────────────────────
-    # Target = GMV portfolio × 8.51% (penetración sana de cartera)
-    # Activo  = MD GMV (normal + pro) ya corriendo este mes
-    md_gap_usd = max(md_gmv_target_usd - active_md_gmv_usd, 0) if md_gmv_target_usd > 0 else 0
+    # ── MD barra de progreso: activo vs target ───────────────────────────────
+    # Activo  = col E fila Total de Current MD + Current MD Pro (solo cuando E > 0)
+    # Target  = col D fila Total × % target de Earnings (MD=col F, MD Pro=col G)
+    md_gap_usd = max(md_combined_target_usd - active_md_combined_usd, 0) if md_combined_target_usd > 0 else 0
     # Pipeline desde Opp List: suma de rango medio (15%) de cada brand recomendado
     md_df["_gmv_proj_monthly_usd"] = md_df["_gmv"].apply(
         lambda x: (to_number(x, 0) * 0.15) / ARS_PER_USD
@@ -6820,7 +6881,7 @@ def page_opportunity_list():
     md_df["_cum_gmv_usd"] = md_df["_gmv_proj_monthly_usd"].cumsum()
 
     def _md_closes_at(idx):
-        if md_gmv_target_usd <= 0:
+        if md_combined_target_usd <= 0:
             return ""
         cum  = md_df.loc[:idx, "_gmv_proj_monthly_usd"].sum()
         prev = md_df.loc[:idx - 1, "_gmv_proj_monthly_usd"].sum() if idx > 0 else 0
@@ -6832,22 +6893,28 @@ def page_opportunity_list():
     md_pipeline_usd = md_df["_gmv_proj_monthly_usd"].sum()
 
     # ── Progress bar MD ──────────────────────────────────────────────────────
-    if md_gmv_target_usd > 0:
+    if md_combined_target_usd > 0:
         st.markdown("## 🔵 MARKDOWN")
-        pene_actual_pct = (active_md_gmv_usd / portfolio_gmv_usd * 100) if portfolio_gmv_usd > 0 else 0
+        pene_md_pct     = _md_totals["markdown_pct"] * 100      # col F total row Current MD
+        pene_mdpro_pct  = _md_pro_totals["markdown_pct"] * 100  # col F total row Current MD pro
+        _label_md = (
+            f"MD GMV · MD {pene_md_pct:.2f}% (target {md_target_pct*100:.2f}%) + "
+            f"MD Pro {pene_mdpro_pct:.2f}% (target {md_pro_target_pct*100:.2f}%) · "
+            f"Target combinado {fmt_usd(md_combined_target_usd)}"
+        )
         _render_target_progress_bar(
-            label=f"MD GMV · Penetración cartera (objetivo 8.51%) · Target {fmt_usd(md_gmv_target_usd)}",
-            active_usd=active_md_gmv_usd,
+            label=_label_md,
+            active_usd=active_md_combined_usd,
             pipeline_usd=min(md_pipeline_usd, md_gap_usd),
-            target_usd=md_gmv_target_usd,
+            target_usd=md_combined_target_usd,
             color_active="#8B9ED4",
             color_pipeline="#FF7124",
         )
         st.markdown(
             f"<div style='font-size:12px; color:{COLORS['muted']}; margin-bottom:10px;'>"
-            f"📊 Penetración actual: <b style='color:{COLORS['intel']};'>{pene_actual_pct:.2f}%</b> del GMV de cartera"
-            f" &nbsp;·&nbsp; Portfolio GMV: <b>{fmt_usd(portfolio_gmv_usd)}</b>"
-            f" &nbsp;·&nbsp; MD GMV activo: <b>{fmt_usd(active_md_gmv_usd)}</b></div>",
+            f"📊 MD activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_gmv_usd)}</b> ({pene_md_pct:.2f}%)"
+            f" &nbsp;·&nbsp; MD Pro activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_pro_gmv_usd)}</b> ({pene_mdpro_pct:.2f}%)"
+            f" &nbsp;·&nbsp; GMV base (col D): <b>{fmt_usd(md_gmv_total_usd)}</b></div>",
             unsafe_allow_html=True,
         )
         if md_gap_usd > 0:
@@ -6865,7 +6932,7 @@ def page_opportunity_list():
             )
     else:
         st.markdown("## 🔵 MARKDOWN")
-        st.info("No se pudo calcular el GMV total del portfolio. Verificá que el sheet Current GMV esté cargado.")
+        st.info("No se pudo leer la fila Total de Current MD. Verificá que el sheet esté cargado.")
 
     st.caption(
         "Upsell Urgente = activo con penetración < 10% · "
