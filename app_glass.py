@@ -6367,34 +6367,55 @@ def _render_light_table(df, height=420):
 
 def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF7124", projected_usd=0):
     """
-    Renders a horizontal progress bar showing:
-      - Active revenue already consumed MTD (green)
-      - Projected revenue from current bookings × 80% (blue)
-      - Pipeline from Opportunity List (orange)
-      - Gap remaining (ghost)
-    All values in USD. target_usd must be > 0.
+    Barra de 4 segmentos:
+      - Verde: Activo hoy (REVENUE NET acumulado MTD)
+      - Azul: Proyectado restante (BOOKINGS×80% - REVENUE NET) → lo que falta consumir de campañas activas
+      - Naranja: Pipeline (Opp List) → se mide hacia 100% si no llegamos, o hacia 120% si ya cubrimos
+      - Gris: Gap → distancia a 100% o a 120% según el caso
     """
     if target_usd <= 0:
         return
 
     color_projected = "#4B9CF2"
-    total_filled = active_usd + projected_usd + pipeline_usd
-    pct_active    = min(active_usd / target_usd, 1.0) * 100
-    pct_projected = min(projected_usd / target_usd, max(0, 1.0 - pct_active / 100)) * 100
-    pct_pipeline  = min(pipeline_usd / target_usd, max(0, 1.0 - (pct_active + pct_projected) / 100)) * 100
-    overall_pct   = min(total_filled / target_usd * 100, 100)
+    target_120 = target_usd * 1.2
+    base_covered = active_usd + projected_usd   # lo que cubren las campañas actuales
 
-    if overall_pct >= 100:
-        status_color = "#6FF24B"
-        status_label = "✅ On track to close"
-    elif overall_pct >= 70:
-        status_color = "#FF7124"
-        status_label = "⚡ Needs focus"
+    # Si activo + proyectado ya alcanza el 100%, la barra se extiende hasta el 120%
+    at_100 = base_covered >= target_usd
+    bar_ceiling = target_120 if at_100 else target_usd
+
+    pct_active    = min(active_usd / bar_ceiling, 1.0) * 100
+    pct_projected = min(projected_usd / bar_ceiling, max(0, 1.0 - pct_active / 100)) * 100
+    base_pct      = pct_active + pct_projected
+
+    if at_100:
+        # Pipeline y gap se miden en el tramo 100%→120%
+        tramo_120 = target_120 - target_usd   # = target_usd * 0.2
+        pipeline_capped = min(pipeline_usd, tramo_120)
+        gap_usd         = max(tramo_120 - pipeline_usd, 0)
+        pct_pipeline    = (pipeline_capped / bar_ceiling) * 100
+        pct_gap         = (gap_usd / bar_ceiling) * 100
+        overall_label   = f"{(base_covered / target_usd * 100):.0f}% cubierto"
+        status_color    = "#6FF24B"
+        status_label    = "✅ On track to close"
+        gap_label       = f"Gap a 120%"
     else:
-        status_color = "#E5332A"
-        status_label = "🚨 Gap critical"
+        # Pipeline y gap se miden hacia el 100%
+        remaining_to_100 = target_usd - base_covered
+        pipeline_capped  = min(pipeline_usd, remaining_to_100)
+        gap_usd          = max(remaining_to_100 - pipeline_usd, 0)
+        pct_pipeline     = (pipeline_capped / bar_ceiling) * 100
+        pct_gap          = (gap_usd / bar_ceiling) * 100
+        overall_pct      = (base_covered + pipeline_usd) / target_usd * 100
+        overall_label    = f"{min(overall_pct, 100):.0f}% cubierto"
+        if base_covered / target_usd >= 0.70:
+            status_color = "#FF7124"; status_label = "⚡ Needs focus"
+        else:
+            status_color = "#E5332A"; status_label = "🚨 Gap critical"
+        gap_label = "Gap"
 
-    gap_usd = max(target_usd - total_filled, 0)
+    # Marcador de 100% en la barra cuando estamos en modo 120%
+    marker_100_pct = (target_usd / bar_ceiling * 100) if at_100 else None
 
     st.markdown(f"""
     <div style="
@@ -6412,15 +6433,17 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
                 {status_label}
             </div>
         </div>
-        <div style="
-            display:flex; height:14px; border-radius:8px; overflow:hidden;
-            background: rgba(255,255,255,0.08); margin-bottom:12px;
-        ">
-            <div style="width:{pct_active:.1f}%; background:{color_active}; border-radius:8px 0 0 8px; transition:width .4s;"></div>
-            <div style="width:{pct_projected:.1f}%; background:{color_projected}; transition:width .4s;"></div>
-            <div style="width:{pct_pipeline:.1f}%; background:{color_pipeline}; transition:width .4s;"></div>
-            <div style="flex:1; background:rgba(255,255,255,.07); border-radius: 0 8px 8px 0;"></div>
+        <div style="position:relative; margin-bottom:4px;">
+            <div style="display:flex; height:14px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,0.08);">
+                <div style="width:{pct_active:.1f}%; background:{color_active}; border-radius:8px 0 0 8px; transition:width .4s;"></div>
+                <div style="width:{pct_projected:.1f}%; background:{color_projected}; transition:width .4s;"></div>
+                <div style="width:{pct_pipeline:.1f}%; background:{color_pipeline}; transition:width .4s;"></div>
+                <div style="width:{pct_gap:.1f}%; background:rgba(255,255,255,.07); transition:width .4s;"></div>
+                <div style="flex:1; background:rgba(255,255,255,.04); border-radius:0 8px 8px 0;"></div>
+            </div>
+            {f'<div style="position:absolute; top:-2px; left:{marker_100_pct:.1f}%; width:2px; height:18px; background:rgba(255,255,255,0.5); border-radius:1px;" title="100% target"></div>' if marker_100_pct else ''}
         </div>
+        {f'<div style="display:flex; justify-content:space-between; font-size:10px; color:{COLORS[chr(109)+chr(117)+chr(116)+chr(101)+chr(100)]}; margin-bottom:10px; padding:0 2px;"><span>0</span>{f'<span style="margin-left:{marker_100_pct:.1f}%">100%</span>' if marker_100_pct else ""}<span>120%</span></div>' if at_100 else '<div style="margin-bottom:10px;"></div>'}
         <div style="display:flex; gap:24px; flex-wrap:wrap;">
             <div style="font-size:12px; color:{COLORS['muted']};">
                 <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_active}; margin-right:5px;"></span>
@@ -6428,7 +6451,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
             </div>
             <div style="font-size:12px; color:{COLORS['muted']};">
                 <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_projected}; margin-right:5px;"></span>
-                <b style="color:{color_projected};">Proyectado (booking×80%)</b>&nbsp; {fmt_usd(projected_usd)}
+                <b style="color:{color_projected};">Proyectado restante</b>&nbsp; {fmt_usd(projected_usd)}
             </div>
             <div style="font-size:12px; color:{COLORS['muted']};">
                 <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_pipeline}; margin-right:5px;"></span>
@@ -6436,11 +6459,11 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
             </div>
             <div style="font-size:12px; color:{COLORS['muted']};">
                 <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.25); margin-right:5px;"></span>
-                <b>Gap</b>&nbsp; {fmt_usd(gap_usd)}
+                <b>{gap_label}</b>&nbsp; {fmt_usd(gap_usd)}
             </div>
             <div style="font-size:12px; color:{COLORS['muted']}; margin-left:auto;">
                 <b>Target:</b>&nbsp; {fmt_usd(target_usd)}&nbsp;&nbsp;
-                <b style="color:{status_color};">{overall_pct:.0f}% cubierto</b>
+                <b style="color:{status_color};">{overall_label}</b>
             </div>
         </div>
     </div>
@@ -6566,9 +6589,11 @@ def page_opportunity_list():
     ads_totals = get_current_ads_totals()
     # Activo hoy = REVENUE NET acumulado MTD (lo que ya se consumió)
     ads_result_from_sheet = to_number(ads_totals.get("revenue_usd"), 0)
-    # Proyectado = BOOKINGS NET × 80%: lo que se espera generar al cierre con los bookings corrientes
-    ads_projected_usd = to_number(ads_totals.get("projected_revenue_usd"), 0)
     active_ads_revenue_usd = ads_result_from_sheet
+    # Proyectado RESTANTE = (BOOKINGS NET × 80%) - REVENUE NET ya consumido
+    # Es el tramo azul: lo que todavía falta llegar de las campañas que ya están corriendo
+    _projected_total = to_number(ads_totals.get("projected_revenue_usd"), 0)
+    ads_projected_usd = max(_projected_total - ads_result_from_sheet, 0)
 
     # weeks_left para Rev Proj de la tabla
     import calendar as _cal
@@ -6663,16 +6688,12 @@ def page_opportunity_list():
     ads_gap_usd = max(ads_target_usd - ads_result_from_sheet - ads_projected_usd, 0) if ads_target_usd > 0 else 0
     ads_df["_cumrev_usd"] = ads_df["_revenue_proj_monthly_usd"].cumsum()
 
-    def _ads_target_pct(cumrev):
-        # % acum = cuánto mejora el resultado si se cierra este brand y todos los anteriores
-        # Base: activo hoy + proyectado de bookings corrientes + pipeline acumulado
-        if ads_target_usd <= 0:
+    def _ads_target_pct(rev_proj_this_brand):
+        # Puntos porcentuales que aportaría este brand individualmente sobre el target
+        if ads_target_usd <= 0 or rev_proj_this_brand <= 0:
             return "-"
-        total = ads_result_from_sheet + ads_projected_usd + cumrev
-        pct = (total / ads_target_usd) * 100
-        if pct > 100:
-            return "✅ >100%"
-        return f"{pct:.1f}%"
+        pp = (rev_proj_this_brand / ads_target_usd) * 100
+        return f"+{pp:.1f} pp"
 
     def _ads_closes_at(idx):
         """Returns a label if this brand crosses the target threshold."""
@@ -6734,7 +6755,7 @@ def page_opportunity_list():
             lambda x: fmt_usd(x) if x > 0 else "-"
         ),
         "% Target acum":      [
-            _ads_target_pct(ads_df.loc[i, "_cumrev_usd"]) for i in ads_df.index
+            _ads_target_pct(ads_df.loc[i, "_revenue_proj_monthly_usd"]) for i in ads_df.index
         ],
         "Cierre":             [_ads_closes_at(i) for i in ads_df.index],
     })
