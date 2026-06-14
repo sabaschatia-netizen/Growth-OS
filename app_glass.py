@@ -15342,7 +15342,7 @@ def _render_followup_form(row, brand_id, name):
 
     st.markdown("<div class='wide-info-title' style='margin-top:20px;'>Follow-up Update</div>", unsafe_allow_html=True)
 
-    fu1, fu2, fu3 = st.columns(3)
+    fu1, fu2 = st.columns(2)
     with fu1:
         contact_channel = st.selectbox(
             "Contact Channel",
@@ -15357,13 +15357,7 @@ def _render_followup_form(row, brand_id, name):
             index=0,
             key=f"comment_status_{brand_id}"
         )
-    with fu3:
-        template_type = st.selectbox(
-            "Generate Template",
-            TEMPLATE_TYPES,
-            index=0,
-            key=f"template_type_{brand_id}"
-        )
+    template_type = "None"
 
     # ── Transcripción / nota de contacto ─────────────────────────────────────
     transcript_label = "📋 Transcripción de la llamada" if contact_channel == "Call" else "📝 Nota del contacto (WhatsApp / Email / Meet)"
