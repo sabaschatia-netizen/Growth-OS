@@ -1439,7 +1439,7 @@ def _read_md_targets_from_earnings():
       col index 5 (Excel col F) = MD target %      (e.g. 0.0667 = 6.67%)
       col index 6 (Excel col G) = MD Pro target %  (e.g. 0.0727 = 7.27%)
     """
-    defaults = {"md_target_pct": 0.0667, "md_pro_target_pct": 0.0727}
+    defaults = {"md_target_pct": 0.0675, "md_pro_target_pct": 0.0722}
     if not os.path.exists(EXCEL_FILE):
         return defaults
     try:
@@ -6616,6 +6616,19 @@ def page_opportunity_list():
     active_md_combined_usd = active_md_gmv_usd + active_md_pro_gmv_usd
     md_combined_target_usd = md_gmv_target_usd + md_pro_gmv_target_usd
 
+    # ── Umbral de comisión MD ────────────────────────────────────────────────
+    # La comisión de MD se paga solo si la penetración MD actual (MD activo /
+    # GMV base) alcanza al menos el 90% del target MD (no del target combinado,
+    # ni de MD Pro). Por debajo de ese piso, no hay comisión aunque el target
+    # combinado esté parcialmente cubierto.
+    MD_COMMISSION_THRESHOLD_PCT = 0.90
+    md_pene_actual_pct  = (active_md_gmv_usd / md_gmv_total_usd) if md_gmv_total_usd > 0 else 0
+    md_commission_floor_usd = md_gmv_target_usd * MD_COMMISSION_THRESHOLD_PCT
+    md_commission_pct_of_target = (md_pene_actual_pct / md_target_pct) if md_target_pct > 0 else 0
+    md_commission_paid = md_commission_pct_of_target >= MD_COMMISSION_THRESHOLD_PCT
+    # Gap real para pagar comisión = lo que falta de MD activo para llegar al 90% del target MD
+    md_commission_gap_usd = max(md_commission_floor_usd - active_md_gmv_usd, 0)
+
     # For backward compat with portfolio_gmv_usd references below
     portfolio_gmv_totals = get_current_gmv_totals()
     portfolio_gmv_usd = to_number(portfolio_gmv_totals.get("gmv_usd"), 0) if portfolio_gmv_totals else 0
@@ -7079,6 +7092,27 @@ def page_opportunity_list():
             f" &nbsp;·&nbsp; GMV base (col D): <b>{fmt_usd(md_gmv_total_usd)}</b></div>",
             unsafe_allow_html=True,
         )
+
+        # ── Aviso umbral de comisión MD (90% del target MD) ──────────────────
+        # La comisión NO depende del target combinado (MD+MD Pro) sino de que
+        # la penetración MD sola alcance al menos el 90% del target MD.
+        if md_commission_paid:
+            st.markdown(
+                f"<div style='font-size:12px; color:#6FF24B; font-weight:700; margin-bottom:10px;'>"
+                f"✅ Comisión MD habilitada · penetración MD {pene_md_pct:.2f}% es "
+                f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
+                f"— ≥ {MD_COMMISSION_THRESHOLD_PCT*100:.0f}% requerido</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"<div style='font-size:12px; color:#FF7124; font-weight:700; margin-bottom:10px;'>"
+                f"⚠️ Comisión MD NO habilitada · penetración MD {pene_md_pct:.2f}% es "
+                f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
+                f"— falta {fmt_usd(md_commission_gap_usd)} de MD activo para llegar al "
+                f"{MD_COMMISSION_THRESHOLD_PCT*100:.0f}% del target</div>",
+                unsafe_allow_html=True,
+            )
         if md_gap_usd > 0:
             md_brands_needed = 0
             running_md = 0
