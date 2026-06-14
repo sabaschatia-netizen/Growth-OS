@@ -13008,6 +13008,40 @@ def render_brand_profile(row, brand_id):
 </div>
 """, unsafe_allow_html=True)
 
+    # ── Buscar local en Google: nombre, teléfono y ubicación ────────────────
+    finder_contact_number = fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"]))
+    finder_saved_link = _get_saved_brand_link(brand_id)
+    finder_search_url = _build_google_search_url(name, category, finder_contact_number)
+
+    st.markdown(
+        f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
+        f"border-radius:10px;padding:10px 14px;margin:10px 0;'>"
+        f"<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.5);"
+        f"text-transform:uppercase;margin-bottom:6px;'>Buscar local en Google</div>"
+        f"<a href='{html.escape(finder_search_url)}' target='_blank' rel='noopener noreferrer' "
+        f"style='display:inline-block;background:rgba(59,72,131,0.25);color:#A9BBFF;"
+        f"font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;"
+        f"text-decoration:none;border:1px solid rgba(139,158,212,0.35);'>"
+        f"🔎 Buscar \"{html.escape(strip_brand_id_prefix(name))}\" en Google</a>"
+        + (f"<div style='margin-top:8px;'><a href='{html.escape(finder_saved_link)}' target='_blank' "
+           f"rel='noopener noreferrer' style='color:#6FF24B;font-size:13px;text-decoration:none;'>"
+           f"📍 Link guardado del local</a></div>" if finder_saved_link else "")
+        + f"</div>",
+        unsafe_allow_html=True
+    )
+
+    finder_new_link = st.text_input(
+        "Pegar link encontrado (Google Maps / ficha del local) — se guarda y no se vuelve a pedir",
+        value=finder_saved_link,
+        key=f"glink_finder_{normalize_brand_id(brand_id)}",
+        placeholder="Pegá aquí el link de Google Maps / Google del local…",
+    )
+    if finder_new_link.strip() and finder_new_link.strip() != finder_saved_link:
+        if _save_brand_link(brand_id, name, finder_new_link.strip()):
+            st.success("Link guardado ✅")
+            st.rerun()
+
+
     # ── Historia del aliado (changelog) ──────────────────────────────────────
     try:
         if os.path.exists(CHANGELOG_FILE):
