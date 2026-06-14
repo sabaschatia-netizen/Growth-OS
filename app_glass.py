@@ -11657,14 +11657,18 @@ def _build_menu_tactical_card(record, name, menu_metrics, campaign_design):
     else:
         main = "🍔 Catalog clarity before traffic"
         issues = []
-        if photos and photos < 0.90:
-            issues.append(f"Fotos {fmt_percent0(photos)} — por debajo del 90%")
-        if missing and missing > 1:
-            issues.append(f"Missing products: {fmt_number(missing)}")
-        if purchasing and purchasing < 0.90:
-            issues.append(f"Purchasing experience {fmt_percent0(purchasing)} — por debajo del 90%")
+        # Fotos: mencionar si está por debajo del 90%
+        if photos is not None and photos < 0.90:
+            issues.append(f"📸 Fotos {fmt_percent0(photos)} — por debajo del 90%")
+        # Missing products: mencionar si es mayor a 1
+        if missing is not None and missing > 1:
+            issues.append(f"📦 Missing products: {fmt_number(missing)} productos faltantes")
+        # Purchasing experience: mencionar si es menor al 90%
+        if purchasing is not None and purchasing < 0.90:
+            issues.append(f"🛒 Purchasing experience {fmt_percent0(purchasing)} — por debajo del 90%")
+        # PDF: reactualización del algoritmo
         if kind == "menu_pdf" or (metric and "pdf" in metric.lower()):
-            issues.append("PDF: reactualización del algoritmo recomendada")
+            issues.append("📄 PDF: reactualización del algoritmo recomendada")
         argument = " · ".join(issues) if issues else "Ajustar catálogo antes de activar presión comercial."
         cue = "Pide ajustar productos top/hero antes de activar una presión comercial más fuerte."
         cls = "health-yellow"
