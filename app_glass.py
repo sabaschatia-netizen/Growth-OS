@@ -687,6 +687,7 @@ def _load_gmv_sheet_data(sheet_name):
         return pd.DataFrame()
 
     df["_id"] = df[brand_col].apply(extract_brand_id_from_current)
+    df["_brand_name_norm"] = df[brand_col].apply(lambda v: normalize(str(v)))
     df = df[df["_id"] != ""].copy()
 
     if df.empty:
@@ -730,7 +731,7 @@ def load_may_gmv_data():
 
 
 @st.cache_data(ttl=120)
-def get_may_brand_metrics(brand_id):
+def get_may_brand_metrics(brand_id, brand_name=""):
     df = load_may_gmv_data()
 
     if df.empty:
@@ -741,7 +742,18 @@ def get_may_brand_metrics(brand_id):
     # Intento 1: match exacto por _id (brand ID numérico extraído)
     result = df[df["_id"] == target]
 
-    # Intento 2: si no matcheó, intentar con normalize_brand_id directo sobre la columna brand_col raw
+    # Intento 2: cruce por nombre (brand_name normalizado) — cubre hojas MAY GMV sin ID numérico
+    if result.empty and brand_name:
+        name_norm = normalize(brand_name)
+        if "_brand_name_norm" in df.columns:
+            result = df[df["_brand_name_norm"] == name_norm]
+        # Coincidencia parcial si el nombre exacto no matchea
+        if result.empty and name_norm:
+            result = df[df["_brand_name_norm"].str.contains(re.escape(name_norm), na=False)]
+        if result.empty and name_norm:
+            result = df[df["_brand_name_norm"].apply(lambda v: name_norm in v or v in name_norm)]
+
+    # Intento 3: si no matcheo, intentar con normalize_brand_id directo sobre la columna brand_col raw
     if result.empty:
         raw_may = pd.DataFrame()
         try:
@@ -12491,21 +12503,30 @@ def render_brand_profile(row, brand_id):
             f'<polyline points="{line_pts}" fill="none" stroke="#FF7124" stroke-width="1.8"/>',
         ]
 
-        last_val = None
+        def _fmt_compact(v):
+            """Formats value as compact: 1.2M, 560k, etc."""
+            if not v or v == 0:
+                return ""
+            if v >= 1_000_000:
+                n = v / 1_000_000
+                return f"{n:.1f}M".replace(".0M", "M")
+            if v >= 1_000:
+                n = v / 1_000
+                # If round number (e.g. 560000 -> 560k), no decimal
+                if n == int(n):
+                    return f"{int(n)}k"
+                return f"{n:.0f}k"
+            return str(int(v))
+
         for i, ((lbl, v), x, y) in enumerate(zip(points_raw, xs, ys)):
-            # % de cambio vs punto anterior
-            if last_val is not None and last_val != 0:
-                pct = (v / last_val - 1) * 100
-                pct_txt = f"{pct:+.1f}%"
-            else:
-                pct_txt = ""
-            last_val = v
+            # Valor compacto del GMV en el punto
+            val_txt = _fmt_compact(v) if v and v > 0 else ""
 
             svg_parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#FF7124"/>')
-            if pct_txt:
+            if val_txt:
                 svg_parts.append(
                     f'<text x="{x:.1f}" y="{y-7:.1f}" text-anchor="middle" '
-                    f'font-size="7" font-weight="800" fill="#FF7124">{pct_txt}</text>'
+                    f'font-size="7" font-weight="800" fill="#FF7124">{val_txt}</text>'
                 )
             # Etiqueta del mes en el eje X
             svg_parts.append(
@@ -12536,7 +12557,7 @@ def render_brand_profile(row, brand_id):
         )
 
     # ── Datos de mayo (MAY GMV) y abril (Growth OS) para el gráfico de 3 meses ──
-    may_metrics = get_may_brand_metrics(brand_id)
+    may_metrics = get_may_brand_metrics(brand_id, brand_name=name)
     may_gmv_ars = may_metrics["gmv_ars"] if may_metrics else 0
     may_aov_ars = may_metrics["aov_ars"] if may_metrics else 0
 
