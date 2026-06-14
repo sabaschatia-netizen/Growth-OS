@@ -124,7 +124,6 @@ CROSS_SELL_SHEET = "Top 100 Cross Selling CABA"
 DEFINITIVE_TOP_PRODUCTS_SHEET = "Definitive Top Products"
 STORE_ID_SHEET = "Store ID"
 PRIORITY_DATA_SHEET = "Priority Data"
-TOP_RESTAURANTS_SHEET = "TOP RESTAURANTS"
 COINVERSION_SHEET = "COINVERSION"
 ASIGNACION_JUNIO_SHEET = "Asignacion Junio"
 CURRENT_CHURN_SHEET = "Current Churn"
@@ -1641,188 +1640,6 @@ def load_seasonal_events_data():
     if df.empty:
         return pd.DataFrame()
     return df
-
-
-# =========================
-# TOP RESTAURANTS LOADER
-# =========================
-
-@st.cache_data(ttl=300)
-def load_top_restaurants_data():
-    """Loads TOP RESTAURANTS sheet and normalizes columns."""
-    if not os.path.exists(EXCEL_FILE):
-        return pd.DataFrame()
-    try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=TOP_RESTAURANTS_SHEET, header=0, engine="openpyxl")
-    except Exception:
-        return pd.DataFrame()
-    if df.empty:
-        return pd.DataFrame()
-    # Rename columns positionally since the sheet has duplicate 'Calificación' headers
-    cols = list(df.columns)
-    rename_map = {}
-    cal_count = 0
-    bench_count = 0
-    for i, c in enumerate(cols):
-        if normalize(c) in ["calificacion", "calificación"]:
-            cal_count += 1
-            metric_names = ["avail", "cancel", "defect", "reorder", "rtwt"]
-            rename_map[i] = f"cal_{metric_names[cal_count - 1] if cal_count <= len(metric_names) else cal_count}"
-        elif normalize(c) in ["benchmark"]:
-            bench_count += 1
-            metric_names = ["cancel", "defect", "reorder", "rtwt"]
-            rename_map[i] = f"bench_{metric_names[bench_count - 1] if bench_count <= len(metric_names) else bench_count}"
-    new_cols = []
-    for i, c in enumerate(cols):
-        if i in rename_map:
-            new_cols.append(rename_map[i])
-        else:
-            new_cols.append(normalize(c) if c else f"col_{i}")
-    df.columns = new_cols
-    # Normalize brand ID column
-    id_col = "id tienda" if "id tienda" in df.columns else None
-    if id_col:
-        df["_id"] = df[id_col].apply(normalize_brand_id)
-    else:
-        df["_id"] = ""
-    return df
-
-
-@st.cache_data(ttl=300)
-def get_top_restaurant_info(brand_id, name=""):
-    """
-    Returns Top Restaurant sticker info for a brand.
-    Crosses by brand name (groups all sucursales that share the same name prefix).
-    Averages all numeric metrics and computes a consolidated tier.
-
-    Tier ranking (numeric for averaging):
-      1. Top Oro   → 1
-      2. Top Plata → 2
-      3. Básico    → 3
-      4. Alerta    → 4
-
-    Consolidated tier = round(average of individual tiers).
-
-    Stickers:
-      🥇 Top Res Oro    — consolidated tier 1
-      🥈 Top Res Plata  — consolidated tier 2
-      🟡 Top Res Básico — consolidated tier 3
-      🔴 Top Res Alerta — consolidated tier 4
-      (no sticker)      — not found in sheet
-    """
-    df = load_top_restaurants_data()
-    if df.empty:
-        return {"found": False, "sticker": None, "cal_final": None}
-
-    tier_to_num = {
-        "1. top oro":   1,
-        "2. top plata": 2,
-        "3. básico":    3,
-        "3. basico":    3,
-        "4. alerta":    4,
-    }
-    num_to_tier = {1: "1. Top Oro", 2: "2. Top Plata", 3: "3. Básico", 4: "4. Alerta"}
-
-    # ── Match rows by brand name (fuzzy prefix match across sucursales) ────────
-    result = pd.DataFrame()
-
-    # 1) Try exact ID match first
-    target_id = normalize_brand_id(brand_id)
-    if target_id and "_id" in df.columns:
-        result = df[df["_id"].astype(str) == target_id]
-
-    # 2) Name-based match — find all rows whose "Tienda" contains the brand name
-    #    or whose brand name is contained in "Tienda" (handles "Brand - Sucursal X")
-    if result.empty and name:
-        name_col = "tienda" if "tienda" in df.columns else None
-        if name_col:
-            name_norm = norm_text(name)
-            def _name_match(tienda_val):
-                t = norm_text(clean(tienda_val, ""))
-                # brand name is prefix/substring of tienda, or tienda equals brand name
-                return name_norm in t or t in name_norm or name_norm.split()[0] in t
-            result = df[df[name_col].apply(_name_match)]
-
-    if result.empty:
-        return {"found": False, "sticker": None, "cal_final": None}
-
-    # ── Aggregate metrics across sucursales ───────────────────────────────────
-    def _safe_mean(series):
-        vals = pd.to_numeric(series, errors="coerce").dropna()
-        return float(vals.mean()) if len(vals) else 0.0
-
-    avail      = _safe_mean(result.get("disponibilidad", pd.Series(dtype=float)))
-    cancel     = _safe_mean(result.get("t. cancelación",
-                  result.get("t. cancelacion",
-                  result.get("t.cancelacion", pd.Series(dtype=float)))))
-    defect     = _safe_mean(result.get("t. defectos",
-                  result.get("t.defectos", pd.Series(dtype=float))))
-    reorder    = _safe_mean(result.get("t. reorden",
-                  result.get("t.reorden", pd.Series(dtype=float))))
-    rtwt       = _safe_mean(result.get("t. espera rt",
-                  result.get("t.espera rt", pd.Series(dtype=float))))
-
-    # Individual tier calificaciones per sucursal
-    cal_col = "calificación final" if "calificación final" in result.columns else \
-              "calificacion final" if "calificacion final" in result.columns else None
-
-    tier_nums = []
-    if cal_col:
-        for val in result[cal_col].dropna():
-            num = tier_to_num.get(norm_text(str(val)), None)
-            if num:
-                tier_nums.append(num)
-
-    # Consolidated tier = round(mean of individual tier numbers)
-    if tier_nums:
-        consolidated_num = round(sum(tier_nums) / len(tier_nums))
-        consolidated_num = max(1, min(4, consolidated_num))
-        cal_final = num_to_tier[consolidated_num]
-    else:
-        cal_final = "Sin datos"
-        consolidated_num = 4
-
-    # ── Sticker ───────────────────────────────────────────────────────────────
-    sticker_map = {
-        1: "🥇 Top Res Oro",
-        2: "🥈 Top Res Plata",
-        3: "🟡 Top Res Básico",
-        4: "🔴 Top Res Alerta",
-    }
-    tier_key_map = {1: "oro", 2: "plata", 3: "basico", 4: "alerta"}
-    sticker  = sticker_map[consolidated_num]
-    tier_key = tier_key_map[consolidated_num]
-
-    # Benchmarks (from first row — they're the same for all)
-    bench_cancel = _safe_mean(result.get("bench_cancel", pd.Series(dtype=float)))
-    bench_defect = _safe_mean(result.get("bench_defect", pd.Series(dtype=float)))
-    bench_reorder= _safe_mean(result.get("bench_reorder", pd.Series(dtype=float)))
-    bench_rtwt   = _safe_mean(result.get("bench_rtwt",   pd.Series(dtype=float)))
-
-    return {
-        "found":         True,
-        "sticker":       sticker,
-        "tier":          tier_key,
-        "tier_num":      consolidated_num,
-        "cal_final":     cal_final,
-        "sucursales":    len(result),
-        "availability":  avail,
-        "cancel_rate":   cancel,
-        "defect_rate":   defect,
-        "reorder_rate":  reorder,
-        "rtwt":          rtwt,
-        "bench_cancel":  bench_cancel,
-        "bench_defect":  bench_defect,
-        "bench_reorder": bench_reorder,
-        "bench_rtwt":    bench_rtwt,
-    }
-
-
-# =========================
-# COINVERSION LOADER
-# =========================
-
-@st.cache_data(ttl=300)
 def load_coinversion_data():
     """Loads COINVERSION sheet. No header row — data starts at row 0."""
     if not os.path.exists(EXCEL_FILE):
@@ -11677,7 +11494,6 @@ def _ads_health(ads_current, action, blocking_issue=False):
 def build_360_actions(name, category, ads_current, md_current, md_pro_current, booster):
     ops = get_ops_metrics_for_brand(name)
     menu = get_menu_metrics_for_brand(name)
-    top_res = get_top_restaurant_info("", name)
 
     # Menu action
     if not menu.get("found"):
@@ -11740,38 +11556,6 @@ def build_360_actions(name, category, ads_current, md_current, md_pro_current, b
         ads_reason = f"Ads ROI {fmt_roi(ads_roi)} stable."
 
     ops_secondary = ops.get("secondary", []) or ["Rest OK"]
-    # ── Top Restaurants Data metrics injected into OPS card ───────────────────
-    if top_res.get("found"):
-        tr_avail   = top_res.get("availability", 0)
-        tr_cancel  = top_res.get("cancel_rate", 0)
-        tr_defect  = top_res.get("defect_rate", 0)
-        tr_reorder = top_res.get("reorder_rate", 0)
-        tr_rtwt    = top_res.get("rtwt", 0)
-        tr_suc     = top_res.get("sucursales", 1)
-        b_cancel   = top_res.get("bench_cancel", 0)
-        b_defect   = top_res.get("bench_defect", 0)
-        b_reorder  = top_res.get("bench_reorder", 0)
-        b_rtwt     = top_res.get("bench_rtwt", 0)
-        suc_label  = f" ({tr_suc} suc.)" if tr_suc > 1 else ""
-
-        def _vs_bench(val, bench, lower_is_better=True):
-            if not bench:
-                return ""
-            return " ✅" if (val <= bench if lower_is_better else val >= bench) else " ⚠️"
-
-        ops_secondary.append(
-            f"TR {top_res['cal_final']}{suc_label} · "
-            f"Ava {fmt_percent0(tr_avail)}"
-        )
-        ops_secondary.append(
-            f"Cancel {fmt_percent0(tr_cancel)}{_vs_bench(tr_cancel, b_cancel)} · "
-            f"Defectos {fmt_percent0(tr_defect)}{_vs_bench(tr_defect, b_defect)}"
-        )
-        if tr_reorder > 0 or b_reorder > 0:
-            ops_secondary.append(
-                f"Reorden {fmt_percent0(tr_reorder)}{_vs_bench(tr_reorder, b_reorder)} · "
-                f"T.Espera RT {tr_rtwt:.1f}min{_vs_bench(tr_rtwt, b_rtwt)}"
-            )
     # Add non-availability OPS levers detected by Smart Priorities when no official OPS metric exists in the dashboard.
     sp_signals_for_ops = get_priority_signals_for_brand("", name)
     sp_ops = []
@@ -11983,30 +11767,10 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
     kind = record.get("kind", "ops_other")
     descr = clean(record.get("description"), "")
 
-    # Enrich with TOP RESTAURANTS real data when available
-    top_res = get_top_restaurant_info("", name)
-    top_res_data = []
-    if top_res.get("found"):
-        avail = top_res.get("availability", 0)
-        cancel = top_res.get("cancel_rate", 0)
-        defect = top_res.get("defect_rate", 0)
-        rtwt = top_res.get("rtwt", 0)
-        if avail:
-            top_res_data.append(f"Avail {fmt_percent0(avail)}")
-        if cancel:
-            top_res_data.append(f"Cancel {fmt_percent2(cancel)}")
-        if defect:
-            top_res_data.append(f"DR {fmt_percent2(defect)}")
-        if rtwt:
-            top_res_data.append(f"RTWT {rtwt:.1f}min")
-    top_res_str = " · ".join(top_res_data) if top_res_data else ""
-
     if kind == "ops_wait_time":
         main = "⏱️ Reduce RTWT antes de escalar"
         cue_parts = []
-        if top_res_str:
-            cue_parts.append(f"TopRes: {top_res_str}.")
-        elif descr:
+        if descr:
             cue_parts.append(f"SP: {descr}.")
         cue_parts.append("Valida horarios pico y producto que demora.")
         cue = " ".join(cue_parts)
@@ -12014,46 +11778,25 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
     elif kind == "ops_claims":
         main = "⚠️ Valida claims antes de escalar tráfico"
         cue_parts = []
-        if top_res_str:
-            cue_parts.append(f"TopRes: {top_res_str}.")
-        elif descr:
+        if descr:
             cue_parts.append(f"SP: {descr}.")
-        # Extract SP rate from description text (e.g. "SP: 250935: 6,25%")
-        _sp_rate_match = re.search(r'(\d+[,.]?\d*)\s*%', descr)
-        _sp_rate = float(_sp_rate_match.group(1).replace(",", ".")) / 100 if _sp_rate_match else None
         if aov_ars > 0:
-            if _sp_rate and orders_monthly > 0:
-                _affected_orders = round(orders_monthly * _sp_rate)
-                _gmv_risk_total  = round(_affected_orders * aov_ars * 0.50 / 1000) * 1000
-                cue_parts.append(
-                    f"~{_affected_orders} órdenes afectadas/mes ({fmt_percent2(_sp_rate)} de {round(orders_monthly)} pedidos). "
-                    f"GMV en riesgo: ~{fmt_ars(_gmv_risk_total)}/mes (aliado absorbe ~50%)."
-                )
-            else:
-                _claim_cost_aliado = round(aov_ars * 0.50)
-                cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_cost_aliado)} por reclamo (aliado absorbe ~50%).")
+            _claim_cost_aliado = round(aov_ars * 0.50)
+            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_cost_aliado)} por reclamo (aliado absorbe ~50%).")
         cue = " ".join(cue_parts)
         cls = "health-orange"
     elif kind == "ops_cancellations":
         main = "🛑 Cancelaciones bloquean eficiencia"
         cue_parts = []
-        if top_res_str:
-            cue_parts.append(f"TopRes: {top_res_str}.")
-        elif descr:
+        if descr:
             cue_parts.append(f"SP: {descr}.")
-        # Rate source priority: Top Restaurants -> description text -> fallback
-        _cancel_rate = cancel if top_res.get("found") and cancel else 0
-        if not _cancel_rate:
-            _cancel_rate_match = re.search(r'(\d+[,.]?\d*)\s*%', descr)
-            _cancel_rate = float(_cancel_rate_match.group(1).replace(",", ".")) / 100 if _cancel_rate_match else 0
+        _cancel_rate = 0
         if aov_ars > 0:
+            _cancel_cost_orden = round(aov_ars * 0.65)
             if _cancel_rate > 0 and orders_monthly > 0:
-                _cancel_orders_mes  = round(orders_monthly * _cancel_rate)
+                _cancel_orders_mes = round(orders_monthly * _cancel_rate)
                 _cancel_gmv_perdido = round(_cancel_orders_mes * aov_ars * 0.65 / 1000) * 1000
-                cue_parts.append(
-                    f"~{_cancel_orders_mes} órdenes canceladas/mes ({fmt_percent2(_cancel_rate)} de {round(orders_monthly)} pedidos). "
-                    f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes (aliado absorbe 65%)."
-                )
+                cue_parts.append(f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes ({_cancel_orders_mes} cancelaciones · aliado absorbe 65%).")
             else:
                 cue_parts.append(f"GMV en riesgo: ~{fmt_ars(round(aov_ars * 0.65))} por cancelación (aliado absorbe 65%).")
         cue = " ".join(cue_parts)
@@ -12061,9 +11804,7 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
     elif kind == "ops_defects":
         main = "🧩 Defect rate como fricción de confianza"
         cue_parts = []
-        if top_res_str:
-            cue_parts.append(f"TopRes: {top_res_str}.")
-        elif descr:
+        if descr:
             cue_parts.append(f"SP: {descr}.")
         cue_parts.append("Corregir producto/descripción antes de subir presión comercial.")
         cue = " ".join(cue_parts)
@@ -12073,15 +11814,9 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
         ava_val = ava_cand[0].get("value", 0) if ava_cand else 0
         main = f"🟡 Availability {fmt_percent0(ava_val) if ava_val else ''} — freno comercial"
         cue_parts = []
-        if top_res_str:
-            cue_parts.append(f"TopRes: {top_res_str}.")
         if ava_val and ava_val > 0 and current_gmv_ars > 0:
             _ava_gap = max(0, 1.0 - ava_val)
-            # Lost orders: proportional to gap vs availability ratio
-            if orders_monthly > 0 and _ava_gap > 0:
-                _lost_orders = round(orders_monthly * (_ava_gap / ava_val))
-                cue_parts.append(f"~{_lost_orders} órdenes perdidas/mes por indisponibilidad ({fmt_percent0(ava_val)} → 100%).")
-            # GMV upside: proportional recovery on current GMV
+            # Upside proporcional sobre el GMV real del mes
             _ava_upside = round(current_gmv_ars * (_ava_gap / ava_val) / 1000) * 1000
             if _ava_upside > 0:
                 cue_parts.append(f"Upside estimado: ~{fmt_ars(_ava_upside)}/mes si availability sube de {fmt_percent0(ava_val)} a 100%.")
@@ -12092,9 +11827,7 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
     else:
         main = "🟡 Valida fricción OPS"
         cue_parts = []
-        if top_res_str:
-            cue_parts.append(f"TopRes: {top_res_str}.")
-        elif descr:
+        if descr:
             cue_parts.append(f"SP: {descr}.")
         else:
             cue_parts.append("Pregunta de validación: ¿qué parte de la operación está frenando hoy?")
@@ -12755,19 +12488,9 @@ def render_brand_profile(row, brand_id):
 
     signals_html = "".join([f"<div class='signal-pill'>{b}</div>" for b in badges[:5]]) or "<div class='signal-pill'>✅ No critical commercial signal</div>"
 
-    # Top Restaurant and Coinversion stickers
-    top_res_info = get_top_restaurant_info(brand_id, name)
+    # Coinversion sticker
     coin_info = get_coinversion_info(brand_id, name)
     extra_stickers_html = ""
-    if top_res_info.get("found"):
-        tier_num = top_res_info.get("tier_num", 4)
-        tier_colors = {
-            1: "linear-gradient(145deg,#FF7124,#D95A10)",   # oro — tangerine
-            2: "linear-gradient(145deg,#8B9ED4,#3B4883)",   # plata — blue slate
-            3: "linear-gradient(145deg,#DBBBA7,#8B7355)",   # básico — cinnamon
-            4: "linear-gradient(145deg,#D95A10,#8B2000)",   # alerta — dark red
-        }
-        extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_colors.get(tier_num, tier_colors[4])};margin-left:8px'>{top_res_info['sticker']}</span>"
     if coin_info.get("found"):
         tier_color = "linear-gradient(145deg,#3B4883,#272D4E)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#6FF24B,#6FF24B)"
         extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_color};margin-left:8px'>{coin_info['sticker']}</span>"
@@ -13853,312 +13576,6 @@ def render_brand_profile(row, brand_id):
 
     # ── Campaign Designer (after Analytics) ───────────────────────────────────
     st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
-
-    # ── Generar Informe Visual para el Aliado ─────────────────────────────────
-    st.markdown(f"""
-    <div style="margin-top:28px;padding:18px 22px 14px;background:rgba(59,72,131,0.12);
-                border:1.5px solid rgba(59,72,131,0.32);border-radius:14px;">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;
-                    color:{PALETTE['blue_glow']};letter-spacing:.09em;margin-bottom:5px;">
-            📊 Generar Informe Visual
-        </div>
-        <div style="font-size:12px;color:{PALETTE['cinnamon_ice']};">
-            Seleccioná el tipo de imagen y copiá el prompt en Gemini — te devuelve una gráfica estadística lista para compartir con el restaurante.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    _ir_c1, _ir_c2 = st.columns([1, 2])
-    with _ir_c1:
-        _informe_tipo = st.selectbox(
-            "Tipo de informe",
-            [
-                "BvsB · GMV & AOV vs Mes Anterior",
-                "Offer · Conversión & Tráfico vs Benchmark",
-                "Proyecciones · GMV Incremental con Campañas",
-            ],
-            key=f"informe_tipo_{brand_id}",
-        )
-    with _ir_c2:
-        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        _gen_clicked = st.button(
-            "📊 Generar Prompt para Gemini",
-            key=f"gen_informe_{brand_id}",
-            use_container_width=True,
-        )
-
-    if _gen_clicked:
-
-        # ── helpers locales ───────────────────────────────────────────────────
-        def _pct_change(new, old):
-            if old and old > 0 and new is not None:
-                return round((new / old - 1) * 100, 1)
-            return None
-
-        def _arrow(pct):
-            if pct is None: return ""
-            return "↑" if pct >= 0 else "↓"
-
-        def _sign(pct):
-            if pct is None: return "s/d"
-            return f"+{pct}%" if pct >= 0 else f"{pct}%"
-
-        def _ars(v):
-            if not v: return "s/d"
-            if v >= 1_000_000:
-                return f"${v/1_000_000:.1f}M ARS"
-            if v >= 1_000:
-                return f"${v/1_000:.0f}k ARS"
-            return f"${v:.0f} ARS"
-
-        def _num(v):
-            if v is None: return "s/d"
-            return f"{round(v):,}".replace(",", ".")
-
-        # ── pre-calculados comunes ────────────────────────────────────────────
-        _gmv_vs_mayo   = _pct_change(current_gmv_ars, may_gmv_ars)
-        _gmv_vs_abril  = _pct_change(current_gmv_ars, abril_gmv_ars)
-        _aov_vs_mayo   = _pct_change(current_aov_ars, may_aov_ars)
-        _ads_active    = ads_current.get("active", False)
-        _ads_roi_val   = to_number(ads_current.get("roi"), 0)
-        _ads_inv_usd   = to_number(ads_current.get("bookings_usd"), 0)
-        _ads_cons_pct  = round(to_number(ads_current.get("revenue_usd"), 0) / _ads_inv_usd * 100, 1) if _ads_inv_usd else 0
-        _md_active     = md_current.get("active", False)
-        _md_roi_val    = to_number(md_current.get("roi"), 0)
-        _md_discount   = clean(md_current.get("discount") or md_current.get("pct") or md_current.get("discount_pct"), "-")
-        _actions_list  = [clean(a.get("action"), "") for a in (actions or []) if clean(a.get("action"), "")]
-        _booster_name  = clean(booster.get("event"), "-") if isinstance(booster, dict) else "-"
-        _period        = APP_PERIOD
-
-        # ── GMV proyectado con ADS (simple: GMV * ROI ratio heurístico) ───────
-        _gmv_ads_proj  = round(current_gmv_ars * (1 + _ads_roi_val * 0.12)) if _ads_active and _ads_roi_val > 0 and current_gmv_ars else 0
-
-        # ═════════════════════════════════════════════════════════════════════
-        # PROMPT BvsB
-        # ═════════════════════════════════════════════════════════════════════
-        if "BvsB" in _informe_tipo:
-            _prompt = f"""Sos un diseñador gráfico experto en infografías de datos para negocios gastronómicos.
-
-Creá UNA SOLA imagen estadística visual (formato landscape 1200×630px) para el restaurante **{name}** — informe de desempeño mensual comparativo.
-
-══════════════════════════════════════
-DATOS REALES DEL RESTAURANTE
-══════════════════════════════════════
-
-MARCA: {name} · ID: AR-{normalize_brand_id(brand_id)} · CATEGORÍA: {category}
-PERÍODO: {_period}
-
-── GMV (Ventas Totales Plataforma) ──────────
-| Abril      | Mayo       | Actual (Junio)      |
-|------------|------------|---------------------|
-| {_ars(abril_gmv_ars)} | {_ars(may_gmv_ars)} | {_ars(current_gmv_ars)} |
-
-Variación Junio vs Mayo: {_sign(_gmv_vs_mayo)} {_arrow(_gmv_vs_mayo)}
-Variación Junio vs Abril: {_sign(_gmv_vs_abril)} {_arrow(_gmv_vs_abril)}
-
-── AOV (Ticket Promedio por Pedido) ─────────
-| Abril      | Mayo       | Actual (Junio)      |
-|------------|------------|---------------------|
-| {_ars(abril_aov_ars)} | {_ars(may_aov_ars)} | {_ars(current_aov_ars)} |
-
-Variación Junio vs Mayo: {_sign(_aov_vs_mayo)} {_arrow(_aov_vs_mayo)}
-
-Pedidos este mes: {_num(_orders)}
-
-══════════════════════════════════════
-DISEÑO REQUERIDO — seguí EXACTAMENTE
-══════════════════════════════════════
-
-ESTILO: dashboard ejecutivo, fondo oscuro (#1D2659), tipografía blanca y contrastada, minimalista, sin texto corrido.
-
-LAYOUT — dos bloques lado a lado (50% / 50%):
-  BLOQUE IZQUIERDO — GMV:
-  → Gráfico de línea con 3 puntos: Abr → May → Jun
-  → Colorear la línea: verde (#6FF24B) si sube, rojo (#E5332A) si baja vs mayo
-  → Mostrar los 3 valores ARS en cada punto
-  → KPI grande debajo: valor actual + flecha + % cambio vs Mayo en bold
-
-  BLOQUE DERECHO — AOV:
-  → Igual que el bloque de GMV pero con datos de AOV
-  → Línea de tendencia con mismo esquema de color
-
-ELEMENTOS COMUNES:
-  → Header: logo RAPPI (icon naranja) + nombre "{name}" como título centrado + categoría en subtítulo pequeño
-  → Footer: "{_period}" centrado · texto mínimo
-  → Usar SOLO números, flechas (↑↓), porcentajes y keywords — CERO párrafos
-  → Destacar el % de cambio vs Mayo como el dato más visible de cada bloque
-  → Si el cambio es positivo: acento verde · Si es negativo: acento rojo
-
-NO incluyas tablas de texto, no uses bullets largos, no pongas explicaciones. Solo la gráfica con los datos."""
-
-        # ═════════════════════════════════════════════════════════════════════
-        # PROMPT OFFER
-        # ═════════════════════════════════════════════════════════════════════
-        elif "Offer" in _informe_tipo:
-            _tw_label   = _num(_traffic_weekly) + "/sem" if _traffic_weekly and _traffic_weekly > 0 else "s/d"
-            _tb_label   = _num(_t_bench) + "/sem" if _t_bench and _t_bench > 0 else "s/d"
-            _tm_label   = _num(_traffic_monthly) + "/mes" if _traffic_monthly and _traffic_monthly > 0 else "s/d"
-            _cvr_color  = "🟢 SOBRE BENCHMARK" if _cr_above_bench else ("🔴 BAJO BENCHMARK" if _cr_current_norm > 0 else "⚫ SIN DATO")
-            _traf_color = "🟢 OK" if (_traffic_weekly and _t_bench and _traffic_weekly >= _t_bench * 0.85) else ("🔴 BAJO" if _traffic_weekly else "⚫ SIN DATO")
-            _gmv_inc_label = _ars(_gmv_incremental) if _gmv_incremental and _gmv_incremental > 0 else "Ya sobre benchmark ✅" if _cr_above_bench else "s/d"
-
-            _prompt = f"""Sos un diseñador gráfico experto en infografías de rendimiento para negocios gastronómicos.
-
-Creá UNA SOLA imagen estadística visual (formato landscape 1200×630px) para el restaurante **{name}** — análisis de Tráfico & Conversión vs Benchmark de categoría.
-
-══════════════════════════════════════
-DATOS REALES DEL RESTAURANTE
-══════════════════════════════════════
-
-MARCA: {name} · CATEGORÍA: {category} · PERÍODO: {_period}
-
-── CONVERSIÓN (CVR) ──────────────────
-Marca actual:          {_cr_display}
-Benchmark categoría:   {_bench_display}
-Estado:                {_cvr_color}
-Diagnóstico:           {_d4_main}
-
-── TRÁFICO ───────────────────────────
-Tráfico semanal marca: {_tw_label}
-Benchmark categoría:   {_tb_label}
-Tráfico mensual:       {_tm_label}
-Estado:                {_traf_color}
-
-── OPORTUNIDAD ───────────────────────
-GMV incremental si CR llega a benchmark: {_gmv_inc_label}
-Diagnóstico general: {_d4_sub}
-
-══════════════════════════════════════
-DISEÑO REQUERIDO — seguí EXACTAMENTE
-══════════════════════════════════════
-
-ESTILO: dashboard ejecutivo, fondo oscuro (#1D2659), minimalista, cero texto corrido.
-
-LAYOUT — tres bloques en fila:
-
-  BLOQUE 1 — CONVERSIÓN (CVR):
-  → Gauge circular o barra de progreso mostrando CVR actual vs benchmark
-  → El arco de progreso llega hasta el % de la marca, con marca de referencia en el benchmark
-  → Color del arco: verde si sobre benchmark, rojo/naranja si bajo
-  → KPIs bajo el gauge: "{_cr_display} marca" vs "{_bench_display} categoría"
-  → Estado en badge: {"SOBRE BENCHMARK ✅" if _cr_above_bench else "BAJO BENCHMARK ⚠️"}
-
-  BLOQUE 2 — TRÁFICO SEMANAL:
-  → Barra de progreso horizontal: tráfico real vs benchmark
-  → Porcentaje completado sobre el benchmark
-  → KPIs: "{_tw_label} actual" vs "{_tb_label} categoría"
-  → Color según estado: {"verde" if (_traffic_weekly and _t_bench and _traffic_weekly >= _t_bench * 0.85) else "naranja/rojo"}
-
-  BLOQUE 3 — OPORTUNIDAD GMV:
-  → KPI grande centrado: {_gmv_inc_label}
-  → Subtítulo: "GMV incremental estimado"
-  → Contexto en texto pequeño: "si CVR → benchmark de categoría"
-  → Color: verde si hay ganancia, gris si ya sobre benchmark
-
-ELEMENTOS COMUNES:
-  → Header: logo RAPPI (icono naranja) + nombre "{name}" + categoría + período
-  → Footer: diagnóstico en 1 línea: "{_d4_sub}"
-  → Solo números, %, flechas, keywords — CERO párrafos ni bullets largos
-  → Colores semáforo estrictos: verde=#6FF24B · naranja=#FF7124 · rojo=#E5332A
-
-NO pongas explicaciones, tablas de texto ni bloques de párrafos. Solo la gráfica."""
-
-        # ═════════════════════════════════════════════════════════════════════
-        # PROMPT PROYECCIONES
-        # ═════════════════════════════════════════════════════════════════════
-        else:
-            _gmv_ads_label    = _ars(_gmv_ads_proj) if _gmv_ads_proj else "s/d"
-            _gmv_bench_label  = _ars(current_gmv_ars + _gmv_incremental) if _gmv_incremental and current_gmv_ars else "s/d"
-            _gmv_actual_label = _ars(current_gmv_ars)
-            _ads_status       = f"ACTIVO · Inversión USD {round(_ads_inv_usd)} · ROI {round(_ads_roi_val,1)}x · Consumo {_ads_cons_pct}%" if _ads_active else "INACTIVO · SIN CAMPAÑA"
-            _md_status        = f"ACTIVO · {_md_discount} off · ROI {round(_md_roi_val,1)}x" if _md_active else "INACTIVO · SIN DESCUENTO"
-            _be_label         = f"+{_be_orders} órdenes extra ({_be_pct_over_current}% sobre actual)" if _be_orders > 0 else "s/d"
-            _actions_str      = "\n  · ".join(_actions_list[:4]) if _actions_list else "s/d"
-
-            _prompt = f"""Sos un diseñador gráfico experto en infografías de proyecciones comerciales para negocios gastronómicos.
-
-Creá UNA SOLA imagen estadística visual (formato landscape 1200×630px) para el restaurante **{name}** — proyecciones de GMV con campañas activas y potencial de crecimiento.
-
-══════════════════════════════════════
-DATOS REALES DEL RESTAURANTE
-══════════════════════════════════════
-
-MARCA: {name} · CATEGORÍA: {category} · PERÍODO: {_period}
-
-── GMV ACTUAL Y PROYECTADO ───────────
-GMV actual:                          {_gmv_actual_label}
-GMV proyectado con ADS activo:       {_gmv_ads_label}
-GMV si CR llega a benchmark categ.:  {_gmv_bench_label}
-GMV incremental por mejora CVR:      {_ars(_gmv_incremental) if _gmv_incremental else "s/d"}
-
-── PALANCAS COMERCIALES ──────────────
-ADS:        {_ads_status}
-MARKDOWN:   {_md_status}
-Punto de equilibrio MD: {_be_label}
-
-── BOOSTER RECOMENDADO ───────────────
-{_booster_name}
-
-── ACCIONES 360 SUGERIDAS ────────────
-  · {_actions_str}
-
-══════════════════════════════════════
-DISEÑO REQUERIDO — seguí EXACTAMENTE
-══════════════════════════════════════
-
-ESTILO: dashboard ejecutivo, fondo oscuro (#1D2659), minimalista, cero texto corrido.
-
-LAYOUT — dos filas:
-
-  FILA SUPERIOR — Proyección GMV (70% del ancho):
-  → Gráfico de barras horizontal con 3 barras apiladas y etiquetas claras:
-      1. "Actual"      → {_gmv_actual_label}   (barra base gris oscuro)
-      2. "+ ADS"       → {_gmv_ads_label}       (barra adicional naranja #FF7124)
-      3. "+ CVR opt."  → {_gmv_bench_label}     (barra adicional verde #6FF24B)
-  → Mostrar el GMV total de cada escenario a la derecha de cada barra en bold
-  → KPI grande arriba: "Potencial total: {_gmv_bench_label}" en verde
-
-  FILA INFERIOR — Palancas (3 tarjetas en fila):
-  → Tarjeta ADS: ícono 🚀 · estado ON/OFF en badge · ROI {round(_ads_roi_val,1)}x · Inversión USD {round(_ads_inv_usd)}
-  → Tarjeta MD:  ícono 🏷️ · estado ON/OFF en badge · {_md_discount} off · ROI {round(_md_roi_val,1)}x · BE: {_be_label}
-  → Tarjeta Booster: ícono ⚡ · "{_booster_name}" como título · acciones sugeridas en keywords pequeños
-
-  → Badge ON: fondo verde oscuro · texto "#6FF24B" · "● ACTIVO"
-  → Badge OFF: fondo rojo oscuro · texto "#E5332A" · "● INACTIVO"
-
-ELEMENTOS COMUNES:
-  → Header: logo RAPPI (icono naranja) + "{name}" + categoría + período
-  → Solo números, %, flechas, keywords — CERO párrafos
-  → Palette: #1D2659 fondo · #FF7124 naranja · #6FF24B verde · #E8DFD5 texto
-
-NO pongas explicaciones ni bullets largos. Solo la infografía con los datos."""
-
-        st.session_state[f"informe_prompt_{brand_id}"] = _prompt
-
-    # ── Display del prompt generado ───────────────────────────────────────────
-    _stored_prompt = st.session_state.get(f"informe_prompt_{brand_id}", "")
-    if _stored_prompt:
-        _tipo_label = _informe_tipo.split("·")[0].strip() if "_informe_tipo" in dir() else "Informe"
-        st.markdown(f"""
-        <div style="margin-top:16px;padding:12px 16px 8px;background:rgba(111,242,75,0.07);
-                    border:1.5px solid rgba(111,242,75,0.28);border-radius:12px;">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;
-                        color:{PALETTE['laser_green']};letter-spacing:.09em;margin-bottom:6px;">
-                ✅ Prompt listo — copiá y pegá en Gemini
-            </div>
-            <div style="font-size:11px;color:{PALETTE['cinnamon_ice']};">
-                Tipo: <strong style="color:{PALETTE['pale_cashmere']};">{_tipo_label}</strong>
-                · Marca: <strong style="color:{PALETTE['pale_cashmere']};">{name}</strong>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.text_area(
-            label="Prompt para Gemini",
-            value=_stored_prompt,
-            height=420,
-            key=f"informe_display_{brand_id}",
-            label_visibility="collapsed",
-        )
 
     return name
 
