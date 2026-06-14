@@ -2552,6 +2552,103 @@ def save_comment_csv(brand_id, brand_name, comment, contact_channel="", opportun
     final.to_csv(COMMENTS_FILE, index=False, encoding="utf-8-sig")
 
 
+def analyze_transcript_locally(transcript):
+    """
+    Analyzes a call transcript using pure Python keyword/regex logic.
+    No external API calls. Returns a dict with:
+      - summary: str (auto-generated note to save as comment)
+      - action_items: list[str]
+      - suggested_status: str (one of the follow-up statuses)
+      - levers: list[str] (palancas detected)
+      - sentiment: str (Positive / Neutral / Negative)
+    """
+    if not transcript or not transcript.strip():
+        return None
+
+    low = transcript.lower()
+    result = {}
+
+    # ── Sentiment ────────────────────────────────────────────────────────────
+    positive_signals = ["perfecto", "de acuerdo", "vamos", "sí claro", "me interesa",
+                        "lo hacemos", "dale", "genial", "excelente", "cerramos", "activamos",
+                        "okay", "ok", "buenísimo", "bárbaro", "confirmado", "listo"]
+    negative_signals = ["no me interesa", "no quiero", "estoy conforme", "no gracias",
+                        "no puedo", "no tengo presupuesto", "ya no", "cancel",
+                        "cortamos", "no voy a", "lo dejo", "me retiro"]
+    neutral_signals  = ["lo pienso", "lo consulto", "veo", "te llamo", "después",
+                        "no sé", "quizás", "tal vez", "voy a ver"]
+
+    pos = sum(1 for k in positive_signals if k in low)
+    neg = sum(1 for k in negative_signals if k in low)
+    neu = sum(1 for k in neutral_signals  if k in low)
+
+    if neg >= 2 or (neg > pos and neg > 0):
+        result["sentiment"] = "Negative"
+    elif pos >= 2 or pos > neg:
+        result["sentiment"] = "Positive"
+    else:
+        result["sentiment"] = "Neutral"
+
+    # ── Levers / palancas detectadas ─────────────────────────────────────────
+    levers = []
+    if any(k in low for k in ["rappi ads", "ads", "publicidad", "banner", "sponsored", "visibilidad paga", "campaña"]):
+        levers.append("ADS")
+    if any(k in low for k in ["descuento", "promo", "markdown", "porcentaje", "20%", "25%", "30%", "oferta", "promoción"]):
+        levers.append("MD")
+    if any(k in low for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "visibilidad orgánica"]):
+        levers.append("Top Restaurant")
+    if any(k in low for k in ["menú", "menu", "catálogo", "fotos", "productos", "carta", "assortment"]):
+        levers.append("Assortment")
+    if any(k in low for k in ["cancelar", "dar de baja", "no quiero seguir", "churn", "me voy", "me retiro", "cerrar cuenta"]):
+        levers.append("Churn Risk")
+    result["levers"] = levers
+
+    # ── Suggested status ─────────────────────────────────────────────────────
+    if any(k in low for k in ["no me interesa", "no quiero", "no voy a", "lo dejo", "me retiro", "no tengo presupuesto", "no quiero invertir"]):
+        result["suggested_status"] = "Rejected ❌"
+    elif any(k in low for k in ["activamos", "cerramos", "lo hacemos", "confirmado", "arrancamos", "activar"]):
+        result["suggested_status"] = "Deal Closed 🏆"
+    elif any(k in low for k in ["lo pienso", "lo consulto", "te llamo", "negociando", "pendiente", "voy a ver", "la próxima semana"]):
+        result["suggested_status"] = "Negotiation ⏳"
+    elif any(k in low for k in ["no contestó", "no atendió", "no disponible", "buzón", "voicemail", "no answer", "cortó"]):
+        result["suggested_status"] = "Ghost 👻"
+    else:
+        result["suggested_status"] = "Follow-up ✅"
+
+    # ── Action items ──────────────────────────────────────────────────────────
+    action_patterns = [
+        r"(enviar[á]?[a-záéíóúñü ]{3,40}(?:propuesta|plantilla|mail|información|info|cotización))",
+        r"(llamar[a-záéíóúñü ]{0,20}(?:la próxima semana|mañana|el [a-záéíóúñü]+))",
+        r"(agendar[a-záéíóúñü ]{0,30})",
+        r"(revisar[a-záéíóúñü ]{3,40})",
+        r"(confirmar[a-záéíóúñü ]{3,40})",
+        r"(activar[a-záéíóúñü ]{3,40})",
+        r"(subir[a-záéíóúñü ]{3,30}(?:fotos|menú|productos|catálogo))",
+    ]
+    actions = []
+    for pat in action_patterns:
+        matches = re.findall(pat, low)
+        for m in matches:
+            clean_action = m.strip().capitalize()
+            if len(clean_action) > 8 and clean_action not in actions:
+                actions.append(clean_action)
+    result["action_items"] = actions[:5]  # max 5
+
+    # ── Auto-summary (note that replaces New Comment) ─────────────────────────
+    lever_str = ", ".join(levers) if levers else "sin palanca específica"
+    action_str = " · ".join(actions[:2]) if actions else "sin próximos pasos detectados"
+    status_emoji = result["suggested_status"]
+    sentiment_map = {"Positive": "✅ Positivo", "Neutral": "➡️ Neutral", "Negative": "⚠️ Negativo"}
+    sentiment_str = sentiment_map.get(result["sentiment"], "➡️ Neutral")
+
+    result["summary"] = (
+        f"[Auto] {sentiment_str} · Palancas: {lever_str} · "
+        f"Status sugerido: {status_emoji} · Próximos pasos: {action_str}"
+    )
+
+    return result
+
+
 def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email, call_date):
     """
     Sends the transcript to Claude, evaluates it against the Call Detail matrix,
@@ -14449,8 +14546,6 @@ def page_brand_finder():
     st.markdown("<div class='wide-info-card'>", unsafe_allow_html=True)
     st.markdown("<div class='wide-info-title'>Comments History</div>", unsafe_allow_html=True)
 
-    new_comment = st.text_area("New comment", placeholder="Write your new follow-up comment here...", height=120)
-
     st.markdown("<div class='wide-info-title' style='margin-top:20px;'>Follow-up Update</div>", unsafe_allow_html=True)
 
     fu1, fu2, fu3 = st.columns(3)
@@ -14476,16 +14571,54 @@ def page_brand_finder():
             key=f"template_type_{brand_id}"
         )
 
-    # ── Transcripción Amazon Connect (solo visible cuando canal = Call) ────────
-    call_transcript = ""
-    if contact_channel == "Call":
-        call_transcript = st.text_area(
-            "📋 Transcripción de la llamada (opcional)",
-            placeholder="Pegá aquí la transcripción de Amazon Connect — se evaluará automáticamente con IA al guardar...",
-            height=130,
-            key=f"call_transcript_{brand_id}",
-            help="La transcripción se analiza con IA y se guarda en Call Detail. No afecta el guardado del follow-up.",
-        )
+    # ── Transcripción / nota de contacto ─────────────────────────────────────
+    transcript_label = "📋 Transcripción de la llamada" if contact_channel == "Call" else "📝 Nota del contacto (WhatsApp / Email / Meet)"
+    transcript_placeholder = (
+        "Pegá aquí la transcripción de Amazon Connect — el sistema detectará palancas, status sugerido y próximos pasos automáticamente."
+        if contact_channel == "Call"
+        else "Escribí el resumen del contacto — el sistema detectará intenciones comerciales automáticamente."
+    )
+    call_transcript = st.text_area(
+        transcript_label,
+        placeholder=transcript_placeholder,
+        height=160,
+        key=f"call_transcript_{brand_id}",
+    )
+
+    # ── Análisis local en tiempo real (sin API) ───────────────────────────────
+    transcript_analysis = None
+    if call_transcript.strip():
+        transcript_analysis = analyze_transcript_locally(call_transcript)
+        if transcript_analysis:
+            sentiment_color = {"Positive": "#6FF24B", "Neutral": "#FF7124", "Negative": "#D95A10"}.get(transcript_analysis["sentiment"], "#FF7124")
+            levers_str = " · ".join(transcript_analysis["levers"]) if transcript_analysis["levers"] else "Ninguna detectada"
+            actions_str = "\n".join(f"• {a}" for a in transcript_analysis["action_items"]) if transcript_analysis["action_items"] else "• Ninguna detectada"
+            st.markdown(f"""
+            <div style="background:rgba(111,242,75,0.08);border:1px solid rgba(111,242,75,0.25);border-radius:10px;padding:14px 18px;margin:12px 0;">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#6FF24B;margin-bottom:10px;">🤖 ANÁLISIS LOCAL DE TRANSCRIPCIÓN</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <div>
+                        <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">SENTIMIENTO</div>
+                        <div style="font-weight:700;color:{sentiment_color};">{transcript_analysis["sentiment"]}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">STATUS SUGERIDO</div>
+                        <div style="font-weight:700;color:#E8DFD5;">{transcript_analysis["suggested_status"]}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">PALANCAS</div>
+                        <div style="font-weight:600;color:#E8DFD5;">{levers_str}</div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">PRÓXIMOS PASOS DETECTADOS</div>
+                    <div style="font-size:13px;white-space:pre-line;color:#E8DFD5;">{actions_str}</div>
+                </div>
+                <div style="margin-top:8px;font-size:10px;color:rgba(232,223,213,.4);">Este análisis se guardará como nota automática. Seleccioná el Status correcto arriba si difiere del sugerido.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    new_comment = ""  # kept for calendar default_notes compatibility below
 
     comment_auto = ""
     followup_type = ""
@@ -14632,10 +14765,12 @@ def page_brand_finder():
             comment_auto = "✅ No News"
         elif followup_type in ["Cambios contractuales", "Revisiones específicas"]:
             event_required = True
-            event_data = _render_calendar_fields(followup_type, default_task=followup_type, default_notes=new_comment.strip())
+            _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
+            event_data = _render_calendar_fields(followup_type, default_task=followup_type, default_notes=_calendar_notes)
         elif followup_type == "Admin":
             event_required = True
-            event_data = _render_calendar_fields("Admin", default_task="Admin follow-up", default_notes=new_comment.strip())
+            _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
+            event_data = _render_calendar_fields("Admin", default_task="Admin follow-up", default_notes=_calendar_notes)
 
     elif opportunity_status == "Negotiation ⏳":
         st.markdown("### Negotiation Pipeline")
@@ -14688,40 +14823,32 @@ def page_brand_finder():
             rejection_reason = st.text_input("Custom Rejection Reason", value="", placeholder="Write rejection reason", key=f"rejection_custom_{brand_id}").strip() or "Custom"
         comment_auto = f"❌ {rejection_reason}"
 
-    # ---- Voice Comments Auto-Router ----
-    def _detect_comment_intents(text):
-        """Detects commercial intents from written/dictated comment text."""
-        low = norm_text(text)
-        intents = []
-        if any(k in low for k in ["propuesta", "proposal", "enviar plantilla", "send template", "template"]):
-            intents.append(("📋 Pending Templates", "Detected: enviar propuesta / template"))
-        if any(k in low for k in ["proxima semana", "próxima semana", "next week", "agendar", "schedule", "reunion", "reunión", "llamada", "llamar"]):
-            intents.append(("📅 Weekly Calendar", "Detected: agendar / próxima semana"))
-        if any(k in low for k in ["activamos", "activar", "activated", "deal cerrado", "deal closed", "cerramos", "closed"]):
-            intents.append(("🏆 Deal Closed", "Detected: activamos / deal cerrado"))
-        if any(k in low for k in ["rechazo", "rechazó", "rechaza", "rejected", "no quiere", "no le interesa", "presupuesto bajo", "no margin"]):
-            intents.append(("❌ Rejected", "Detected: rechazó / no le interesa"))
-        if any(k in low for k in ["negociando", "en negociacion", "en negociación", "negotiation", "pendiente respuesta", "pendiente de respuesta"]):
-            intents.append(("⏳ Negotiation", "Detected: negociando / pendiente respuesta"))
-        if any(k in low for k in ["25%", "20%", "descuento", "promo", "markdown", "activamos ads", "activamos md"]):
-            intents.append(("📊 Acquisition Tracker", "Detected: acción comercial concreta"))
-        return intents
-
-    if new_comment.strip():
-        detected_intents = _detect_comment_intents(new_comment)
+    # ── Auto-router desde transcripción ──────────────────────────────────────
+    if transcript_analysis:
+        detected_intents = []
+        if "ADS" in transcript_analysis["levers"]:
+            detected_intents.append(("📊 ADS detectado", "La transcripción menciona publicidad / Rappi Ads"))
+        if "MD" in transcript_analysis["levers"]:
+            detected_intents.append(("💸 Markdown detectado", "La transcripción menciona descuento / promo"))
+        if "Churn Risk" in transcript_analysis["levers"]:
+            detected_intents.append(("⚠️ Riesgo de Churn", "La transcripción indica posible baja"))
         if detected_intents:
-            st.markdown("**🤖 Auto-Router detectó estas intenciones en tu comentario:**")
             for intent_label, intent_reason in detected_intents:
                 st.info(f"{intent_label} — {intent_reason}")
-            st.caption("Estas son sugerencias. El guardado es manual — selecciona el Status y campos correctos antes de guardar.")
+            st.caption("Sugerencias del análisis local. Confirmá el Status correcto antes de guardar.")
 
     if st.button("Save Follow-up"):
-        final_comment = new_comment.strip() if new_comment.strip() else comment_auto.strip()
+        # Build final comment from transcript analysis or comment_auto
+        if transcript_analysis and transcript_analysis.get("summary"):
+            final_comment = transcript_analysis["summary"]
+        else:
+            final_comment = comment_auto.strip()
+
         if opportunity_status in ["Negotiation ⏳", "Deal Closed 🏆"] and not final_comment:
-            st.warning("Write a comment before saving this status.")
+            st.warning("Pegá la transcripción o escribí una nota antes de guardar este status.")
             st.stop()
-        if opportunity_status == "Follow-up ✅" and followup_type in ["Cambios contractuales", "Revisiones específicas"] and not new_comment.strip():
-            st.warning("Write the detail in New Comment before saving this follow-up.")
+        if opportunity_status == "Follow-up ✅" and followup_type in ["Cambios contractuales", "Revisiones específicas"] and not call_transcript.strip():
+            st.warning("Pegá la transcripción antes de guardar este tipo de follow-up.")
             st.stop()
         if event_required and (not event_data or not event_data.get("task")):
             st.warning("Write a task before saving the Weekly Calendar event.")
@@ -14742,7 +14869,7 @@ def page_brand_finder():
             commercial_action=comment_commercial_action,
         )
 
-        # ── Evaluación IA de transcripción (silenciosa, en background) ─────────
+        # ── Evaluación IA de transcripción en Call Detail (silenciosa) ─────────
         if contact_channel == "Call" and call_transcript.strip():
             try:
                 evaluate_and_save_call_detail(
