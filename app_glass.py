@@ -3914,7 +3914,7 @@ def _format_priority_topics_line(topics):
         items = f"{topics[0]} y {topics[1]}"
     else:
         items = ", ".join(topics[:-1]) + f" y {topics[-1]}"
-    return f"Además, hay puntos para revisar juntos: {items}."
+    return f"Además, debemos revisar todos los puntos que tenemos en este momento: {items}."
 
 
 def _build_day_queue_message(name, category, lever, ads_current, md_current, cr, gmv_ars, aov_ars, campaign_design, priority_topics=None):
@@ -4153,7 +4153,7 @@ def page_day_queue():
         )
 
         subject, wa_body, email_body = _build_day_queue_message(
-            name, category, lever, ads_current, md_current,
+            strip_brand_id_prefix(name), category, lever, ads_current, md_current,
             cr_raw, gmv_ars, aov_ars, campaign_design, priority_topics
         )
 
