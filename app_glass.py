@@ -740,51 +740,77 @@ def load_may_gmv_data():
 
 @st.cache_data(ttl=120)
 def get_may_brand_metrics(brand_id, brand_name=""):
-    df = load_may_gmv_data()
-
-    if df.empty:
+    """
+    Busca la marca en MAY GMV cruzando por:
+    1. ID numérico exacto (si la hoja trae IDs)
+    2. Nombre de marca (normalizado, parcial) — necesario cuando MAY GMV usa nombres en vez de IDs,
+       o cuando el ID de la hoja difiere del ID de Growth OS.
+    La columna Brand en MAY GMV suele tener formato "12345 - Nombre" o solo "Nombre".
+    """
+    if not os.path.exists(EXCEL_FILE):
         return None
 
-    target = normalize_brand_id(brand_id)
+    # Leer MAY GMV directo para no depender del filtro de _id
+    try:
+        raw = pd.read_excel(EXCEL_FILE, sheet_name=MAY_GMV_SHEET)
+    except Exception:
+        return None
 
-    # Intento 1: match exacto por _id (brand ID numérico extraído)
-    result = df[df["_id"] == target]
+    raw.columns = [normalize(c).replace("_", " ") for c in raw.columns]
+    raw = raw.loc[:, ~raw.columns.duplicated()].copy()
 
-    # Intento 2: cruce por nombre (brand_name normalizado) — cubre hojas MAY GMV sin ID numérico
-    if result.empty and brand_name:
-        name_norm = normalize(brand_name)
-        if "_brand_name_norm" in df.columns:
-            result = df[df["_brand_name_norm"] == name_norm]
-        # Coincidencia parcial si el nombre exacto no matchea
-        if result.empty and name_norm:
-            result = df[df["_brand_name_norm"].str.contains(re.escape(name_norm), na=False)]
-        if result.empty and name_norm:
-            result = df[df["_brand_name_norm"].apply(lambda v: name_norm in v or v in name_norm)]
+    brand_col = _first_existing_col(raw, ["brand", "brand name", "tienda", "nombre tienda", "code", "id"])
+    if not brand_col:
+        return None
 
-    # Intento 3: si no matcheo, intentar con normalize_brand_id directo sobre la columna brand_col raw
-    if result.empty:
-        raw_may = pd.DataFrame()
-        try:
-            raw_may = pd.read_excel(EXCEL_FILE, sheet_name=MAY_GMV_SHEET)
-            raw_may.columns = [normalize(c).replace("_", " ") for c in raw_may.columns]
-            brand_col = _first_existing_col(raw_may, ["brand", "brand name", "tienda", "nombre tienda", "code", "id"])
-            if brand_col:
-                raw_may["_norm_id"] = raw_may[brand_col].apply(normalize_brand_id)
-                match2 = raw_may[raw_may["_norm_id"] == target]
-                if not match2.empty:
-                    result = df.iloc[match2.index[:1]] if match2.index[0] < len(df) else result
-        except Exception:
-            pass
+    raw = raw[raw[brand_col].notna()].copy()
+    if raw.empty:
+        return None
+
+    # Extraer ID numérico y nombre puro de cada fila
+    raw["_row_id"]   = raw[brand_col].apply(normalize_brand_id)
+    raw["_row_name"] = raw[brand_col].apply(
+        lambda v: normalize(re.sub(r"^\d+[\s\-–]+", "", str(v).strip()))
+    )
+
+    target_id   = normalize_brand_id(brand_id)
+    target_name = normalize(brand_name) if brand_name else ""
+
+    result = pd.DataFrame()
+
+    # Intento 1: ID exacto
+    if target_id:
+        result = raw[raw["_row_id"] == target_id]
+
+    # Intento 2: nombre exacto
+    if result.empty and target_name:
+        result = raw[raw["_row_name"] == target_name]
+
+    # Intento 3: nombre parcial — el nombre de Growth OS contiene el de MAY GMV o viceversa
+    if result.empty and target_name:
+        result = raw[raw["_row_name"].str.contains(re.escape(target_name), na=False)]
+    if result.empty and target_name:
+        result = raw[raw["_row_name"].apply(lambda v: target_name in v or (len(v) > 3 and v in target_name))]
 
     if result.empty:
         return None
 
     row = result.iloc[0]
-    gmv_ars = to_number(row.get("gmv ars"), 0)
-    gmv_usd = to_number(row.get("gmv usd"), 0) or (gmv_ars / ARS_PER_USD if gmv_ars else 0)
-    orders = to_number(row.get("ordenes"), 0)
-    aov_ars = to_number(row.get("aov ars"), 0) or ((gmv_ars / orders) if gmv_ars and orders else 0)
-    aov_usd = to_number(row.get("aov usd"), 0) or (aov_ars / ARS_PER_USD if aov_ars else 0)
+    # MAY GMV columnas pueden llamarse "gmv ars", "gmv local", "gmv" — buscar flexible
+    def _get_num(r, keys):
+        for k in keys:
+            v = r.get(k)
+            if v is not None:
+                n = to_number(v, 0)
+                if n != 0:
+                    return n
+        return 0
+
+    gmv_ars = _get_num(row, ["gmv ars", "gmv local", "gmv"])
+    gmv_usd = _get_num(row, ["gmv usd", "gmv_usd"]) or (gmv_ars / ARS_PER_USD if gmv_ars else 0)
+    orders  = _get_num(row, ["ordenes", "orders", "pedidos"])
+    aov_ars = _get_num(row, ["aov ars", "aov local", "aov"]) or ((gmv_ars / orders) if gmv_ars and orders else 0)
+    aov_usd = _get_num(row, ["aov usd", "aov_usd"]) or (aov_ars / ARS_PER_USD if aov_ars else 0)
 
     return {
         "gmv_ars": gmv_ars,
