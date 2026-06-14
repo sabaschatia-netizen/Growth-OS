@@ -14603,8 +14603,8 @@ def _render_followup_form(row, brand_id, name):
     with fu2:
         opportunity_status = st.selectbox(
             "Status",
-            ["Ghost 👻", "Follow-up ✅", "Negotiation ⏳", "Deal Closed 🏆", "Rejected ❌"],
-            index=1,
+            ["📅 Campaign Follow Up", "📅 Campaign Negotiation", "📅 Contractual Changes"],
+            index=0,
             key=f"comment_status_{brand_id}"
         )
     with fu3:
@@ -14685,36 +14685,52 @@ def _render_followup_form(row, brand_id, name):
     event_data = None
 
     def _render_calendar_fields(suffix, default_task="Follow-up", default_notes=""):
-        st.markdown("#### Add Event to Weekly Calendar")
-        e1, e2 = st.columns(2)
+        # ── Color por tipo de task ────────────────────────────────────────────
+        task_colors = {
+            "Campaign Follow Up":  "#3B4883",
+            "Campaign Negotiation": "#FF7124",
+            "Contractual Changes":  "#1D9E75",
+        }
+        task_color = next((v for k, v in task_colors.items() if k.lower() in default_task.lower()), "#3B4883")
+
+        st.markdown(f"""
+        <div style="
+            border-left: 4px solid {task_color};
+            background: rgba(255,255,255,0.04);
+            border-radius: 0 10px 10px 0;
+            padding: 14px 18px 10px 16px;
+            margin: 16px 0 10px 0;
+        ">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:{task_color};margin-bottom:2px;">
+                📅 ADD TO WEEKLY CALENDAR
+            </div>
+            <div style="font-size:15px;font-weight:600;color:var(--color-text-primary);">{default_task}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        e1, e2, e3 = st.columns([1.2, 1, 1.5])
         with e1:
             _event_date = st.date_input("Date", value=date.today(), key=f"event_date_{suffix}_{brand_id}")
             _event_time = st.time_input("Time", value=time(9, 0), key=f"event_time_{suffix}_{brand_id}")
-            _event_task = st.text_input("Task", value=default_task, key=f"event_task_{suffix}_{brand_id}")
+        with e2:
             _event_channel = st.selectbox(
                 "Channel",
                 ["Call", "WhatsApp", "Email", "Meet", "Other"],
                 index=0,
                 key=f"event_channel_{suffix}_{brand_id}"
             )
-        with e2:
             _event_priority = st.selectbox(
                 "Priority",
                 ["High", "Mid", "Low"],
                 index=1,
                 key=f"event_priority_{suffix}_{brand_id}"
             )
-            _event_status = st.selectbox(
-                "Status",
-                ["Follow-up", "Negotiation", "Upsell", "Acquire", "Pending", "Done"],
-                index=0,
-                key=f"event_status_{suffix}_{brand_id}"
-            )
+        with e3:
             _event_notes = st.text_area(
                 "Notes",
                 value=default_notes,
-                placeholder="Example: Pending review. Send proposal tomorrow.",
-                height=120,
+                placeholder="Próximos pasos, acuerdos pendientes...",
+                height=112,
                 key=f"event_notes_{suffix}_{brand_id}"
             )
         return {
@@ -14722,10 +14738,10 @@ def _render_followup_form(row, brand_id, name):
             "time": _event_time.strftime("%I:%M %p").lstrip("0"),
             "id": brand_id,
             "name": name,
-            "task": _event_task.strip(),
+            "task": default_task,
             "channel": _event_channel,
             "priority": _event_priority,
-            "status": _event_status,
+            "status": default_task,
             "notes": _event_notes.strip(),
         }
 
@@ -14792,87 +14808,23 @@ def _render_followup_form(row, brand_id, name):
         st.caption(f"Promo name: {promo_name}")
         return promo_name
 
-    if opportunity_status == "Ghost 👻":
-        ghost_type = st.selectbox(
-            "Ghost Type",
-            ["📵 No Answer", "⏰ Call Later", "❌ Wrong Number", "🔕 No WhatsApp Reply", "📴 Unreachable", "💤 Seen No Reply", "🚫 Invalid Contact", "✍️ Custom"],
-            index=0,
-            key=f"ghost_type_{brand_id}"
-        )
-        if ghost_type == "✍️ Custom":
-            ghost_custom = st.text_input("Custom Ghost Reason", value="", key=f"ghost_custom_{brand_id}")
-            comment_auto = f"👻 {ghost_custom.strip()}" if ghost_custom.strip() else "👻 Custom Ghost"
-        else:
-            comment_auto = f"👻 {ghost_type}"
+    if opportunity_status == "📅 Campaign Follow Up":
+        event_required = True
+        _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
+        event_data = _render_calendar_fields("camp_followup", default_task="Campaign Follow Up", default_notes=_calendar_notes)
+        comment_auto = "📅 Campaign Follow Up"
 
-    elif opportunity_status == "Follow-up ✅":
-        followup_type = st.selectbox(
-            "Follow-up Type",
-            ["No News", "Cambios contractuales", "Revisiones específicas", "Admin"],
-            index=0,
-            key=f"followup_type_{brand_id}"
-        )
-        if followup_type == "No News":
-            comment_auto = "✅ No News"
-        elif followup_type in ["Cambios contractuales", "Revisiones específicas"]:
-            event_required = True
-            _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
-            event_data = _render_calendar_fields(followup_type, default_task=followup_type, default_notes=_calendar_notes)
-        elif followup_type == "Admin":
-            event_required = True
-            _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
-            event_data = _render_calendar_fields("Admin", default_task="Admin follow-up", default_notes=_calendar_notes)
+    elif opportunity_status == "📅 Campaign Negotiation":
+        event_required = True
+        _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
+        event_data = _render_calendar_fields("camp_negotiation", default_task="Campaign Negotiation", default_notes=_calendar_notes)
+        comment_auto = "📅 Campaign Negotiation"
 
-    elif opportunity_status == "Negotiation ⏳":
-        st.markdown("### Negotiation Pipeline")
-        st.caption("Use this only when the deal is still open. It feeds the Negotiation Pipeline in Acquisition Tracker.")
-        np1, np2, np3 = st.columns(3)
-        with np1:
-            negotiation_type = st.selectbox(
-                "Negotiation Type",
-                ["Ads", "Markdown", "Ads + Markdown"],
-                index=0,
-                key=f"negotiation_type_{brand_id}"
-            )
-        negotiation_has_ads = "Ads" in negotiation_type
-        negotiation_has_md = "Markdown" in negotiation_type
-        with np2:
-            if negotiation_has_ads:
-                negotiation_ads_ars = st.number_input("Ads Budget in Negotiation ARS", value=0.0, step=1000.0, key=f"negotiation_ads_budget_{brand_id}")
-            else:
-                st.info("No ADS budget in this negotiation.")
-        with np3:
-            if negotiation_has_md:
-                negotiation_md_discount = _render_markdown_activation_fields("negotiation_md")
-            else:
-                st.info("No MD discount in this negotiation.")
-        negotiation_action = f"Negotiation {negotiation_type} ⏳"
-
-    elif opportunity_status == "Deal Closed 🏆":
-        st.markdown("### Deal Closed Detail")
-        commercial_action = st.selectbox(
-            "Commercial Action",
-            ["Activate Ads 🚀", "Activate Markdown 🚀", "Activate Ads + Markdown 🚀", "No commercial change"],
-            index=0,
-            key=f"commercial_action_{brand_id}"
-        )
-        activate_ads_action = commercial_action.startswith("Activate") and "Ads" in commercial_action
-        activate_md_action = commercial_action.startswith("Activate") and "Markdown" in commercial_action
-        if activate_ads_action:
-            ad_budget_input = st.number_input("Ads Budget / Bookings ARS", value=0.0, step=1000.0, key=f"ads_budget_action_{brand_id}")
-        if activate_md_action:
-            md_discount_input = _render_markdown_activation_fields("closed_md")
-
-    elif opportunity_status == "Rejected ❌":
-        rejection_reason = st.selectbox(
-            "Rejected Reason",
-            ["Budget", "No Interest", "Timing", "Already Active", "Bad Experience", "No Margin", "OPS Issues", "Custom"],
-            index=0,
-            key=f"rejection_reason_{brand_id}"
-        )
-        if rejection_reason == "Custom":
-            rejection_reason = st.text_input("Custom Rejection Reason", value="", placeholder="Write rejection reason", key=f"rejection_custom_{brand_id}").strip() or "Custom"
-        comment_auto = f"❌ {rejection_reason}"
+    elif opportunity_status == "📅 Contractual Changes":
+        event_required = True
+        _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
+        event_data = _render_calendar_fields("contractual", default_task="Contractual Changes", default_notes=_calendar_notes)
+        comment_auto = "📅 Contractual Changes"
 
     # ── Auto-router desde transcripción ──────────────────────────────────────
     if transcript_analysis:
@@ -15179,114 +15131,143 @@ def page_weekly_calendar():
         st.success("No pending events or tasks. Everything is Done.")
         return
 
-    dated = active_agenda[active_agenda["_parsed_date"].notna()].copy()
-    if not dated.empty:
-        min_date = dated["_parsed_date"].min()
-        if min_date > today:
-            week_start = today
-        else:
-            week_start = min_date
-    else:
-        week_start = today
+    # ── Semana: lunes de la semana actual ─────────────────────────────────────
+    week_start = today - timedelta(days=today.weekday())  # lunes
+    days = [week_start + timedelta(days=i) for i in range(7)]
 
-    days = [week_start + pd.Timedelta(days=i) for i in range(7)]
+    # ── Cabecera de días ──────────────────────────────────────────────────────
+    TASK_COLORS = {
+        "campaign follow up":   {"bg": "rgba(59,72,131,0.18)",  "border": "#3B4883", "text": "#8B9ED4"},
+        "campaign negotiation": {"bg": "rgba(255,113,36,0.15)", "border": "#FF7124", "text": "#FF7124"},
+        "contractual changes":  {"bg": "rgba(29,158,117,0.15)", "border": "#1D9E75", "text": "#1D9E75"},
+    }
+    PRIORITY_COLORS = {"high": "#E5332A", "mid": "#FF7124", "low": "#8B9ED4"}
 
-    day_cols = st.columns(7)
-    for col, d in zip(day_cols, days):
-        current_day = d.date() if hasattr(d, "date") else d
-        day_count = int((active_agenda["_parsed_date"] == current_day).sum())
-        day_label = d.strftime("%a").upper()
-        day_date = d.strftime("%b %d")
-        with col:
-            st.markdown(f"""
-            <div class="agenda-card" style="text-align:center;">
-                <div style="font-weight:800; color:#3B4883;">{day_label}</div>
-                <div class="small-muted">{day_date}</div>
-                <div style="margin-top:10px; font-size:24px; font-weight:800;">{day_count}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    def _task_color(task_str, priority_str):
+        tl = task_str.lower()
+        for key, val in TASK_COLORS.items():
+            if key in tl:
+                return val
+        p = priority_str.lower()
+        c = PRIORITY_COLORS.get(p, "#8B9ED4")
+        return {"bg": f"rgba(139,158,212,0.12)", "border": c, "text": c}
 
-    st.markdown("""
-    <div style="margin: 10px 0 22px;">
-        <span style="color:#E5332A;">●</span> Overdue &nbsp;&nbsp;
-        <span style="color:#FF7124;">●</span> High &nbsp;&nbsp;
-        <span style="color:#8B9ED4;">●</span> Mid &nbsp;&nbsp;
-        <span style="color:#3B4883;">●</span> Low &nbsp;&nbsp;
-        <span style="color:#DBBBA7;">●</span> Done hidden
+    # ── Leyenda ───────────────────────────────────────────────────────────────
+    st.markdown(f"""
+    <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);">TASK TYPES</span>
+        <span style="font-size:12px;color:#8B9ED4;">● Campaign Follow Up</span>
+        <span style="font-size:12px;color:#FF7124;">● Campaign Negotiation</span>
+        <span style="font-size:12px;color:#1D9E75;">● Contractual Changes</span>
+        <span style="font-size:12px;color:#E5332A;margin-left:12px;">● Overdue</span>
     </div>
     """, unsafe_allow_html=True)
 
-    # Sort by date/time to keep urgent tasks visible.
+    # ── Grilla semanal ────────────────────────────────────────────────────────
     active_agenda["_sort_date"] = active_agenda["_parsed_date"].apply(lambda x: x or date.max)
     active_agenda = active_agenda.sort_values(by=["_sort_date", "_time_display"], ascending=True)
 
-    _render_calendar_events(active_agenda, today)
+    # Cabecera de columnas de días
+    header_html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px;">'
+    for d in days:
+        ddate = d if isinstance(d, date) else d.date()
+        is_today = ddate == today
+        day_count = int((active_agenda["_parsed_date"] == ddate).sum())
+        bg = "rgba(59,72,131,0.25)" if is_today else "rgba(255,255,255,0.04)"
+        border = "rgba(59,72,131,0.6)" if is_today else "rgba(255,255,255,0.08)"
+        num_color = "#FFFFFF" if is_today else "#E8DFD5"
+        count_color = "#6FF24B" if day_count > 0 else "rgba(232,223,213,.3)"
+        header_html += f'''
+        <div style="background:{bg};border:1px solid {border};border-radius:10px;padding:10px 6px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.5);">{d.strftime("%a").upper()}</div>
+            <div style="font-size:20px;font-weight:700;color:{num_color};line-height:1.2;margin:2px 0;">{d.strftime("%d")}</div>
+            <div style="font-size:11px;color:{count_color};font-weight:600;">{day_count} task{"s" if day_count != 1 else ""}</div>
+        </div>'''
+    header_html += '</div>'
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_COLORS)
 
 
 @st.fragment
-def _render_calendar_events(active_agenda, today):
-    # Ocultamos en session_state los ítems marcados como Done en esta sesión
-    # para que desaparezcan de inmediato sin releer el Excel completo.
+def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_COLORS):
     done_rows = st.session_state.setdefault("_wc_done_rows", set())
 
-    for idx, row in active_agenda.iterrows():
-        excel_row = row.get("_excel_row", None)
-        if excel_row in done_rows:
-            continue  # Ya marcado en esta sesión — lo ocultamos al instante
+    # ── Una columna por día ───────────────────────────────────────────────────
+    day_cols = st.columns(7, gap="small")
+    for col, d in zip(day_cols, days):
+        ddate = d if isinstance(d, date) else d.date()
+        day_events = active_agenda[active_agenda["_parsed_date"] == ddate]
 
-        task_date = parse_agenda_date(get_from_row(row, ["date", "data"], None))
-        task_day = task_date.strftime("%a").upper() if task_date else "NO DATE"
-        task_date_text = task_date.strftime("%b %d") if task_date else "Pending"
-        task_time = parse_agenda_time(get_from_row(row, ["time"], "-"))
-        name = clean(get_from_row(row, ["name"], "Unnamed"))
-        priority = clean(get_from_row(row, ["priority"], "Mid"))
-        pclass = priority_class(priority)
-        status = clean(get_from_row(row, ["status"], "Pending"))
+        with col:
+            for idx, row in day_events.iterrows():
+                excel_row = row.get("_excel_row", None)
+                if excel_row in done_rows:
+                    continue
 
-        is_overdue = task_date is not None and task_date < today
-        overdue_tag = " · OVERDUE" if is_overdue else ""
+                task    = clean(get_from_row(row, ["task"], "Task"))
+                name    = clean(get_from_row(row, ["name"], "—"))
+                task_time = parse_agenda_time(get_from_row(row, ["time"], ""))
+                channel = clean(get_from_row(row, ["channel"], ""))
+                notes   = clean(get_from_row(row, ["notes"], ""))
+                priority = clean(get_from_row(row, ["priority"], "Mid"))
+                is_overdue = ddate < today
 
-        priority_marker = priority_dot(priority)
-        label = f"{task_day} {task_date_text} · {name} · {task_time} · {status} · {priority_marker} {priority}{overdue_tag}"
+                colors = _task_color(task, priority)
+                overdue_stripe = f"border-top:2px solid #E5332A;" if is_overdue else ""
 
-        with st.expander(label, expanded=is_overdue):
-            col1, col2, col3 = st.columns([1, 2, 2])
-
-            with col1:
-                st.markdown(f"""
-                <div class="agenda-date">
-                    <div>{task_day}</div>
-                    <div>{task_date_text}</div>
+                card_html = f"""
+                <div style="
+                    background:{colors['bg']};
+                    border-left:3px solid {colors['border']};
+                    border-radius:0 8px 8px 0;
+                    padding:8px 10px;
+                    margin-bottom:8px;
+                    {overdue_stripe}
+                ">
+                    <div style="font-size:11px;font-weight:700;color:{colors['text']};margin-bottom:2px;line-height:1.3;">{task}</div>
+                    <div style="font-size:12px;color:#E8DFD5;font-weight:500;margin-bottom:4px;">{name}</div>
+                    <div style="font-size:10px;color:rgba(232,223,213,.5);">{task_time}{" · " + channel if channel else ""}</div>
+                    {f'<div style="font-size:10px;color:rgba(232,223,213,.4);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{notes[:50]}{"…" if len(notes)>50 else ""}</div>' if notes else ""}
+                    {"<div style='font-size:9px;font-weight:700;color:#E5332A;margin-top:3px;'>OVERDUE</div>" if is_overdue else ""}
                 </div>
-                """, unsafe_allow_html=True)
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
 
-                if is_overdue:
-                    st.markdown(
-                        "<div style='margin-top:12px; color:#E5332A; font-weight:800;'>OVERDUE</div>",
-                        unsafe_allow_html=True
-                    )
-
-            with col2:
-                st.markdown(f"**Restaurant:** {name}")
-                st.markdown(f"**Time:** {task_time}")
-                st.markdown(f"**ID:** {clean(get_from_row(row, ['id']))}")
-                st.markdown(f"**Task:** {clean(get_from_row(row, ['task']))}")
-
-            with col3:
-                st.markdown(f"**Channel:** {clean(get_from_row(row, ['channel']))}")
-                st.markdown(
-                    f"**Status:** {status} &nbsp; <span class='priority-pill {pclass}'>{priority}</span>",
-                    unsafe_allow_html=True
-                )
-                st.markdown(f"**Notes:** {clean(get_from_row(row, ['notes']))}")
-
-                if st.button("Mark as Done", key=f"done_{excel_row}_{idx}"):
+                if st.button("✓ Done", key=f"done_{excel_row}_{idx}", use_container_width=True):
                     ok, msg = mark_agenda_row_done(EXCEL_FILE, excel_row)
                     if ok:
                         done_rows.add(excel_row)
-                        st.success("✅ Marked as Done.")
+                        st.success("✅")
                     else:
                         st.error(msg)
+
+    # ── Eventos sin fecha asignada ────────────────────────────────────────────
+    undated = active_agenda[active_agenda["_parsed_date"].isna()]
+    if not undated.empty:
+        st.markdown("---")
+        st.markdown("<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);margin-bottom:10px;'>WITHOUT DATE</div>", unsafe_allow_html=True)
+        for idx, row in undated.iterrows():
+            excel_row = row.get("_excel_row", None)
+            if excel_row in done_rows:
+                continue
+            task  = clean(get_from_row(row, ["task"], "Task"))
+            name  = clean(get_from_row(row, ["name"], "—"))
+            priority = clean(get_from_row(row, ["priority"], "Mid"))
+            colors = _task_color(task, priority)
+            st.markdown(f"""
+            <div style="background:{colors['bg']};border-left:3px solid {colors['border']};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px;">
+                <div style="font-size:11px;font-weight:700;color:{colors['text']};">{task}</div>
+                <div style="font-size:12px;color:#E8DFD5;">{name}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("✓ Done", key=f"done_nd_{excel_row}_{idx}", use_container_width=True):
+                ok, msg = mark_agenda_row_done(EXCEL_FILE, excel_row)
+                if ok:
+                    done_rows.add(excel_row)
+                    st.success("✅")
+                else:
+                    st.error(msg)
 
 # =========================
 # BRAND UPDATE
