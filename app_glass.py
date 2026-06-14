@@ -7447,6 +7447,7 @@ def get_productivity_effective_rows(excel_path):
 
 
 
+def get_productivity_last_contact_map(excel_path):
     """
     Reads the Productivity sheet and returns a dict:
         { normalized_brand_name -> most_recent_contact_date (pd.Timestamp) }
