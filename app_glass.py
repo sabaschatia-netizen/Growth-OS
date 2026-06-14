@@ -6365,10 +6365,11 @@ def _render_light_table(df, height=420):
     _render_html_table(df)
 
 
-def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF7124"):
+def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF7124", projected_usd=0):
     """
     Renders a horizontal progress bar showing:
-      - Active revenue already running (green)
+      - Active revenue already consumed MTD (green)
+      - Projected revenue from current bookings × 80% (blue)
       - Pipeline from Opportunity List (orange)
       - Gap remaining (ghost)
     All values in USD. target_usd must be > 0.
@@ -6376,11 +6377,12 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     if target_usd <= 0:
         return
 
-    total_filled = active_usd + pipeline_usd
-    pct_active   = min(active_usd / target_usd, 1.0) * 100
-    pct_pipeline = min(pipeline_usd / target_usd, max(0, 1.0 - pct_active / 100)) * 100
-    pct_gap      = max(0, 100 - pct_active - pct_pipeline)
-    overall_pct  = min(total_filled / target_usd * 100, 100)
+    color_projected = "#4B9CF2"
+    total_filled = active_usd + projected_usd + pipeline_usd
+    pct_active    = min(active_usd / target_usd, 1.0) * 100
+    pct_projected = min(projected_usd / target_usd, max(0, 1.0 - pct_active / 100)) * 100
+    pct_pipeline  = min(pipeline_usd / target_usd, max(0, 1.0 - (pct_active + pct_projected) / 100)) * 100
+    overall_pct   = min(total_filled / target_usd * 100, 100)
 
     if overall_pct >= 100:
         status_color = "#6FF24B"
@@ -6415,6 +6417,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
             background: rgba(255,255,255,0.08); margin-bottom:12px;
         ">
             <div style="width:{pct_active:.1f}%; background:{color_active}; border-radius:8px 0 0 8px; transition:width .4s;"></div>
+            <div style="width:{pct_projected:.1f}%; background:{color_projected}; transition:width .4s;"></div>
             <div style="width:{pct_pipeline:.1f}%; background:{color_pipeline}; transition:width .4s;"></div>
             <div style="flex:1; background:rgba(255,255,255,.07); border-radius: 0 8px 8px 0;"></div>
         </div>
@@ -6422,6 +6425,10 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
             <div style="font-size:12px; color:{COLORS['muted']};">
                 <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_active}; margin-right:5px;"></span>
                 <b style="color:{color_active};">Activo hoy</b>&nbsp; {fmt_usd(active_usd)}
+            </div>
+            <div style="font-size:12px; color:{COLORS['muted']};">
+                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_projected}; margin-right:5px;"></span>
+                <b style="color:{color_projected};">Proyectado (booking×80%)</b>&nbsp; {fmt_usd(projected_usd)}
             </div>
             <div style="font-size:12px; color:{COLORS['muted']};">
                 <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_pipeline}; margin-right:5px;"></span>
@@ -6557,10 +6564,18 @@ def page_opportunity_list():
 
     # ── Build current-active revenue totals (suma REVENUE NET de Current ADS) ─
     ads_totals = get_current_ads_totals()
-    active_ads_revenue_usd = to_number(ads_totals.get("revenue_usd"), 0)
-    # Activo proyectado = BOOKINGS NET × 80%: asume que el booking corriente rinde al mínimo esperado
-    # Esto da el cierre proyectado real de lo que ya está corriendo, no solo lo consumido MTD
-    ads_result_from_sheet = to_number(ads_totals.get("projected_revenue_usd"), 0)
+    # Activo hoy = REVENUE NET acumulado MTD (lo que ya se consumió)
+    ads_result_from_sheet = to_number(ads_totals.get("revenue_usd"), 0)
+    # Proyectado = BOOKINGS NET × 80%: lo que se espera generar al cierre con los bookings corrientes
+    ads_projected_usd = to_number(ads_totals.get("projected_revenue_usd"), 0)
+    active_ads_revenue_usd = ads_result_from_sheet
+
+    # weeks_left para Rev Proj de la tabla
+    import calendar as _cal
+    _today = date.today()
+    _days_in_month = _cal.monthrange(_today.year, _today.month)[1]
+    _remaining_days = _days_in_month - _today.day
+    weeks_left = max(_remaining_days / 7, 0.5)
 
     # ── Build ADS and MD maps ─────────────────────────────────────────────────
     def build_ads_map():
@@ -6617,9 +6632,11 @@ def page_opportunity_list():
     # por lo que el pipeline solo incluye Acquire — marcas que aún no están activas.
     ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > 4.5)
 
-    ads_df = data[ads_acquire].copy()
-    ads_df["_opp_group"] = 0
-    ads_df["Opp"]    = "🏆 Acquire"
+    ads_df = data[ads_acquire | ads_upselling].copy()
+    ads_df["_opp_group"] = ads_df.apply(
+        lambda r: 0 if not r["_ads_current_active"] else 1, axis=1
+    )
+    ads_df["Opp"] = ads_df["_opp_group"].map({0: "🏆 Acquire", 1: "⚡ Upselling"})
     ads_df["Status"] = ads_df["_commercial_status_raw"].apply(_normalize_commercial_status)
 
     def _ads_suggested_booking(gmv_ars):
@@ -6631,10 +6648,10 @@ def page_opportunity_list():
 
     ads_df["_suggested_booking_ars"] = ads_df["_gmv"].apply(_ads_suggested_booking)
     ads_df["_suggested_booking_usd"] = ads_df["_suggested_booking_ars"] / ARS_PER_USD
-    # Revenue proj = potencial mensual fijo (80% del booking × 4 semanas).
-    # weeks_left NO afecta este valor: representa cuánto genera el brand en un mes completo.
+    # Rev Proj = booking semanal estimado × semanas restantes del mes × 80% eficiencia.
+    # Refleja lo que puede generar este brand si entra hoy, hasta el cierre del mes.
     ads_df["_revenue_proj_weekly_usd"] = ads_df["_suggested_booking_usd"] * 0.80
-    ads_df["_revenue_proj_monthly_usd"] = ads_df["_revenue_proj_weekly_usd"] * 4
+    ads_df["_revenue_proj_monthly_usd"] = ads_df["_revenue_proj_weekly_usd"] * weeks_left
 
     ads_df = ads_df.sort_values(
         by=["_opp_group", "_opportunity_score"],
@@ -6642,13 +6659,17 @@ def page_opportunity_list():
     ).reset_index(drop=True)
 
     # ── Cumulative target coverage ────────────────────────────────────────────
-    ads_gap_usd = max(ads_target_usd - ads_result_from_sheet, 0) if ads_target_usd > 0 else 0
+    # Gap real = lo que falta después de activo + proyectado (booking × 80%)
+    ads_gap_usd = max(ads_target_usd - ads_result_from_sheet - ads_projected_usd, 0) if ads_target_usd > 0 else 0
     ads_df["_cumrev_usd"] = ads_df["_revenue_proj_monthly_usd"].cumsum()
 
     def _ads_target_pct(cumrev):
-        if ads_target_usd <= 0 or cumrev <= 0:
+        # % acum = cuánto mejora el resultado si se cierra este brand y todos los anteriores
+        # Base: activo hoy + proyectado de bookings corrientes + pipeline acumulado
+        if ads_target_usd <= 0:
             return "-"
-        pct = (cumrev / ads_target_usd) * 100
+        total = ads_result_from_sheet + ads_projected_usd + cumrev
+        pct = (total / ads_target_usd) * 100
         if pct > 100:
             return "✅ >100%"
         return f"{pct:.1f}%"
@@ -6674,7 +6695,8 @@ def page_opportunity_list():
         _render_target_progress_bar(
             label=f"ADS Revenue Target · USD {fmt_number(ads_target_usd)}",
             active_usd=ads_result_from_sheet,
-            pipeline_usd=min(ads_pipeline_usd, max(ads_target_usd - ads_result_from_sheet, 0)),
+            projected_usd=ads_projected_usd,
+            pipeline_usd=min(ads_pipeline_usd, max(ads_gap_usd, 0)),
             target_usd=ads_target_usd,
         )
         # "Close-out" line
