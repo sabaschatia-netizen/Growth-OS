@@ -8463,6 +8463,8 @@ def page_productivity_heatmap():
         except Exception:
             return pd.DataFrame(), {}
 
+        df.columns = [str(c).strip() for c in df.columns]
+
         if "Code" not in df.columns or "Week" not in df.columns:
             return pd.DataFrame(), {}
 
