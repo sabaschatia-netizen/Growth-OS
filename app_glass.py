@@ -15704,24 +15704,14 @@ def _render_followup_form(row, brand_id, name):
                 rejection_reason=rejection_reason,
             )
 
-        template_ok, template_msg = True, "No template selected."
-        if template_type != "None":
-            try:
-                template_ctx = _brand_template_context(row, brand_id, opportunity_status=opportunity_status)
-                template_ok, template_msg = save_template_to_queue(template_ctx, template_type, source_comment=final_comment)
-            except Exception as exc:
-                template_ok, template_msg = False, f"Template error: {exc}"
-
-        if ok and follow_ok and event_ok and commercial_ok and tracker_ok and template_ok:
+        if ok and follow_ok and event_ok and commercial_ok and tracker_ok:
             success_msg = "Follow-up saved, Agenda notes updated, follow-up fields refreshed, and tracker updated."
             if event_required:
                 success_msg += " Weekly Calendar event added."
-            if template_type != "None":
-                success_msg += " Template saved to Pending Templates."
             st.success(success_msg)
             st.rerun()
         else:
-            st.warning(f"Saved with warnings. Agenda: {msg}. Follow-up: {follow_msg}. Event: {event_msg}. Commercial: {commercial_msg}. Tracker: {tracker_msg}. Template: {template_msg}")
+            st.warning(f"Saved with warnings. Agenda: {msg}. Follow-up: {follow_msg}. Event: {event_msg}. Commercial: {commercial_msg}. Tracker: {tracker_msg}.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
