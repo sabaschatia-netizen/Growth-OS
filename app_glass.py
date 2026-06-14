@@ -13128,17 +13128,107 @@ def render_brand_profile(row, brand_id):
         _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Eso significa que ya probaste que funciona. El paso lógico es escalar, no mantener el mismo presupuesto.\"")
     _cs_lines.append(f"✅ <strong>Cierre:</strong> \"Entonces quedamos en activar {campaign_design.get('ads_action','la palanca')} esta semana. ¿El martes a las 10 te va bien para confirmar que quedó activo?\"")
 
-    _cs_items_html = "".join(
-        f"<div style='padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;line-height:1.6;'>{line}</div>"
-        for line in _cs_lines
-    )
-    _cheat_block = (
-        f"<details style='margin-top:12px;'>"
-        f"<summary style='cursor:pointer;font-size:13px;font-weight:600;color:#DBBBA7;padding:10px 0;"
-        f"list-style:none;display:flex;align-items:center;gap:8px;'>📞 Cheat sheet de llamada — expandir para usar durante la llamada</summary>"
-        f"<div style='padding:8px 0 4px 0;'>{_cs_items_html}</div>"
-        f"</details>"
-    )
+    # ── Pitch Facts: 3 cards — Dato Ancla · Benchmark · Pitch Lever ────────────
+    # Card 1: Dato Ancla — posición percentil de la marca
+    _pf_ancla_label = "📊 Dato Ancla"
+    if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
+        _pf_ancla_main = f"Percentil {mctx['brand_percentile']}"
+        _pf_ancla_body = f"Estás en el percentil {mctx['brand_percentile']} de {_pi_category} en CABA."
+        try:
+            _pf_pct_num = float(mctx["brand_percentile"].replace("%","").strip())
+            if _pf_pct_num >= 75:
+                _pf_ancla_body += " Ya sos de las marcas que más venden en tu categoría."
+            elif _pf_pct_num >= 50:
+                _pf_ancla_body += " Estás por encima de la mitad — hay espacio real para subir."
+            else:
+                _pf_ancla_body += " Hay marcas similares vendiendo mucho más con la palanca correcta."
+        except Exception:
+            pass
+        _pf_ancla_color = "#6FF24B" if (_pf_pct_num if "brand_percentile" in mctx else 0) >= 75 else "#FF7124"
+    elif _pi_gmv > 0 and mctx.get("market_gmv_avg"):
+        try:
+            _avg_n = float(mctx["market_gmv_avg"].replace("ARS","").replace("$","").replace(".","").replace(",",".").strip())
+            _ratio = _pi_gmv / _avg_n if _avg_n > 0 else 0
+            _pf_ancla_main = f"{_ratio:.1f}x el promedio"
+            _pf_ancla_body = f"Su GMV ({fmt_ars(_pi_gmv)}) es {_ratio:.1f}x el promedio de la categoría ({mctx['market_gmv_avg']})."
+            _pf_ancla_color = "#6FF24B" if _ratio >= 1.5 else "#FF7124"
+        except Exception:
+            _pf_ancla_main = "N/D"
+            _pf_ancla_body = "Sin datos de posición en la categoría."
+            _pf_ancla_color = "#DBBBA7"
+    else:
+        _pf_ancla_main = "N/D"
+        _pf_ancla_body = "Sin datos de posición en la categoría."
+        _pf_ancla_color = "#DBBBA7"
+
+    # Card 2: Benchmark — top de la categoría
+    _pf_bench_label = "🏆 Benchmark"
+    if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
+        _pf_bench_main = mctx.get("market_top_gmv", "N/D")
+        _pf_bench_body = f"El líder de {_pi_category} en CABA es {mctx['market_top_brand']} con {mctx.get('market_top_gmv','N/D')}. Ese es el benchmark real."
+        _pf_bench_color = "#FF7124"
+    else:
+        _pf_bench_main = "N/D"
+        _pf_bench_body = "Sin datos del top de la categoría."
+        _pf_bench_color = "#DBBBA7"
+
+    # Card 3: Pitch Lever — argumento directo para la palanca
+    _pf_pitch_label = f"💡 Pitch {_pi_lever}"
+    if _pi_lever == "Ads":
+        if not ads_current.get("active", False):
+            _pf_pitch_main = "Sin Ads activo"
+            _pf_pitch_body = f"El tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata."
+            _pf_pitch_color = "#E5332A"
+        elif ads_roi > 0:
+            _pf_pitch_main = f"ROI {ads_roi:.1f}x"
+            _pf_pitch_body = f"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Ya probaste que funciona — el paso lógico es escalar, no mantener el mismo presupuesto."
+            _pf_pitch_color = "#6FF24B"
+        else:
+            _pf_pitch_main = "Ads activo"
+            _pf_pitch_body = "Ads activo. Revisá el ROI para definir si mantener o escalar."
+            _pf_pitch_color = "#FF7124"
+    else:
+        if not md_current.get("active", False):
+            _pf_pitch_main = "Sin MD activo"
+            _pf_pitch_body = f"Sin MD activo estás perdiendo frecuencia de pedido. En {_pi_category} el markdown es la palanca más directa para subir en el ranking."
+            _pf_pitch_color = "#E5332A"
+        elif md_roi > 0:
+            _pf_pitch_main = f"ROI {md_roi:.1f}x"
+            _pf_pitch_body = f"MD activo con ROI de {md_roi:.1f}x — base para proponer un upgrade de descuento o ampliar el alcance."
+            _pf_pitch_color = "#6FF24B"
+        else:
+            _pf_pitch_main = "MD activo"
+            _pf_pitch_body = "MD activo. Revisá el ROI para definir la próxima acción."
+            _pf_pitch_color = "#FF7124"
+
+    _pitch_facts_block = f"""
+<div style="margin-top:16px;">
+  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+    letter-spacing:.06em;margin-bottom:10px;">📋 Pitch Facts · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+      border-radius:12px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+        letter-spacing:.06em;margin-bottom:8px;">{_pf_ancla_label}</div>
+      <div style="font-size:22px;font-weight:900;color:{_pf_ancla_color};line-height:1.1;margin-bottom:8px;">{_pf_ancla_main}</div>
+      <div style="font-size:12px;color:#DBBBA7;line-height:1.55;">{_pf_ancla_body}</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+      border-radius:12px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+        letter-spacing:.06em;margin-bottom:8px;">{_pf_bench_label}</div>
+      <div style="font-size:22px;font-weight:900;color:{_pf_bench_color};line-height:1.1;margin-bottom:8px;">{_pf_bench_main}</div>
+      <div style="font-size:12px;color:#DBBBA7;line-height:1.55;">{_pf_bench_body}</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+      border-radius:12px;padding:16px 18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+        letter-spacing:.06em;margin-bottom:8px;">{_pf_pitch_label}</div>
+      <div style="font-size:22px;font-weight:900;color:{_pf_pitch_color};line-height:1.1;margin-bottom:8px;">{_pf_pitch_main}</div>
+      <div style="font-size:12px;color:#DBBBA7;line-height:1.55;">{_pf_pitch_body}</div>
+    </div>
+  </div>
+</div>"""
 
     st.markdown(f"""
 <div class="wide-info-card">
@@ -13181,8 +13271,7 @@ def render_brand_profile(row, brand_id):
       </div>
     </div>
   </div>
-  {_pitch_block}
-  {_cheat_block}
+  {_pitch_facts_block}
 </div>
 """, unsafe_allow_html=True)
 
