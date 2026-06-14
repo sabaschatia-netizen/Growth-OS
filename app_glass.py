@@ -11157,11 +11157,11 @@ def render_campaign_designer_html(design):
 
     # ── GRID LAYOUT ───────────────────────────────────────────────
     # Row 1: Strategy mega card (full width)
-    # Row 2: Top Products Pyramid (full width)
-    # Row 3: Guardrails (full width)
+    # Row 2 (2 cols side by side): Top Products Pyramid | Guardrails
     bottom_grid = (
-        f"<div style='margin-top:14px'>{pyramid_card}</div>"
-        f"<div style='margin-top:14px'>{guardrails_card}</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px'>"
+        f"{pyramid_card}{guardrails_card}"
+        f"</div>"
     )
 
     return (
