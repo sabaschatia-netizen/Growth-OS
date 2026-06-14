@@ -15165,22 +15165,26 @@ def page_campaign_weekly_tracker():
     # ── Tabla Ads CPC Monitor (desde snapshots históricos) ───────────────────
     df = _load_campaign_weekly_tracker_df()
     names = _brand_name_map()
-    if df.empty:
-        st.markdown("### Ads CPC Monitor")
-        st.info("Sin historial de snapshots todavía. Capturá el primer snapshot este domingo para empezar a ver la tabla.")
-        return
-    periods = _last_four_periods(df)
-    work = df[df["period"].astype(str).isin(periods)].copy()
-    for c in ["bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"]:
-        if c in work.columns:
-            work[c] = pd.to_numeric(work[c], errors="coerce").fillna(0)
-    latest_period = periods[-1] if periods else "-"
-    latest = work[work["period"].astype(str) == latest_period].copy()
-    ads_latest = latest[latest["channel"] == "Ads"].copy()
-    md_latest  = latest[latest["channel"].isin(["Markdown", "Markdown PRO"])].copy()
+    _has_history = not df.empty
+    if _has_history:
+        periods = _last_four_periods(df)
+        work = df[df["period"].astype(str).isin(periods)].copy()
+        for c in ["bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"]:
+            if c in work.columns:
+                work[c] = pd.to_numeric(work[c], errors="coerce").fillna(0)
+        latest_period = periods[-1] if periods else "-"
+        latest = work[work["period"].astype(str) == latest_period].copy()
+        ads_latest = latest[latest["channel"] == "Ads"].copy()
+    else:
+        periods = []
+        work = pd.DataFrame(columns=["period","channel","brand_id","bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"])
+        latest = pd.DataFrame()
+        ads_latest = pd.DataFrame()
 
     st.markdown("### Ads CPC Monitor")
     if ads_latest.empty:
+        if not _has_history:
+            st.info("Sin historial de snapshots todavía. Capturá el primer snapshot este domingo para empezar a ver la tabla.")
         ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Strategic Note"])
     else:
         ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
@@ -15356,9 +15360,30 @@ def page_campaign_weekly_tracker():
 
     _render_html_table(ads_view)
 
-    # Separate MD Normal and MD PRO sections
-    md_normal_latest = latest[latest["channel"] == "Markdown"].copy()
-    md_pro_latest = latest[latest["channel"] == "Markdown PRO"].copy()
+    # ── MD Normal y MD PRO: datos EN VIVO desde Current MD / Current MD pro ──
+    # El histórico (CSV snapshots) se usará SOLO para WoW y GMV Trend.
+    # La lista de marcas activas viene directo del Excel, no del snapshot.
+    def _live_md_to_monitor_df(pro_flag):
+        """Convierte Current MD / Current MD pro al formato que espera _build_md_monitor_view."""
+        _ldf = load_current_md_data(portfolio_only=False, pro=pro_flag)
+        if _ldf.empty:
+            return pd.DataFrame()
+        _channel = "Markdown PRO" if pro_flag else "Markdown"
+        rows_out = []
+        for _, _r in _ldf.iterrows():
+            rows_out.append({
+                "channel":    _channel,
+                "brand_id":   _r.get("_id", ""),
+                "gmv_usd":    to_number(_r.get("_gmv_usd"), 0),
+                "sales_usd":  to_number(_r.get("_sales_usd"), 0),
+                "roi":        to_number(_r.get("_roi_raw"), 0),
+                "orders":     to_number(_r.get("_orders"), 0),
+                "campaigns":  to_number(_r.get("_campaigns"), 0),
+            })
+        return pd.DataFrame(rows_out)
+
+    md_normal_latest = _live_md_to_monitor_df(pro_flag=False)
+    md_pro_latest    = _live_md_to_monitor_df(pro_flag=True)
 
     # ── Penetration maps: GMV brand y GMV MD desde Current MD (en vivo) ────────
     # Necesitamos el GMV total del brand (Last GMV ARS) para calcular penetración.
@@ -15547,6 +15572,16 @@ def page_campaign_weekly_tracker():
                 "Recomendación":   recommendation,
             })
         md_view_out = pd.DataFrame(rows)
+        if not md_view_out.empty and "Sales USD" in md_view_out.columns:
+            md_view_out["_sales_sort"] = pd.to_numeric(
+                md_view_out["Sales USD"].astype(str).str.replace(",", ""), errors="coerce"
+            ).fillna(0)
+            md_view_out = (
+                md_view_out.sort_values("_sales_sort", ascending=False)
+                .drop(columns=["_sales_sort"])
+                .reset_index(drop=True)
+            )
+            md_view_out.index = md_view_out.index + 1
         _render_html_table(md_view_out)
 
     _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
