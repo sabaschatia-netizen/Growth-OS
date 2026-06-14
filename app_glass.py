@@ -11532,7 +11532,7 @@ def _ops_cross_context(ops_metrics, menu_metrics, ads_current, md_current):
     return " ".join([p for p in pieces if p]) or "Sin dato numérico directo visible; conviértelo en pregunta de validación y freno comercial."
 
 
-def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_current, md_current, aov_ars=0, orders_monthly=0):
+def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_current, md_current, aov_ars=0, orders_monthly=0, current_gmv_ars=0):
     metric = clean(record.get("metric"), "OPS signal")
     kind = record.get("kind", "ops_other")
     descr = clean(record.get("description"), "")
@@ -11612,13 +11612,12 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
         cue_parts = []
         if top_res_str:
             cue_parts.append(f"TopRes: {top_res_str}.")
-        if ava_val and ava_val > 0 and orders_monthly > 0 and aov_ars > 0:
-            _gmv_actual = orders_monthly * aov_ars
+        if ava_val and ava_val > 0 and current_gmv_ars > 0:
             _ava_gap = max(0, 1.0 - ava_val)
-            # Upside proporcional: cuánto más GMV si availability sube a 100%
-            _ava_upside = round(_gmv_actual * (_ava_gap / ava_val) / 1000) * 1000
+            # Upside proporcional sobre el GMV real del mes
+            _ava_upside = round(current_gmv_ars * (_ava_gap / ava_val) / 1000) * 1000
             if _ava_upside > 0:
-                cue_parts.append(f"Upside estimado: ~{fmt_ars(_ava_upside)}/mes si sube de {fmt_percent0(ava_val)} a 100% (proporcional al GMV actual).")
+                cue_parts.append(f"Upside estimado: ~{fmt_ars(_ava_upside)}/mes si availability sube de {fmt_percent0(ava_val)} a 100%.")
         else:
             cue_parts.append("Escalar tráfico sobre baja disponibilidad quema budget.")
         cue = " ".join(cue_parts)
@@ -11786,6 +11785,7 @@ def build_tactical_flow(brand_id, name, row, category, current, ads_current, md_
     pro = _normalize_rate_value(get_from_row(row, ["pro users %", "pro %", "pro users", "prime users %"], 0))
     aov_ars = to_number(current.get("aov_ars") if current else 0, 0)
     orders_monthly = to_number(current.get("orders") if current else 0, 0) * 4
+    current_gmv_ars = to_number(current.get("gmv_ars") if current else 0, 0)
     menu_metrics = get_menu_metrics_for_brand(name)
     ops_metrics = get_ops_metrics_for_brand(name)
 
@@ -11793,7 +11793,7 @@ def build_tactical_flow(brand_id, name, row, category, current, ads_current, md_
     for idx, record in enumerate(records, start=1):
         kind = record.get("kind", "general")
         if kind.startswith("ops"):
-            item = _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_current, md_current, aov_ars=aov_ars, orders_monthly=orders_monthly)
+            item = _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_current, md_current, aov_ars=aov_ars, orders_monthly=orders_monthly, current_gmv_ars=current_gmv_ars)
         elif kind.startswith("menu"):
             item = _build_menu_tactical_card(record, name, menu_metrics, campaign_design)
         elif kind == "md":
