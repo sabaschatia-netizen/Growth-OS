@@ -4359,7 +4359,7 @@ def page_day_queue():
                 key=f"goto_bf_{card_key}",
                 use_container_width=True,
             ):
-                st.session_state["bf_brand_id_input"] = brand_id
+                st.session_state["_bf_goto_brand_id"] = brand_id
                 st.session_state["active_page"] = "Brand Finder"
                 st.rerun()
 
@@ -13234,7 +13234,7 @@ def render_brand_profile(row, brand_id):
             )
             with _mb_cols[_mb_i % len(_mb_cols)]:
                 if st.button(_mb_label, key=f"mb_goto_{brand_id}_{_mb_match['id']}"):
-                    st.session_state["bf_brand_id_input"] = str(_mb_match["id"])
+                    st.session_state["_bf_goto_brand_id"] = str(_mb_match["id"])
                     st.session_state["active_page"] = "Brand Finder"
                     st.rerun()
         st.markdown(
@@ -15520,6 +15520,12 @@ def page_brand_finder():
     if df.empty:
         st.error("Growth OS sheet not found.")
         return
+
+    # ── Pre-fill from navigation (Day Queue / Multibrand) ────────────────────
+    # We can't set bf_brand_id_input directly (widget key conflict), so callers
+    # set _bf_goto_brand_id and we transfer it here before the widget renders.
+    if "_bf_goto_brand_id" in st.session_state and st.session_state["_bf_goto_brand_id"]:
+        st.session_state["bf_brand_id_input"] = st.session_state.pop("_bf_goto_brand_id")
 
     brand_id_input = st.text_input("Search Brand ID", key="bf_brand_id_input")
     brand_id = normalize_brand_id(brand_id_input)
