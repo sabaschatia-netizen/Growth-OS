@@ -3882,6 +3882,9 @@ def _collect_priority_topics(brand_id, name, ads_current, md_current, ads_roi):
             elif kind == "menu_pdf":
                 topics.append("solicitud de catálogo en PDF pendiente")
                 seen_kinds.add(kind)
+            elif kind == "ops_availability":
+                topics.append("disponibilidad del local por debajo de lo esperado")
+                seen_kinds.add(kind)
 
     # Chequeo directo de métricas de menú por si Smart Priorities no las trae.
     try:
