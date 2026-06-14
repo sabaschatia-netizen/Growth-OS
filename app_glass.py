@@ -1690,64 +1690,131 @@ def load_top_restaurants_data():
 
 @st.cache_data(ttl=300)
 def get_top_restaurant_info(brand_id, name=""):
-    """Returns Top Restaurant sticker info for a brand.
-    
+    """
+    Returns Top Restaurant sticker info for a brand.
+    Crosses by brand name (groups all sucursales that share the same name prefix).
+    Averages all numeric metrics and computes a consolidated tier.
+
+    Tier ranking (numeric for averaging):
+      1. Top Oro   → 1
+      2. Top Plata → 2
+      3. Básico    → 3
+      4. Alerta    → 4
+
+    Consolidated tier = round(average of individual tiers).
+
     Stickers:
-      🥇 Top Res Oro    — Calificación Final == '1. Top Oro'
-      🥈 Top Res Plata  — Calificación Final == '2. Top Plata'
-      🥉 Top Res Bronce — Calificación Final == '3. Top Bronce'
-      ⚠️ Top Res Risk   — Present in sheet but low score
-      (no sticker)      — Not in sheet
+      🥇 Top Res Oro    — consolidated tier 1
+      🥈 Top Res Plata  — consolidated tier 2
+      🟡 Top Res Básico — consolidated tier 3
+      🔴 Top Res Alerta — consolidated tier 4
+      (no sticker)      — not found in sheet
     """
     df = load_top_restaurants_data()
     if df.empty:
         return {"found": False, "sticker": None, "cal_final": None}
 
-    target = normalize_brand_id(brand_id)
-    result = df[df["_id"].astype(str) == target] if target else pd.DataFrame()
+    tier_to_num = {
+        "1. top oro":   1,
+        "2. top plata": 2,
+        "3. básico":    3,
+        "3. basico":    3,
+        "4. alerta":    4,
+    }
+    num_to_tier = {1: "1. Top Oro", 2: "2. Top Plata", 3: "3. Básico", 4: "4. Alerta"}
 
-    # Fallback by name
+    # ── Match rows by brand name (fuzzy prefix match across sucursales) ────────
+    result = pd.DataFrame()
+
+    # 1) Try exact ID match first
+    target_id = normalize_brand_id(brand_id)
+    if target_id and "_id" in df.columns:
+        result = df[df["_id"].astype(str) == target_id]
+
+    # 2) Name-based match — find all rows whose "Tienda" contains the brand name
+    #    or whose brand name is contained in "Tienda" (handles "Brand - Sucursal X")
     if result.empty and name:
         name_col = "tienda" if "tienda" in df.columns else None
         if name_col:
             name_norm = norm_text(name)
-            result = df[df[name_col].apply(lambda x: norm_text(clean(x, "")) == name_norm or name_norm in norm_text(clean(x, "")))]
+            def _name_match(tienda_val):
+                t = norm_text(clean(tienda_val, ""))
+                # brand name is prefix/substring of tienda, or tienda equals brand name
+                return name_norm in t or t in name_norm or name_norm.split()[0] in t
+            result = df[df[name_col].apply(_name_match)]
 
     if result.empty:
         return {"found": False, "sticker": None, "cal_final": None}
 
-    row = result.iloc[0]
-    cal_final = clean(row.get("calificación final", row.get("calificacion final", "")), "")
-    cal_norm = norm_text(cal_final)
+    # ── Aggregate metrics across sucursales ───────────────────────────────────
+    def _safe_mean(series):
+        vals = pd.to_numeric(series, errors="coerce").dropna()
+        return float(vals.mean()) if len(vals) else 0.0
 
-    if "oro" in cal_norm:
-        sticker = "🥇 Top Res Oro"
-        tier = "oro"
-    elif "plata" in cal_norm:
-        sticker = "🥈 Top Res Plata"
-        tier = "plata"
-    elif "bronce" in cal_norm or "bronze" in cal_norm:
-        sticker = "🥉 Top Res Bronce"
-        tier = "bronce"
+    avail      = _safe_mean(result.get("disponibilidad", pd.Series(dtype=float)))
+    cancel     = _safe_mean(result.get("t. cancelación",
+                  result.get("t. cancelacion",
+                  result.get("t.cancelacion", pd.Series(dtype=float)))))
+    defect     = _safe_mean(result.get("t. defectos",
+                  result.get("t.defectos", pd.Series(dtype=float))))
+    reorder    = _safe_mean(result.get("t. reorden",
+                  result.get("t.reorden", pd.Series(dtype=float))))
+    rtwt       = _safe_mean(result.get("t. espera rt",
+                  result.get("t.espera rt", pd.Series(dtype=float))))
+
+    # Individual tier calificaciones per sucursal
+    cal_col = "calificación final" if "calificación final" in result.columns else \
+              "calificacion final" if "calificacion final" in result.columns else None
+
+    tier_nums = []
+    if cal_col:
+        for val in result[cal_col].dropna():
+            num = tier_to_num.get(norm_text(str(val)), None)
+            if num:
+                tier_nums.append(num)
+
+    # Consolidated tier = round(mean of individual tier numbers)
+    if tier_nums:
+        consolidated_num = round(sum(tier_nums) / len(tier_nums))
+        consolidated_num = max(1, min(4, consolidated_num))
+        cal_final = num_to_tier[consolidated_num]
     else:
-        sticker = "⚠️ Top Res Risk"
-        tier = "risk"
+        cal_final = "Sin datos"
+        consolidated_num = 4
 
-    # Pull individual metrics
-    avail = to_number(row.get("disponibilidad"), 0)
-    cancel = to_number(row.get("t. cancelación", row.get("t. cancelacion", row.get("t.cancelacion", 0))), 0)
-    defect = to_number(row.get("t. defectos", row.get("t.defectos", 0)), 0)
-    rtwt = to_number(row.get("t. espera rt", row.get("t.espera rt", 0)), 0)
+    # ── Sticker ───────────────────────────────────────────────────────────────
+    sticker_map = {
+        1: "🥇 Top Res Oro",
+        2: "🥈 Top Res Plata",
+        3: "🟡 Top Res Básico",
+        4: "🔴 Top Res Alerta",
+    }
+    tier_key_map = {1: "oro", 2: "plata", 3: "basico", 4: "alerta"}
+    sticker  = sticker_map[consolidated_num]
+    tier_key = tier_key_map[consolidated_num]
+
+    # Benchmarks (from first row — they're the same for all)
+    bench_cancel = _safe_mean(result.get("bench_cancel", pd.Series(dtype=float)))
+    bench_defect = _safe_mean(result.get("bench_defect", pd.Series(dtype=float)))
+    bench_reorder= _safe_mean(result.get("bench_reorder", pd.Series(dtype=float)))
+    bench_rtwt   = _safe_mean(result.get("bench_rtwt",   pd.Series(dtype=float)))
 
     return {
-        "found": True,
-        "sticker": sticker,
-        "tier": tier,
-        "cal_final": cal_final,
-        "availability": avail,
-        "cancel_rate": cancel,
-        "defect_rate": defect,
-        "rtwt": rtwt,
+        "found":         True,
+        "sticker":       sticker,
+        "tier":          tier_key,
+        "tier_num":      consolidated_num,
+        "cal_final":     cal_final,
+        "sucursales":    len(result),
+        "availability":  avail,
+        "cancel_rate":   cancel,
+        "defect_rate":   defect,
+        "reorder_rate":  reorder,
+        "rtwt":          rtwt,
+        "bench_cancel":  bench_cancel,
+        "bench_defect":  bench_defect,
+        "bench_reorder": bench_reorder,
+        "bench_rtwt":    bench_rtwt,
     }
 
 
@@ -11610,6 +11677,7 @@ def _ads_health(ads_current, action, blocking_issue=False):
 def build_360_actions(name, category, ads_current, md_current, md_pro_current, booster):
     ops = get_ops_metrics_for_brand(name)
     menu = get_menu_metrics_for_brand(name)
+    top_res = get_top_restaurant_info("", name)
 
     # Menu action
     if not menu.get("found"):
@@ -11672,6 +11740,38 @@ def build_360_actions(name, category, ads_current, md_current, md_pro_current, b
         ads_reason = f"Ads ROI {fmt_roi(ads_roi)} stable."
 
     ops_secondary = ops.get("secondary", []) or ["Rest OK"]
+    # ── Top Restaurants Data metrics injected into OPS card ───────────────────
+    if top_res.get("found"):
+        tr_avail   = top_res.get("availability", 0)
+        tr_cancel  = top_res.get("cancel_rate", 0)
+        tr_defect  = top_res.get("defect_rate", 0)
+        tr_reorder = top_res.get("reorder_rate", 0)
+        tr_rtwt    = top_res.get("rtwt", 0)
+        tr_suc     = top_res.get("sucursales", 1)
+        b_cancel   = top_res.get("bench_cancel", 0)
+        b_defect   = top_res.get("bench_defect", 0)
+        b_reorder  = top_res.get("bench_reorder", 0)
+        b_rtwt     = top_res.get("bench_rtwt", 0)
+        suc_label  = f" ({tr_suc} suc.)" if tr_suc > 1 else ""
+
+        def _vs_bench(val, bench, lower_is_better=True):
+            if not bench:
+                return ""
+            return " ✅" if (val <= bench if lower_is_better else val >= bench) else " ⚠️"
+
+        ops_secondary.append(
+            f"TR {top_res['cal_final']}{suc_label} · "
+            f"Ava {fmt_percent0(tr_avail)}"
+        )
+        ops_secondary.append(
+            f"Cancel {fmt_percent0(tr_cancel)}{_vs_bench(tr_cancel, b_cancel)} · "
+            f"Defectos {fmt_percent0(tr_defect)}{_vs_bench(tr_defect, b_defect)}"
+        )
+        if tr_reorder > 0 or b_reorder > 0:
+            ops_secondary.append(
+                f"Reorden {fmt_percent0(tr_reorder)}{_vs_bench(tr_reorder, b_reorder)} · "
+                f"T.Espera RT {tr_rtwt:.1f}min{_vs_bench(tr_rtwt, b_rtwt)}"
+            )
     # Add non-availability OPS levers detected by Smart Priorities when no official OPS metric exists in the dashboard.
     sp_signals_for_ops = get_priority_signals_for_brand("", name)
     sp_ops = []
@@ -12639,7 +12739,14 @@ def render_brand_profile(row, brand_id):
     coin_info = get_coinversion_info(brand_id, name)
     extra_stickers_html = ""
     if top_res_info.get("found"):
-        extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF7124,#FF7124);margin-left:8px'>{top_res_info['sticker']}</span>"
+        tier_num = top_res_info.get("tier_num", 4)
+        tier_colors = {
+            1: "linear-gradient(145deg,#FF7124,#D95A10)",   # oro — tangerine
+            2: "linear-gradient(145deg,#8B9ED4,#3B4883)",   # plata — blue slate
+            3: "linear-gradient(145deg,#DBBBA7,#8B7355)",   # básico — cinnamon
+            4: "linear-gradient(145deg,#D95A10,#8B2000)",   # alerta — dark red
+        }
+        extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_colors.get(tier_num, tier_colors[4])};margin-left:8px'>{top_res_info['sticker']}</span>"
     if coin_info.get("found"):
         tier_color = "linear-gradient(145deg,#3B4883,#272D4E)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#6FF24B,#6FF24B)"
         extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_color};margin-left:8px'>{coin_info['sticker']}</span>"
