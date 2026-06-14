@@ -6368,106 +6368,108 @@ def _render_light_table(df, height=420):
 def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF7124", projected_usd=0):
     """
     Barra de 4 segmentos:
-      - Verde: Activo hoy (REVENUE NET acumulado MTD)
-      - Azul: Proyectado restante (BOOKINGS×80% - REVENUE NET) → lo que falta consumir de campañas activas
-      - Naranja: Pipeline (Opp List) → se mide hacia 100% si no llegamos, o hacia 120% si ya cubrimos
-      - Gris: Gap → distancia a 100% o a 120% según el caso
+      - Verde:   Activo hoy (REVENUE NET MTD)
+      - Azul:    Proyectado restante (BOOKINGS x 80% - REVENUE NET)
+      - Naranja: Pipeline (Opp List) — hacia 100% o hacia 120% si ya se cubrió
+      - Gris:    Gap — distancia a 100% o a 120% según el caso
     """
     if target_usd <= 0:
         return
 
     color_projected = "#4B9CF2"
-    target_120 = target_usd * 1.2
-    base_covered = active_usd + projected_usd   # lo que cubren las campañas actuales
+    color_muted     = COLORS["muted"]
+    color_card      = COLORS["card"]
+    color_border    = COLORS["border"]
+    target_120      = target_usd * 1.2
+    base_covered    = active_usd + projected_usd
 
-    # Si activo + proyectado ya alcanza el 100%, la barra se extiende hasta el 120%
-    at_100 = base_covered >= target_usd
+    at_100      = base_covered >= target_usd
     bar_ceiling = target_120 if at_100 else target_usd
 
     pct_active    = min(active_usd / bar_ceiling, 1.0) * 100
-    pct_projected = min(projected_usd / bar_ceiling, max(0, 1.0 - pct_active / 100)) * 100
-    base_pct      = pct_active + pct_projected
+    pct_projected = min(projected_usd / bar_ceiling, max(0.0, 1.0 - pct_active / 100)) * 100
 
     if at_100:
-        # Pipeline y gap se miden en el tramo 100%→120%
-        tramo_120 = target_120 - target_usd   # = target_usd * 0.2
+        tramo_120       = target_usd * 0.2
         pipeline_capped = min(pipeline_usd, tramo_120)
         gap_usd         = max(tramo_120 - pipeline_usd, 0)
         pct_pipeline    = (pipeline_capped / bar_ceiling) * 100
         pct_gap         = (gap_usd / bar_ceiling) * 100
-        overall_label   = f"{(base_covered / target_usd * 100):.0f}% cubierto"
+        overall_label   = "{:.0f}% cubierto".format(base_covered / target_usd * 100)
         status_color    = "#6FF24B"
-        status_label    = "✅ On track to close"
-        gap_label       = f"Gap a 120%"
+        status_label    = "On track to close"
+        gap_label       = "Gap a 120%"
+        marker_html     = '<div style="position:absolute;top:-2px;left:{:.1f}%;width:2px;height:18px;background:rgba(255,255,255,0.45);border-radius:1px;"></div>'.format(target_usd / bar_ceiling * 100)
+        scale_html      = '<div style="display:flex;justify-content:space-between;font-size:10px;color:{};margin-bottom:8px;padding:0 2px;"><span>0</span><span>100%</span><span>120%</span></div>'.format(color_muted)
     else:
-        # Pipeline y gap se miden hacia el 100%
-        remaining_to_100 = target_usd - base_covered
-        pipeline_capped  = min(pipeline_usd, remaining_to_100)
-        gap_usd          = max(remaining_to_100 - pipeline_usd, 0)
-        pct_pipeline     = (pipeline_capped / bar_ceiling) * 100
-        pct_gap          = (gap_usd / bar_ceiling) * 100
-        overall_pct      = (base_covered + pipeline_usd) / target_usd * 100
-        overall_label    = f"{min(overall_pct, 100):.0f}% cubierto"
-        if base_covered / target_usd >= 0.70:
-            status_color = "#FF7124"; status_label = "⚡ Needs focus"
-        else:
-            status_color = "#E5332A"; status_label = "🚨 Gap critical"
-        gap_label = "Gap"
+        remaining       = target_usd - base_covered
+        pipeline_capped = min(pipeline_usd, remaining)
+        gap_usd         = max(remaining - pipeline_usd, 0)
+        pct_pipeline    = (pipeline_capped / bar_ceiling) * 100
+        pct_gap         = (gap_usd / bar_ceiling) * 100
+        overall_pct     = min((base_covered + pipeline_usd) / target_usd * 100, 100)
+        overall_label   = "{:.0f}% cubierto".format(overall_pct)
+        status_color    = "#FF7124" if base_covered / target_usd >= 0.70 else "#E5332A"
+        status_label    = "Needs focus" if base_covered / target_usd >= 0.70 else "Gap critical"
+        gap_label       = "Gap"
+        marker_html     = ""
+        scale_html      = '<div style="margin-bottom:8px;"></div>'
 
-    # Marcador de 100% en la barra cuando estamos en modo 120%
-    marker_100_pct = (target_usd / bar_ceiling * 100) if at_100 else None
-
-    st.markdown(f"""
-    <div style="
-        background: {COLORS['card']};
-        border: 1px solid {COLORS['border']};
-        border-radius: 16px;
-        padding: 18px 22px 16px;
-        margin-bottom: 18px;
-    ">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:{COLORS['muted']};">
-                {label}
-            </div>
-            <div style="font-size:12px; font-weight:700; color:{status_color}; background:rgba(255,255,255,.06); border-radius:20px; padding:3px 12px; border:1px solid {status_color}40;">
-                {status_label}
-            </div>
-        </div>
-        <div style="position:relative; margin-bottom:4px;">
-            <div style="display:flex; height:14px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,0.08);">
-                <div style="width:{pct_active:.1f}%; background:{color_active}; border-radius:8px 0 0 8px; transition:width .4s;"></div>
-                <div style="width:{pct_projected:.1f}%; background:{color_projected}; transition:width .4s;"></div>
-                <div style="width:{pct_pipeline:.1f}%; background:{color_pipeline}; transition:width .4s;"></div>
-                <div style="width:{pct_gap:.1f}%; background:rgba(255,255,255,.07); transition:width .4s;"></div>
-                <div style="flex:1; background:rgba(255,255,255,.04); border-radius:0 8px 8px 0;"></div>
-            </div>
-            {f'<div style="position:absolute; top:-2px; left:{marker_100_pct:.1f}%; width:2px; height:18px; background:rgba(255,255,255,0.5); border-radius:1px;" title="100% target"></div>' if marker_100_pct else ''}
-        </div>
-        {f'<div style="display:flex; justify-content:space-between; font-size:10px; color:{COLORS[chr(109)+chr(117)+chr(116)+chr(101)+chr(100)]}; margin-bottom:10px; padding:0 2px;"><span>0</span>{f'<span style="margin-left:{marker_100_pct:.1f}%">100%</span>' if marker_100_pct else ""}<span>120%</span></div>' if at_100 else '<div style="margin-bottom:10px;"></div>'}
-        <div style="display:flex; gap:24px; flex-wrap:wrap;">
-            <div style="font-size:12px; color:{COLORS['muted']};">
-                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_active}; margin-right:5px;"></span>
-                <b style="color:{color_active};">Activo hoy</b>&nbsp; {fmt_usd(active_usd)}
-            </div>
-            <div style="font-size:12px; color:{COLORS['muted']};">
-                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_projected}; margin-right:5px;"></span>
-                <b style="color:{color_projected};">Proyectado restante</b>&nbsp; {fmt_usd(projected_usd)}
-            </div>
-            <div style="font-size:12px; color:{COLORS['muted']};">
-                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{color_pipeline}; margin-right:5px;"></span>
-                <b style="color:{color_pipeline};">Pipeline (Opp List)</b>&nbsp; {fmt_usd(pipeline_usd)}
-            </div>
-            <div style="font-size:12px; color:{COLORS['muted']};">
-                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.25); margin-right:5px;"></span>
-                <b>{gap_label}</b>&nbsp; {fmt_usd(gap_usd)}
-            </div>
-            <div style="font-size:12px; color:{COLORS['muted']}; margin-left:auto;">
-                <b>Target:</b>&nbsp; {fmt_usd(target_usd)}&nbsp;&nbsp;
-                <b style="color:{status_color};">{overall_label}</b>
-            </div>
-        </div>
+    html = """
+<div style="background:{card};border:1px solid {border};border-radius:16px;padding:18px 22px 16px;margin-bottom:18px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:{muted};">{label}</div>
+    <div style="font-size:12px;font-weight:700;color:{sc};background:rgba(255,255,255,.06);border-radius:20px;padding:3px 12px;border:1px solid {sc}40;">{sl}</div>
+  </div>
+  <div style="position:relative;margin-bottom:4px;">
+    <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.08);">
+      <div style="width:{pa:.1f}%;background:{ca};border-radius:8px 0 0 8px;transition:width .4s;"></div>
+      <div style="width:{pp:.1f}%;background:{cp};transition:width .4s;"></div>
+      <div style="width:{ppl:.1f}%;background:{cpl};transition:width .4s;"></div>
+      <div style="width:{pg:.1f}%;background:rgba(255,255,255,.07);transition:width .4s;"></div>
+      <div style="flex:1;background:rgba(255,255,255,.04);border-radius:0 8px 8px 0;"></div>
     </div>
-    """, unsafe_allow_html=True)
+    {marker}
+  </div>
+  {scale}
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div style="font-size:12px;color:{muted};">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{ca};margin-right:5px;"></span>
+      <b style="color:{ca};">Activo hoy</b>&nbsp; {v_active}
+    </div>
+    <div style="font-size:12px;color:{muted};">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{cp};margin-right:5px;"></span>
+      <b style="color:{cp};">Proyectado restante</b>&nbsp; {v_proj}
+    </div>
+    <div style="font-size:12px;color:{muted};">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{cpl};margin-right:5px;"></span>
+      <b style="color:{cpl};">Pipeline (Opp List)</b>&nbsp; {v_pipe}
+    </div>
+    <div style="font-size:12px;color:{muted};">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.25);margin-right:5px;"></span>
+      <b>{gl}</b>&nbsp; {v_gap}
+    </div>
+    <div style="font-size:12px;color:{muted};margin-left:auto;">
+      <b>Target:</b>&nbsp; {v_target}&nbsp;&nbsp;
+      <b style="color:{sc};">{ol}</b>
+    </div>
+  </div>
+</div>""".format(
+        card=color_card, border=color_border, muted=color_muted,
+        label=label,
+        sc=status_color, sl=status_label,
+        pa=pct_active, ca=color_active,
+        pp=pct_projected, cp=color_projected,
+        ppl=pct_pipeline, cpl=color_pipeline,
+        pg=pct_gap,
+        marker=marker_html, scale=scale_html,
+        v_active=fmt_usd(active_usd),
+        v_proj=fmt_usd(projected_usd),
+        v_pipe=fmt_usd(pipeline_usd),
+        gl=gap_label, v_gap=fmt_usd(gap_usd),
+        v_target=fmt_usd(target_usd), ol=overall_label,
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def _render_target_input_block(ads_target_default, md_target_default):
