@@ -4396,22 +4396,27 @@ def page_day_queue():
             )
 
             # ── Templates ─────────────────────────────────────────────────────
+            _msg_variant = "churn" if in_churn_risk else "std"
+            wa_key    = f"wa_{card_key}_{_msg_variant}"
+            subj_key  = f"subj_{card_key}_{_msg_variant}"
+            email_key = f"email_{card_key}_{_msg_variant}"
+
             t1, t2 = st.tabs(["WhatsApp / Treble", "Email"])
             with t1:
                 st.text_area(
                     "Mensaje WhatsApp",
                     value=wa_body,
                     height=130,
-                    key=f"wa_{card_key}",
+                    key=wa_key,
                     label_visibility="collapsed"
                 )
             with t2:
-                st.text_input("Asunto", value=subject, key=f"subj_{card_key}")
+                st.text_input("Asunto", value=subject, key=subj_key)
                 st.text_area(
                     "Cuerpo email",
                     value=email_body,
                     height=200,
-                    key=f"email_{card_key}",
+                    key=email_key,
                     label_visibility="collapsed"
                 )
 
