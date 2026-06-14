@@ -1234,8 +1234,8 @@ def get_current_ads_totals():
     revenue = pd.to_numeric(df["revenue net"], errors="coerce").fillna(0).sum()
     sales = pd.to_numeric(df["sales ads usd"], errors="coerce").fillna(0).sum()
     roi = sales / revenue if revenue else 0
-    # Proyección de revenue al cierre del mes: BOOKINGS NET × 80% de eficiencia
-    projected_revenue_usd = bookings * 0.80
+    # Proyección de revenue al cierre del mes: BOOKINGS NET × 90% (umbral de comisión)
+    projected_revenue_usd = bookings * 0.90
 
     return {
         "bookings_usd": bookings,
@@ -6369,7 +6369,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     """
     Barra de 4 segmentos:
       - Verde:   Activo hoy (REVENUE NET MTD)
-      - Azul:    Proyectado restante (BOOKINGS x 80% - REVENUE NET)
+      - Azul:    Proyectado restante (BOOKINGS x 90% - REVENUE NET)
       - Naranja: Pipeline (Opp List) — hacia 100% o hacia 120% si ya se cubrió
       - Gris:    Gap — distancia a 100% o a 120% según el caso
     """
@@ -6691,7 +6691,7 @@ def page_opportunity_list():
     )
 
     ads_acquire   = ~data["_ads_current_active"]
-    # Upselling (ROI > 4.5x) ya está contabilizado en ads_result_from_sheet (BOOKINGS × 80%),
+    # Upselling (ROI > 4.5x) ya está contabilizado en ads_result_from_sheet (BOOKINGS × 90%),
     # por lo que el pipeline solo incluye Acquire — marcas que aún no están activas.
     ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > 4.5)
 
@@ -6711,9 +6711,9 @@ def page_opportunity_list():
 
     ads_df["_suggested_booking_ars"] = ads_df["_gmv"].apply(_ads_suggested_booking)
     ads_df["_suggested_booking_usd"] = ads_df["_suggested_booking_ars"] / ARS_PER_USD
-    # Rev Proj = booking semanal estimado × semanas restantes del mes × 80% eficiencia.
+    # Rev Proj = booking semanal estimado × semanas restantes del mes × 90% (umbral comisión).
     # Refleja lo que puede generar este brand si entra hoy, hasta el cierre del mes.
-    ads_df["_revenue_proj_weekly_usd"] = ads_df["_suggested_booking_usd"] * 0.80
+    ads_df["_revenue_proj_weekly_usd"] = ads_df["_suggested_booking_usd"] * 0.90
     ads_df["_revenue_proj_monthly_usd"] = ads_df["_revenue_proj_weekly_usd"] * weeks_left
 
     ads_df = ads_df.sort_values(
@@ -6722,7 +6722,7 @@ def page_opportunity_list():
     ).reset_index(drop=True)
 
     # ── Cumulative target coverage ────────────────────────────────────────────
-    # Gap real = lo que falta después de activo + proyectado (booking × 80%)
+    # Gap real = lo que falta después de activo + proyectado (booking × 90%)
     ads_gap_usd = max(ads_target_usd - ads_result_from_sheet - ads_projected_usd, 0) if ads_target_usd > 0 else 0
     ads_df["_cumrev_usd"] = ads_df["_revenue_proj_monthly_usd"].cumsum()
 
@@ -6776,7 +6776,7 @@ def page_opportunity_list():
 
     st.caption(
         "Acquire = inactive en Current ADS · Upselling = activo con ROI > 4.5x · "
-        "Rev Proj = 80% del booking estimado × semanas restantes del mes · "
+        "Rev Proj = 90% del booking estimado × semanas restantes del mes · "
         "% Target = cobertura acumulada sobre el target mensual ADS."
     )
 
