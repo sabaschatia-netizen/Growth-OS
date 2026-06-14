@@ -6520,11 +6520,11 @@ def page_opportunity_list():
         return
 
     # ── Load targets ─────────────────────────────────────────────────────────
-    # ADS target: hardcoded (ADS_REVENUE_TARGET_USD constant = 17,574 USD)
+    # ADS target: hardcoded constant (17,574 USD)
     ads_target_from_sheet = ADS_REVENUE_TARGET_USD
-    # ADS result: Earnings col C row 3 (index 2,2)
+    # ADS result: sum of REVENUE NET from Current ADS sheet (computed below after get_current_ads_totals)
     raw_earnings = load_earnings_data()
-    ads_result_from_sheet = to_number(cell(raw_earnings, 2, 2)) if not raw_earnings.empty else 0
+    # ads_result_from_sheet will be set from Current ADS totals below
 
     # MD targets: read % from Earnings sheet (col F=MD, col G=MD Pro), row 3
     _md_targets = _read_md_targets_from_earnings()
@@ -6549,14 +6549,14 @@ def page_opportunity_list():
     portfolio_gmv_totals = get_current_gmv_totals()
     portfolio_gmv_usd = to_number(portfolio_gmv_totals.get("gmv_usd"), 0) if portfolio_gmv_totals else 0
 
-    # ── Target input block ───────────────────────────────────────────────────
-    ads_target_usd, _md_target_input_unused, weeks_left = _render_target_input_block(
-        ads_target_from_sheet, md_combined_target_usd
-    )
+    # ── ADS target (hardcoded, Target Engine eliminado) ─────────────────────
+    ads_target_usd = ADS_REVENUE_TARGET_USD  # 17,574 USD
 
-    # ── Build current-active revenue totals (what's already running) ─────────
+    # ── Build current-active revenue totals (suma REVENUE NET de Current ADS) ─
     ads_totals = get_current_ads_totals()
     active_ads_revenue_usd = to_number(ads_totals.get("revenue_usd"), 0)
+    # Activo hoy = suma total de REVENUE NET de la hoja Current ADS
+    ads_result_from_sheet = active_ads_revenue_usd
 
     # ── Build ADS and MD maps ─────────────────────────────────────────────────
     def build_ads_map():
