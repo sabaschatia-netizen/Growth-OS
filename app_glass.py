@@ -2552,6 +2552,181 @@ def save_comment_csv(brand_id, brand_name, comment, contact_channel="", opportun
     final.to_csv(COMMENTS_FILE, index=False, encoding="utf-8-sig")
 
 
+def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email, call_date):
+    """
+    Sends the transcript to Claude, evaluates it against the Call Detail matrix,
+    and appends the result as a new row in the Call Detail sheet of the Excel file.
+    Runs silently — no UI output.
+    """
+    SYSTEM_PROMPT = """Sos un evaluador de calidad de llamadas comerciales de Rappi.
+Vas a recibir la transcripción de una llamada entre un Farmer de Rappi y un aliado (restaurante).
+Tu trabajo es evaluar la llamada con exactamente la misma matriz de calidad que usa el sistema interno.
+
+Evaluá cada dimensión con 0 (no cumple) o 1 (cumple), salvo donde se indique un valor decimal.
+Devolvé SOLO un JSON válido con exactamente estos campos, sin texto adicional ni markdown:
+
+{
+  "Call Sentiment": "Positive|Neutral|Negative",
+  "Summary": "<resumen breve de la llamada en español, 2-3 oraciones>",
+  "Action Items": "<acciones acordadas, separadas por \n>",
+  "Feature Requests": "<solicitudes del aliado que Rappi debería implementar, o vacío>",
+  "Introduction Comment": "<observación sobre la introducción>",
+  "%Introduction": <0-1 float, promedio de los 3 sub-items>,
+  "%Identified Himself": <0 o 1>,
+  "%Named Brand": <0 o 1>,
+  "%Said Hello": <0 o 1>,
+  "Handling Comment": "<observación sobre el manejo de la llamada>",
+  "%Call Handling": <0-1 float, promedio de los sub-items>,
+  "In Control": <0 o 1>,
+  "Partner Interaction Comment": "<observación sobre interacción con el aliado>",
+  "Effective Communication": <0 o 1>,
+  "Handle Unknown Responses": <0 o 1>,
+  "No Interruption": <0 o 1>,
+  "Executive Summary Comment": "<observación sobre el cierre y resumen>",
+  "Respond to All Questions": <0 o 1>,
+  "Self Service Info": <0 o 1>,
+  "Call Summary": "<resumen del cierre>",
+  "%Partner Interaction": <0-1 float, promedio EC+HUR+NI>,
+  "%Exec. Summary Provided": <0 o 1>,
+  "%Decision Maker Confirm.": <0 o 1>,
+  "Top Rest Comment": "<observación sobre si se trabajó la palanca Top Restaurant>",
+  "Top Rest Subject Present": <0 o 1>,
+  "%Top Rest Action Plan": <0 o 1>,
+  "Investment Comment": "<observación sobre la palanca de inversión ADS>",
+  "%Investment": <0 o 1>,
+  "Investment Subject Present": <0 o 1>,
+  "ADS Subject Present": <0 o 1>,
+  "%ADS Action Plan": <0 o 1>,
+  "MD Subject Present": <0 o 1>,
+  "Churn Comment": "<observación sobre si se identificó y trabajó riesgo de churn>",
+  "%Churn Subject Present": <0 o 1>,
+  "%Churn Action Plan": <0 o 1>,
+  "%Self Service Info": <0 o 1>,
+  "Assortment Comment": "<observación sobre si se trabajó catálogo/menú>",
+  "Assortment Subject Present": <0 o 1>,
+  "%Assortment": <0 o 1>,
+  "%EC": <0-1 float, efectividad de contacto global>,
+  "%ENC": <0-1 float, efectividad de no contacto / manejo de bloqueos>
+}
+
+Criterios clave:
+- %Identified Himself: 1 si el agente dijo su nombre y/o rol antes de entrar al tema
+- %Named Brand: 1 si mencionó "Rappi" explícita o implícitamente validando que habla con el aliado correcto
+- %Said Hello: 1 si saludó al inicio
+- In Control: 1 si el agente guió la conversación hacia sus objetivos y no se dejó llevar
+- Effective Communication: 1 si el aliado respondió a las preguntas sin confusión
+- Handle Unknown Responses: 1 si cuando no supo algo ofreció una solución (escalar, enviar info, etc.)
+- No Interruption: 1 si el agente no interrumpió al aliado
+- %Exec. Summary Provided: 1 si al final recapituló lo acordado e indicó próximos pasos
+- %Decision Maker Confirm.: 1 si confirmó estar hablando con el tomador de decisiones
+- ADS Subject Present: 1 si se mencionó Rappi Ads / publicidad / banner / visibilidad paga
+- %ADS Action Plan: 1 si hubo un plan concreto de Ads (tipo, presupuesto o fecha)
+- MD Subject Present: 1 si se mencionó descuento / promo / markdown
+- %Churn Subject Present: 1 si se detectó e identificó riesgo de churn
+- %Churn Action Plan: 1 si se propuso un plan concreto para retener al aliado
+- Assortment Subject Present: 1 si se habló de menú, catálogo, fotos, productos
+- %Assortment: 1 si hubo una acción concreta sobre el catálogo
+- %EC: porcentaje de efectividad global de la llamada (0.0 a 1.0)
+- %ENC: efectividad en el manejo de situaciones donde no se llegó al tomador de decisiones
+"""
+
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"Content-Type": "application/json", "anthropic-version": "2023-06-01"},
+            json={
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 2000,
+                "system": SYSTEM_PROMPT,
+                "messages": [{"role": "user", "content": f"Transcripción de la llamada:\n\n{transcript}"}],
+            },
+            timeout=60,
+        )
+        raw = resp.json()["content"][0]["text"].strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        result = json.loads(raw)
+    except Exception:
+        return  # Falla silenciosamente — el follow-up ya se guardó
+
+    try:
+        wb = openpyxl.load_workbook(EXCEL_FILE)
+        if "Call Detail" not in wb.sheetnames:
+            return
+        ws = wb["Call Detail"]
+
+        # Read header from row 1
+        headers = [str(cell.value).strip() if cell.value is not None else "" for cell in ws[1]]
+
+        new_row_data = {
+            "Call Sentiment":           result.get("Call Sentiment", "Neutral"),
+            "Líder":                    "",
+            "Country":                  "AR",
+            "Farmer":                   farmer_email,
+            "Rol":                      "Farmer Jr",
+            "Call Date":                call_date,
+            "Start":                    datetime.now(),
+            "End":                      datetime.now(),
+            "Duration":                 "",
+            "Duration (s)":             0,
+            "Destination Number":       "",
+            "Country Brand ID":         str(brand_id),
+            "%Interaction Success":     result.get("%EC", 0),
+            "Summary":                  result.get("Summary", ""),
+            "Action Items":             result.get("Action Items", ""),
+            "Feature Requests":         result.get("Feature Requests", ""),
+            "Introduction Comment":     result.get("Introduction Comment", ""),
+            "%Introduction":            result.get("%Introduction", 0),
+            "%Identified Himself":      result.get("%Identified Himself", 0),
+            "%Named Brand":             result.get("%Named Brand", 0),
+            "%Said Hello":              result.get("%Said Hello", 0),
+            "Handling Comment":         result.get("Handling Comment", ""),
+            "%Call Handling":           result.get("%Call Handling", 0),
+            "In Control":               result.get("In Control", 0),
+            "Partner Interaction Comment": result.get("Partner Interaction Comment", ""),
+            "Effective Communication":  result.get("Effective Communication", 0),
+            "Handle Unknown Responses": result.get("Handle Unknown Responses", 0),
+            "No Interruption":          result.get("No Interruption", 0),
+            "Executive Summary Comment": result.get("Executive Summary Comment", ""),
+            "Respond to All Questions": result.get("Respond to All Questions", 0),
+            "Self Service Info":        result.get("Self Service Info", 0),
+            "Call Summary":             result.get("Call Summary", ""),
+            "%Partner Interaction":     result.get("%Partner Interaction", 0),
+            "%Exec. Summary Provided":  result.get("%Exec. Summary Provided", 0),
+            "%Decision Maker Confirm.": result.get("%Decision Maker Confirm.", 0),
+            "Top Rest Comment":         result.get("Top Rest Comment", ""),
+            "Top Rest Subject Present": result.get("Top Rest Subject Present", 0),
+            "%Top Rest Action Plan":    result.get("%Top Rest Action Plan", 0),
+            "Investment Comment":       result.get("Investment Comment", ""),
+            "%Investment":              result.get("%Investment", 0),
+            "Investment Subject Present": result.get("Investment Subject Present", 0),
+            "ADS Subject Present":      result.get("ADS Subject Present", 0),
+            "%ADS Action Plan":         result.get("%ADS Action Plan", 0),
+            "MD Subject Present":       result.get("MD Subject Present", 0),
+            "Churn Comment":            result.get("Churn Comment", ""),
+            "%Churn Subject Present":   result.get("%Churn Subject Present", 0),
+            "%Churn Action Plan":       result.get("%Churn Action Plan", 0),
+            "%Self Service Info":       result.get("%Self Service Info", 0),
+            "Assortment Comment":       result.get("Assortment Comment", ""),
+            "Assortment Subject Present": result.get("Assortment Subject Present", 0),
+            "%Assortment":              result.get("%Assortment", 0),
+            "%EC":                      result.get("%EC", 0),
+            "%ENC":                     result.get("%ENC", 0),
+            "Caller ID":                "",
+            "Disconnected By":          "agent",
+            "Log ID":                   str(uuid.uuid4()),
+        }
+
+        row_values = []
+        for h in headers:
+            row_values.append(new_row_data.get(h, None))
+
+        ws.append(row_values)
+        wb.save(EXCEL_FILE)
+    except Exception:
+        return  # Falla silenciosamente
+
+
+
 def _load_comments_df():
     if not os.path.exists(COMMENTS_FILE):
         return pd.DataFrame()
@@ -14300,6 +14475,17 @@ def page_brand_finder():
             key=f"template_type_{brand_id}"
         )
 
+    # ── Transcripción Amazon Connect (solo visible cuando canal = Call) ────────
+    call_transcript = ""
+    if contact_channel == "Call":
+        call_transcript = st.text_area(
+            "📋 Transcripción de la llamada (opcional)",
+            placeholder="Pegá aquí la transcripción de Amazon Connect — se evaluará automáticamente con IA al guardar...",
+            height=130,
+            key=f"call_transcript_{brand_id}",
+            help="La transcripción se analiza con IA y se guarda en Call Detail. No afecta el guardado del follow-up.",
+        )
+
     comment_auto = ""
     followup_type = ""
     rejection_reason = ""
@@ -14554,6 +14740,19 @@ def page_brand_finder():
             opportunity_status=opportunity_status,
             commercial_action=comment_commercial_action,
         )
+
+        # ── Evaluación IA de transcripción (silenciosa, en background) ─────────
+        if contact_channel == "Call" and call_transcript.strip():
+            try:
+                evaluate_and_save_call_detail(
+                    transcript=call_transcript.strip(),
+                    brand_id=brand_id,
+                    brand_name=name,
+                    farmer_email="sabas.ramirez@rappi.com",
+                    call_date=date.today(),
+                )
+            except Exception:
+                pass  # Falla silenciosa — el follow-up ya se guardó
 
         ok, msg = update_agenda_notes(EXCEL_FILE, brand_id, final_comment, append=True)
         follow_ok, follow_msg = update_contact_followup_fields(
