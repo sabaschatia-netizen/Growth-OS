@@ -6508,7 +6508,69 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     st.markdown(html, unsafe_allow_html=True)
 
 
-def _render_target_input_block(ads_target_default, md_target_default):
+def _render_churn_distribution_bar(counts, total):
+    """
+    Barra de distribución de severidad de churn sobre el total de stores.
+    counts: dict con claves 'On', 'W1', 'W2', 'W3', 'Off' → cantidad de stores.
+    total: número total de stores (Current Churn).
+    """
+    if total <= 0:
+        return
+
+    color_card   = COLORS["card"]
+    color_border = COLORS["border"]
+    color_muted  = COLORS["muted"]
+
+    segments = [
+        ("On",  "✅ On",  "#6FF24B"),
+        ("W1",  "⚠️ W1",  "#FFD166"),
+        ("W2",  "🚨 W2",  "#FF7124"),
+        ("W3",  "🆘 W3",  "#E5332A"),
+        ("Off", "😴 Off", "rgba(255,255,255,.25)"),
+    ]
+
+    bars_html = ""
+    legend_html = ""
+    for key, lbl, color in segments:
+        n = counts.get(key, 0)
+        pct = (n / total) * 100 if total > 0 else 0
+        if pct > 0:
+            bars_html += (
+                f'<div style="width:{pct:.1f}%;background:{color};transition:width .4s;" '
+                f'title="{lbl}: {n}"></div>'
+            )
+        legend_html += (
+            f'<div style="font-size:12px;color:{color_muted};">'
+            f'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;'
+            f'background:{color};margin-right:5px;"></span>'
+            f'<b style="color:{color};">{lbl}</b>&nbsp; {n} '
+            f'<span style="opacity:.6;">({pct:.1f}%)</span></div>'
+        )
+
+    n_churned = total - counts.get("On", 0)
+    pct_churned = (n_churned / total) * 100 if total > 0 else 0
+
+    html = f"""
+<div style="background:{color_card};border:1px solid {color_border};border-radius:16px;padding:18px 22px 16px;margin-bottom:18px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:{color_muted};">
+      Distribución de Churn · {total} stores
+    </div>
+    <div style="font-size:12px;font-weight:700;color:{COLORS['danger']};background:rgba(255,255,255,.06);border-radius:20px;padding:3px 12px;border:1px solid {COLORS['danger']}40;">
+      {n_churned} en riesgo ({pct_churned:.1f}%)
+    </div>
+  </div>
+  <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.08);margin-bottom:12px;">
+    {bars_html}
+  </div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    {legend_html}
+  </div>
+</div>"""
+    st.markdown(html, unsafe_allow_html=True)
+
+
+
     """
     Compact target input row. Returns (ads_target_usd, md_target_usd, weeks_left).
     Tries to pre-fill from the Earnings sheet; user can override inline.
@@ -7243,6 +7305,21 @@ def page_opportunity_list():
         n_stores = len(churn_df)
 
     st.markdown("## 🔴 CHURN")
+
+    # ── Barra de distribución de severidad (On/W1/W2/W3/Off) ─────────────────
+    if not _raw_churn_df.empty and _cc_sta_col:
+        _all_statuses = _raw_churn_df[_cc_sta_col].apply(lambda x: clean(x, "").strip())
+        _all_statuses = _all_statuses[_all_statuses != ""]
+        _dist_counts = _all_statuses.value_counts().to_dict()
+        # Normalizar claves a On/W1/W2/W3/Off (lo que sea distinto se ignora del total)
+        _dist_counts_norm = {}
+        for k, v in _dist_counts.items():
+            kn = k.strip()
+            if kn in ("On", "W1", "W2", "W3", "Off"):
+                _dist_counts_norm[kn] = _dist_counts_norm.get(kn, 0) + v
+        _dist_total = sum(_dist_counts_norm.values())
+        _render_churn_distribution_bar(_dist_counts_norm, _dist_total)
+
     if total_gmv_at_risk > 0:
         st.markdown(
             f"<div style='font-size:13px; color:{COLORS['danger']}; font-weight:700; margin-bottom:12px;'>"
