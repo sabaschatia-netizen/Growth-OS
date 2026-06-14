@@ -14054,120 +14054,185 @@ def render_brand_profile(row, brand_id):
     st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
 
     # ── Generar Informe · Brand vs Brand / Brand vs Categoría → Gemini ────────
-    st.markdown(f"""
-<div class="wide-info-card" style="margin-top:18px;">
-  <div class="wide-info-title" style="margin-bottom:4px;">📊 Generar Informe en Gemini</div>
-  <div style="font-size:12px;color:{PALETTE['cinnamon_ice']};margin-bottom:14px;">
-    Abrí Gemini con el prompt ya armado — esperá que genere y descargá la imagen.
+    # Gemini no acepta ?q= en la URL, así que el flujo es:
+    # 1. Botón "Copiar prompt" → copia al portapapeles via JS
+    # 2. Botón "Abrir Gemini" → abre gemini.google.com en nueva pestaña
+    # El usuario pega (Ctrl+V) y genera.
+
+    # ── Construir prompts ─────────────────────────────────────────────────────
+    _abr_gmv = fmt_ars(abril_gmv_ars) if abril_gmv_ars and abril_gmv_ars > 0 else "sin dato"
+    _abr_aov = fmt_ars(abril_aov_ars) if abril_aov_ars and abril_aov_ars > 0 else "sin dato"
+    _may_gmv = fmt_ars(may_gmv_ars)   if may_gmv_ars   and may_gmv_ars   > 0 else "sin dato"
+    _may_aov = fmt_ars(may_aov_ars)   if may_aov_ars   and may_aov_ars   > 0 else "sin dato"
+    _cur_gmv = fmt_ars(current_gmv_ars) if current_gmv_ars and current_gmv_ars > 0 else "sin dato"
+    _cur_aov = fmt_ars(current_aov_ars) if current_aov_ars and current_aov_ars > 0 else "sin dato"
+
+    _prompt_bvb = (
+        f"Generá una imagen tipo informe ejecutivo de ventas para la marca \"{name}\" "
+        f"({category}). "
+        f"Mostrá la evolución de los últimos 3 meses con estos datos reales:\n\n"
+        f"ABRIL → GMV: {_abr_gmv} | AOV: {_abr_aov}\n"
+        f"MAYO  → GMV: {_may_gmv} | AOV: {_may_aov}\n"
+        f"JUNIO → GMV: {_cur_gmv} | AOV: {_cur_aov}\n\n"
+        f"El informe debe incluir: gráficos de tendencia de GMV y AOV mes a mes, "
+        f"% de variación entre cada mes, y un resumen visual de la evolución de la marca. "
+        f"Estilo: moderno, oscuro, profesional. Idioma: español."
+    )
+
+    _mctx = get_market_context(category, "GMV", brand_gmv=current_gmv_ars or growth_gmv_ars)
+    _percentil  = _mctx.get("brand_percentile", "N/D")
+    _cvr_brand  = f"{round(_cr_current_norm * 100, 1)}%" if _cr_current_norm and _cr_current_norm > 0 else "sin dato"
+    _cvr_cat    = f"{round(_cr_benchmark_norm * 100, 1)}%" if _cr_benchmark_norm and _cr_benchmark_norm > 0 else "sin dato"
+
+    if _traffic_weekly and _traffic_weekly > 0:
+        _traffic_line = (
+            f"- Tráfico semanal de la marca: {round(_traffic_weekly):,} impresiones · "
+            f"Tráfico semanal promedio categoría: {round(get_traffic_category_benchmark(category) or 0):,} impresiones"
+        )
+    else:
+        _traffic_line = (
+            "- Tráfico: sin data disponible para esta marca. "
+            "Partimos de la suposición de que la marca recibe aproximadamente un 20% menos de tráfico "
+            "que el promedio de su competencia en la categoría — no uses números específicos para el tráfico."
+        )
+
+    _prompt_bvc = (
+        f"Generá una imagen tipo informe ejecutivo comparativo para la marca \"{name}\" "
+        f"vs su categoría \"{category}\" en Rappi Argentina. "
+        f"Usá estos datos reales:\n\n"
+        f"- Percentil GMV de la marca dentro de la categoría: {_percentil}\n"
+        f"- GMV actual de la marca: {fmt_ars(current_gmv_ars or growth_gmv_ars)}\n"
+        f"- GMV promedio de la categoría: {_mctx.get('market_gmv_avg', 'N/D')}\n"
+        f"- GMV del top competidor: {_mctx.get('market_top_gmv', 'N/D')}\n"
+        f"- Conversión (CVR) de la marca: {_cvr_brand}\n"
+        f"- Conversión (CVR) promedio categoría: {_cvr_cat}\n"
+        f"{_traffic_line}\n\n"
+        f"El informe debe incluir: posición percentil visual, comparativa de CVR marca vs categoría, "
+        f"comparativa de tráfico con la aclaración de datos disponibles, "
+        f"y un insight ejecutivo sobre la oportunidad de mejora. "
+        f"Estilo: moderno, oscuro, profesional. Idioma: español."
+    )
+
+    # Escapar los prompts para usarlos dentro de JS (JSON-safe)
+    import json as _json
+    _prompt_bvb_js = _json.dumps(_prompt_bvb)   # incluye comillas — seguro para JS
+    _prompt_bvc_js = _json.dumps(_prompt_bvc)
+
+    st_components.html(f"""
+<style>
+  .inf-wrapper {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    font-family: 'Inter', sans-serif;
+    margin-top: 4px;
+  }}
+  .inf-card {{
+    border-radius: 14px;
+    padding: 18px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }}
+  .inf-card.blue {{
+    background: linear-gradient(135deg, rgba(59,72,131,.18), rgba(59,72,131,.32));
+    border: 1.5px solid #3B4883;
+  }}
+  .inf-card.orange {{
+    background: linear-gradient(135deg, rgba(255,113,36,.14), rgba(255,113,36,.24));
+    border: 1.5px solid #FF7124;
+  }}
+  .inf-emoji {{ font-size: 20px; }}
+  .inf-title {{ font-size: 14px; font-weight: 800; color: #E8DFD5; }}
+  .inf-desc  {{ font-size: 11px; color: #DBBBA7; line-height: 1.5; }}
+  .inf-actions {{ display: flex; gap: 8px; margin-top: 8px; }}
+  .inf-btn {{
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    transition: opacity .15s;
+  }}
+  .inf-btn:hover {{ opacity: .82; }}
+  .inf-btn.copy-blue   {{ background: #3B4883; color: #E8DFD5; }}
+  .inf-btn.open-blue   {{ background: rgba(59,72,131,.25); color: #8B9ED4; border: 1px solid #3B4883; }}
+  .inf-btn.copy-orange {{ background: #FF7124; color: #fff; }}
+  .inf-btn.open-orange {{ background: rgba(255,113,36,.18); color: #FF7124; border: 1px solid #FF7124; }}
+  .inf-feedback {{ font-size: 10px; color: #6FF24B; margin-top: 4px; min-height: 14px; }}
+</style>
+
+<div class="inf-wrapper">
+
+  <!-- Brand vs Brand -->
+  <div class="inf-card blue">
+    <div class="inf-emoji">📈</div>
+    <div class="inf-title">Brand vs Brand</div>
+    <div class="inf-desc">Evolución de GMV y AOV en los últimos 3 meses. Tendencia y variación mes a mes.</div>
+    <div class="inf-actions">
+      <button class="inf-btn copy-blue" onclick="copyPromptBvB()">📋 Copiar prompt</button>
+      <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" style="flex:1;text-decoration:none;">
+        <button class="inf-btn open-blue" style="width:100%;">✨ Abrir Gemini</button>
+      </a>
+    </div>
+    <div class="inf-feedback" id="fb-bvb"></div>
   </div>
+
+  <!-- Brand vs Categoría -->
+  <div class="inf-card orange">
+    <div class="inf-emoji">🏪</div>
+    <div class="inf-title">Brand vs Categoría</div>
+    <div class="inf-desc">Percentil GMV, conversión y tráfico de la marca vs el promedio de su categoría.</div>
+    <div class="inf-actions">
+      <button class="inf-btn copy-orange" onclick="copyPromptBvC()">📋 Copiar prompt</button>
+      <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" style="flex:1;text-decoration:none;">
+        <button class="inf-btn open-orange" style="width:100%;">✨ Abrir Gemini</button>
+      </a>
+    </div>
+    <div class="inf-feedback" id="fb-bvc"></div>
+  </div>
+
 </div>
-""", unsafe_allow_html=True)
 
-    _inf_col1, _inf_col2 = st.columns(2)
+<script>
+  const PROMPT_BVB = {_prompt_bvb_js};
+  const PROMPT_BVC = {_prompt_bvc_js};
 
-    # ── Informe 1: Brand vs Brand (evolución histórica de la marca) ───────────
-    def _build_gemini_url_brand_vs_brand():
-        _abr_gmv = fmt_ars(abril_gmv_ars) if abril_gmv_ars and abril_gmv_ars > 0 else "sin dato"
-        _abr_aov = fmt_ars(abril_aov_ars) if abril_aov_ars and abril_aov_ars > 0 else "sin dato"
-        _may_gmv = fmt_ars(may_gmv_ars)   if may_gmv_ars   and may_gmv_ars   > 0 else "sin dato"
-        _may_aov = fmt_ars(may_aov_ars)   if may_aov_ars   and may_aov_ars   > 0 else "sin dato"
-        _cur_gmv = fmt_ars(current_gmv_ars) if current_gmv_ars and current_gmv_ars > 0 else "sin dato"
-        _cur_aov = fmt_ars(current_aov_ars) if current_aov_ars and current_aov_ars > 0 else "sin dato"
+  function copyToClipboard(text, feedbackId) {{
+    navigator.clipboard.writeText(text).then(function() {{
+      var el = document.getElementById(feedbackId);
+      if (el) {{
+        el.textContent = "✅ Prompt copiado — pegalo en Gemini y generá la imagen";
+        setTimeout(function() {{ el.textContent = ""; }}, 4000);
+      }}
+    }}).catch(function() {{
+      // Fallback para contextos sin clipboard API
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {{ document.execCommand("copy"); }} catch(e) {{}}
+      document.body.removeChild(ta);
+      var el = document.getElementById(feedbackId);
+      if (el) {{
+        el.textContent = "✅ Prompt copiado — pegalo en Gemini y generá la imagen";
+        setTimeout(function() {{ el.textContent = ""; }}, 4000);
+      }}
+    }});
+  }}
 
-        _prompt = (
-            f"Generá una imagen tipo informe ejecutivo de ventas para la marca \"{name}\" "
-            f"({category}). "
-            f"Mostrá la evolución de los últimos 3 meses con estos datos reales:\n\n"
-            f"ABRIL → GMV: {_abr_gmv} | AOV: {_abr_aov}\n"
-            f"MAYO  → GMV: {_may_gmv} | AOV: {_may_aov}\n"
-            f"JUNIO → GMV: {_cur_gmv} | AOV: {_cur_aov}\n\n"
-            f"El informe debe incluir: gráficos de tendencia de GMV y AOV mes a mes, "
-            f"% de variación entre cada mes, y un resumen visual de la evolución de la marca. "
-            f"Estilo: moderno, oscuro, profesional. Idioma: español."
-        )
-        return "https://gemini.google.com/app?q=" + quote_plus(_prompt)
-
-    # ── Informe 2: Brand vs Categoría (posición relativa en la categoría) ─────
-    def _build_gemini_url_brand_vs_categoria():
-        _mctx = get_market_context(category, "GMV", brand_gmv=current_gmv_ars or growth_gmv_ars)
-        _percentil = _mctx.get("brand_percentile", "N/D")
-        _cvr_brand = f"{round(_cr_current_norm * 100, 1)}%" if _cr_current_norm and _cr_current_norm > 0 else "sin dato"
-        _cvr_cat   = f"{round(_cr_benchmark_norm * 100, 1)}%" if _cr_benchmark_norm and _cr_benchmark_norm > 0 else "sin dato"
-
-        # Tráfico: si no hay data real, asumir -20% vs categoría
-        if _traffic_weekly and _traffic_weekly > 0:
-            _traffic_line = (
-                f"- Tráfico semanal de la marca: {round(_traffic_weekly):,} impresiones · "
-                f"Tráfico semanal promedio categoría: {round(get_traffic_category_benchmark(category) or 0):,} impresiones"
-            )
-        else:
-            _traffic_line = (
-                "- Tráfico: sin data disponible para esta marca. "
-                "Partimos de la suposición de que la marca recibe aproximadamente un 20% menos de tráfico "
-                "que el promedio de su competencia en la categoría — no uses números específicos para el tráfico."
-            )
-
-        _prompt = (
-            f"Generá una imagen tipo informe ejecutivo comparativo para la marca \"{name}\" "
-            f"vs su categoría \"{category}\" en Rappi Argentina. "
-            f"Usá estos datos reales:\n\n"
-            f"- Percentil GMV de la marca dentro de la categoría: {_percentil}\n"
-            f"- GMV actual de la marca: {fmt_ars(current_gmv_ars or growth_gmv_ars)}\n"
-            f"- GMV promedio de la categoría: {_mctx.get('market_gmv_avg', 'N/D')}\n"
-            f"- GMV del top competidor: {_mctx.get('market_top_gmv', 'N/D')}\n"
-            f"- Conversión (CVR) de la marca: {_cvr_brand}\n"
-            f"- Conversión (CVR) promedio categoría: {_cvr_cat}\n"
-            f"{_traffic_line}\n\n"
-            f"El informe debe incluir: posición percentil visual, comparativa de CVR marca vs categoría, "
-            f"comparativa de tráfico con la aclaración de datos disponibles, "
-            f"y un insight ejecutivo sobre la oportunidad de mejora. "
-            f"Estilo: moderno, oscuro, profesional. Idioma: español."
-        )
-        return "https://gemini.google.com/app?q=" + quote_plus(_prompt)
-
-    with _inf_col1:
-        _url_bvb = _build_gemini_url_brand_vs_brand()
-        st.markdown(f"""
-<a href="{html.escape(_url_bvb)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
-  <div style="
-    background:linear-gradient(135deg,{PALETTE['blue_estate']}22,{PALETTE['blue_estate']}44);
-    border:1.5px solid {PALETTE['blue_estate']};
-    border-radius:14px;padding:18px 20px;cursor:pointer;transition:all .2s;
-    display:flex;flex-direction:column;gap:6px;
-  ">
-    <div style="font-size:18px;">📈</div>
-    <div style="font-size:14px;font-weight:800;color:{PALETTE['pale_cashmere']};">Brand vs Brand</div>
-    <div style="font-size:11px;color:{PALETTE['cinnamon_ice']};line-height:1.5;">
-      Evolución de GMV y AOV en los últimos 3 meses. Tendencia y variación mes a mes.
-    </div>
-    <div style="font-size:10px;font-weight:700;color:{PALETTE['blue_glow']};margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">
-      Abrir en Gemini →
-    </div>
-  </div>
-</a>
-""", unsafe_allow_html=True)
-
-    with _inf_col2:
-        _url_bvc = _build_gemini_url_brand_vs_categoria()
-        st.markdown(f"""
-<a href="{html.escape(_url_bvc)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
-  <div style="
-    background:linear-gradient(135deg,{PALETTE['burning_orange']}22,{PALETTE['burning_orange']}33);
-    border:1.5px solid {PALETTE['burning_orange']};
-    border-radius:14px;padding:18px 20px;cursor:pointer;transition:all .2s;
-    display:flex;flex-direction:column;gap:6px;
-  ">
-    <div style="font-size:18px;">🏪</div>
-    <div style="font-size:14px;font-weight:800;color:{PALETTE['pale_cashmere']};">Brand vs Categoría</div>
-    <div style="font-size:11px;color:{PALETTE['cinnamon_ice']};line-height:1.5;">
-      Percentil GMV, conversión y tráfico de la marca vs el promedio de su categoría.
-    </div>
-    <div style="font-size:10px;font-weight:700;color:{PALETTE['burning_orange']};margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">
-      Abrir en Gemini →
-    </div>
-  </div>
-</a>
-""", unsafe_allow_html=True)
+  function copyPromptBvB() {{ copyToClipboard(PROMPT_BVB, "fb-bvb"); }}
+  function copyPromptBvC() {{ copyToClipboard(PROMPT_BVC, "fb-bvc"); }}
+</script>
+""", height=240, scrolling=False)
 
     return name
 
