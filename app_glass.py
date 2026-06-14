@@ -9610,16 +9610,16 @@ def page_productivity_heatmap():
     .hm-wrap { width: 100%; font-family: sans-serif; }
     .hm-table { width: 100%; border-collapse: collapse; }
     .hm-table th {
-        font-size: 11px; font-weight: 500; color: #888;
+        font-size: 11px; font-weight: 500; color: #DBBBA7;
         text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.12);
     }
     .hm-table th.hm-lh { text-align: left; min-width: 150px; }
     .hm-table td.hm-label {
-        font-size: 12px; color: #555; padding: 3px 6px 3px 2px;
+        font-size: 12px; color: #E8DFD5; padding: 3px 6px 3px 2px;
         border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
     }
     .hm-table td.hm-label-sub {
-        font-size: 11px; color: #888; padding: 3px 6px 3px 20px;
+        font-size: 11px; color: #DBBBA7; padding: 3px 6px 3px 20px;
         border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
     }
     .hm-table td.hm-c {
@@ -9655,9 +9655,9 @@ def page_productivity_heatmap():
     .hm-insight {
         margin-top: 1.5rem; padding: 12px 16px; border-radius: 8px;
         border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
-        font-size: 12px; color: #666; line-height: 1.6;
+        font-size: 12px; color: #DBBBA7; line-height: 1.6;
     }
-    .hm-insight b { color: #333; font-weight: 600; }
+    .hm-insight b { color: #E8DFD5; font-weight: 600; }
     .hm-cell-inner-rec {
         display: flex; flex-direction: column; align-items: center;
         justify-content: center; border-radius: 6px;
@@ -9665,7 +9665,7 @@ def page_productivity_heatmap():
         border: 1.5px dashed #6FF24B;
     }
     .hm-rec-val { font-size: 11px; font-weight: 700; color: #6FF24B; }
-    .hm-rec-lbl { font-size: 9px; color: #888; opacity: .8; }
+    .hm-rec-lbl { font-size: 9px; color: #DBBBA7; opacity: .9; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -9778,9 +9778,9 @@ def page_productivity_heatmap():
     if _bm_records:
         _bm_items_html = "".join(
             f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.08);">' 
-            f'<span style="font-size:12px;color:#555;min-width:130px;">{bm_name}</span>' 
+            f'<span style="font-size:12px;color:#E8DFD5;min-width:130px;">{bm_name}</span>' 
             f'<span style="font-size:13px;font-weight:700;color:#6FF24B;">{bm_pct}%</span>' 
-            f'<span style="font-size:11px;color:#aaa;">mejor en {bm_wk}</span>' 
+            f'<span style="font-size:11px;color:#DBBBA7;">mejor en {bm_wk}</span>' 
             f'🏆</div>'
             for bm_name, bm_pct, bm_wk in _bm_records[:6]
         )
@@ -9904,7 +9904,7 @@ def page_productivity_heatmap():
             for _, r in corr_df.iterrows():
                 delta_val = r["Delta %"]
                 if delta_val is None or (isinstance(delta_val, float) and pd.isna(delta_val)):
-                    delta_cell = "<span style='color:#aaa'>—</span>"
+                    delta_cell = "<span style='color:#DBBBA7'>—</span>"
                     delta_bg   = "rgba(255,255,255,0.05)"
                 elif float(delta_val) >= 0:
                     _lg = PALETTE["laser_green"]
@@ -9922,10 +9922,10 @@ def page_productivity_heatmap():
 
                 rows_html += (
                     f"<tr style='border-bottom:1px solid rgba(255,255,255,0.08)'>"
-                    f"<td style='padding:5px 10px;color:#555;font-weight:600'>{semana}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#333'>{marcas}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#333'>{gmv_con}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#333'>{gmv_sin}</td>"
+                    f"<td style='padding:5px 10px;color:#E8DFD5;font-weight:600'>{semana}</td>"
+                    f"<td style='padding:5px 10px;text-align:center;color:#DBBBA7'>{marcas}</td>"
+                    f"<td style='padding:5px 10px;text-align:center;color:#E8DFD5'>{gmv_con}</td>"
+                    f"<td style='padding:5px 10px;text-align:center;color:#E8DFD5'>{gmv_sin}</td>"
                     f"<td style='padding:5px 10px;text-align:center;background:{delta_bg}'>{delta_cell}</td>"
                     f"</tr>"
                 )
@@ -15165,26 +15165,22 @@ def page_campaign_weekly_tracker():
     # ── Tabla Ads CPC Monitor (desde snapshots históricos) ───────────────────
     df = _load_campaign_weekly_tracker_df()
     names = _brand_name_map()
-    _has_history = not df.empty
-    if _has_history:
-        periods = _last_four_periods(df)
-        work = df[df["period"].astype(str).isin(periods)].copy()
-        for c in ["bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"]:
-            if c in work.columns:
-                work[c] = pd.to_numeric(work[c], errors="coerce").fillna(0)
-        latest_period = periods[-1] if periods else "-"
-        latest = work[work["period"].astype(str) == latest_period].copy()
-        ads_latest = latest[latest["channel"] == "Ads"].copy()
-    else:
-        periods = []
-        work = pd.DataFrame(columns=["period","channel","brand_id","bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"])
-        latest = pd.DataFrame()
-        ads_latest = pd.DataFrame()
+    if df.empty:
+        st.markdown("### Ads CPC Monitor")
+        st.info("Sin historial de snapshots todavía. Capturá el primer snapshot este domingo para empezar a ver la tabla.")
+        return
+    periods = _last_four_periods(df)
+    work = df[df["period"].astype(str).isin(periods)].copy()
+    for c in ["bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"]:
+        if c in work.columns:
+            work[c] = pd.to_numeric(work[c], errors="coerce").fillna(0)
+    latest_period = periods[-1] if periods else "-"
+    latest = work[work["period"].astype(str) == latest_period].copy()
+    ads_latest = latest[latest["channel"] == "Ads"].copy()
+    md_latest  = latest[latest["channel"].isin(["Markdown", "Markdown PRO"])].copy()
 
     st.markdown("### Ads CPC Monitor")
     if ads_latest.empty:
-        if not _has_history:
-            st.info("Sin historial de snapshots todavía. Capturá el primer snapshot este domingo para empezar a ver la tabla.")
         ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Strategic Note"])
     else:
         ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
@@ -15360,30 +15356,9 @@ def page_campaign_weekly_tracker():
 
     _render_html_table(ads_view)
 
-    # ── MD Normal y MD PRO: datos EN VIVO desde Current MD / Current MD pro ──
-    # El histórico (CSV snapshots) se usará SOLO para WoW y GMV Trend.
-    # La lista de marcas activas viene directo del Excel, no del snapshot.
-    def _live_md_to_monitor_df(pro_flag):
-        """Convierte Current MD / Current MD pro al formato que espera _build_md_monitor_view."""
-        _ldf = load_current_md_data(portfolio_only=False, pro=pro_flag)
-        if _ldf.empty:
-            return pd.DataFrame()
-        _channel = "Markdown PRO" if pro_flag else "Markdown"
-        rows_out = []
-        for _, _r in _ldf.iterrows():
-            rows_out.append({
-                "channel":    _channel,
-                "brand_id":   _r.get("_id", ""),
-                "gmv_usd":    to_number(_r.get("_gmv_usd"), 0),
-                "sales_usd":  to_number(_r.get("_sales_usd"), 0),
-                "roi":        to_number(_r.get("_roi_raw"), 0),
-                "orders":     to_number(_r.get("_orders"), 0),
-                "campaigns":  to_number(_r.get("_campaigns"), 0),
-            })
-        return pd.DataFrame(rows_out)
-
-    md_normal_latest = _live_md_to_monitor_df(pro_flag=False)
-    md_pro_latest    = _live_md_to_monitor_df(pro_flag=True)
+    # Separate MD Normal and MD PRO sections
+    md_normal_latest = latest[latest["channel"] == "Markdown"].copy()
+    md_pro_latest = latest[latest["channel"] == "Markdown PRO"].copy()
 
     # ── Penetration maps: GMV brand y GMV MD desde Current MD (en vivo) ────────
     # Necesitamos el GMV total del brand (Last GMV ARS) para calcular penetración.
@@ -15572,16 +15547,6 @@ def page_campaign_weekly_tracker():
                 "Recomendación":   recommendation,
             })
         md_view_out = pd.DataFrame(rows)
-        if not md_view_out.empty and "Sales USD" in md_view_out.columns:
-            md_view_out["_sales_sort"] = pd.to_numeric(
-                md_view_out["Sales USD"].astype(str).str.replace(",", ""), errors="coerce"
-            ).fillna(0)
-            md_view_out = (
-                md_view_out.sort_values("_sales_sort", ascending=False)
-                .drop(columns=["_sales_sort"])
-                .reset_index(drop=True)
-            )
-            md_view_out.index = md_view_out.index + 1
         _render_html_table(md_view_out)
 
     _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
