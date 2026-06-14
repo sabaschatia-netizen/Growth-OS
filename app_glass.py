@@ -15220,7 +15220,20 @@ def page_weekly_calendar():
     active_agenda["_sort_date"] = active_agenda["_parsed_date"].apply(lambda x: x or date.max)
     active_agenda = active_agenda.sort_values(by=["_sort_date", "_time_display"], ascending=True)
 
+    _render_calendar_events(active_agenda, today)
+
+
+@st.fragment
+def _render_calendar_events(active_agenda, today):
+    # Ocultamos en session_state los ítems marcados como Done en esta sesión
+    # para que desaparezcan de inmediato sin releer el Excel completo.
+    done_rows = st.session_state.setdefault("_wc_done_rows", set())
+
     for idx, row in active_agenda.iterrows():
+        excel_row = row.get("_excel_row", None)
+        if excel_row in done_rows:
+            continue  # Ya marcado en esta sesión — lo ocultamos al instante
+
         task_date = parse_agenda_date(get_from_row(row, ["date", "data"], None))
         task_day = task_date.strftime("%a").upper() if task_date else "NO DATE"
         task_date_text = task_date.strftime("%b %d") if task_date else "Pending"
@@ -15229,7 +15242,6 @@ def page_weekly_calendar():
         priority = clean(get_from_row(row, ["priority"], "Mid"))
         pclass = priority_class(priority)
         status = clean(get_from_row(row, ["status"], "Pending"))
-        excel_row = row.get("_excel_row", None)
 
         is_overdue = task_date is not None and task_date < today
         overdue_tag = " · OVERDUE" if is_overdue else ""
@@ -15271,8 +15283,8 @@ def page_weekly_calendar():
                 if st.button("Mark as Done", key=f"done_{excel_row}_{idx}"):
                     ok, msg = mark_agenda_row_done(EXCEL_FILE, excel_row)
                     if ok:
-                        st.success("Marked as Done. It will disappear from Weekly Calendar.")
-                        st.rerun()
+                        done_rows.add(excel_row)
+                        st.success("✅ Marked as Done.")
                     else:
                         st.error(msg)
 
