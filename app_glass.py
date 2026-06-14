@@ -12997,10 +12997,17 @@ def render_brand_profile(row, brand_id):
         </div>
         <div class="hero-info-item">
             <div class="hero-info-label">Contact</div>
-            <div class="hero-info-value">{html.escape(fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"])))}</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div class="hero-info-value" id="contact-num-{normalize_brand_id(brand_id)}">{html.escape(fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"])))}</div>
+                <button onclick="(function(){{var t=document.getElementById('contact-num-{normalize_brand_id(brand_id)}').innerText;navigator.clipboard.writeText(t).then(function(){{var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}}).catch(function(){{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}});}})();"
+                    id="copy-btn-{normalize_brand_id(brand_id)}"
+                    title="Copiar número"
+                    style="background:rgba(59,72,131,0.25);border:1px solid rgba(59,72,131,0.5);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:#8B9ED4;line-height:1.6;transition:all .15s;"
+                    onmouseover="this.style.background='rgba(59,72,131,0.45)'"
+                    onmouseout="this.style.background='rgba(59,72,131,0.25)'"
+                >📋</button>
+            </div>
         </div>
-        <div class="hero-info-item">
-            <div class="hero-info-label">Email</div>
             <div class="hero-info-value">{html.escape(clean(get_from_row(row, ["email"])))}</div>
         </div>
         <div class="hero-info-item">
