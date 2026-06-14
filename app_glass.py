@@ -11613,10 +11613,12 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
         if top_res_str:
             cue_parts.append(f"TopRes: {top_res_str}.")
         if ava_val and ava_val > 0 and orders_monthly > 0 and aov_ars > 0:
+            _gmv_actual = orders_monthly * aov_ars
             _ava_gap = max(0, 1.0 - ava_val)
-            _ava_gmv_perdido = round(_ava_gap * orders_monthly * aov_ars / 1000) * 1000
-            if _ava_gmv_perdido > 0:
-                cue_parts.append(f"GMV perdido: ~{fmt_ars(_ava_gmv_perdido)}/mes (costo de oportunidad del {fmt_percent0(_ava_gap)} que falta para llegar al 100%).")
+            # Upside proporcional: cuánto más GMV si availability sube a 100%
+            _ava_upside = round(_gmv_actual * (_ava_gap / ava_val) / 1000) * 1000
+            if _ava_upside > 0:
+                cue_parts.append(f"Upside estimado: ~{fmt_ars(_ava_upside)}/mes si sube de {fmt_percent0(ava_val)} a 100% (proporcional al GMV actual).")
         else:
             cue_parts.append("Escalar tráfico sobre baja disponibilidad quema budget.")
         cue = " ".join(cue_parts)
