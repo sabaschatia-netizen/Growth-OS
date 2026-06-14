@@ -1234,10 +1234,13 @@ def get_current_ads_totals():
     revenue = pd.to_numeric(df["revenue net"], errors="coerce").fillna(0).sum()
     sales = pd.to_numeric(df["sales ads usd"], errors="coerce").fillna(0).sum()
     roi = sales / revenue if revenue else 0
+    # Proyección de revenue al cierre del mes: BOOKINGS NET × 80% de eficiencia
+    projected_revenue_usd = bookings * 0.80
 
     return {
         "bookings_usd": bookings,
         "revenue_usd": revenue,
+        "projected_revenue_usd": projected_revenue_usd,
         "sales_usd": sales,
         "roi": roi,
     }
@@ -6555,8 +6558,9 @@ def page_opportunity_list():
     # ── Build current-active revenue totals (suma REVENUE NET de Current ADS) ─
     ads_totals = get_current_ads_totals()
     active_ads_revenue_usd = to_number(ads_totals.get("revenue_usd"), 0)
-    # Activo hoy = suma total de REVENUE NET de la hoja Current ADS
-    ads_result_from_sheet = active_ads_revenue_usd
+    # Activo proyectado = BOOKINGS NET × 80%: asume que el booking corriente rinde al mínimo esperado
+    # Esto da el cierre proyectado real de lo que ya está corriendo, no solo lo consumido MTD
+    ads_result_from_sheet = to_number(ads_totals.get("projected_revenue_usd"), 0)
 
     # ── Build ADS and MD maps ─────────────────────────────────────────────────
     def build_ads_map():
@@ -6609,13 +6613,13 @@ def page_opportunity_list():
     )
 
     ads_acquire   = ~data["_ads_current_active"]
+    # Upselling (ROI > 4.5x) ya está contabilizado en ads_result_from_sheet (BOOKINGS × 80%),
+    # por lo que el pipeline solo incluye Acquire — marcas que aún no están activas.
     ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > 4.5)
 
-    ads_df = data[ads_acquire | ads_upselling].copy()
-    ads_df["_opp_group"] = ads_df.apply(
-        lambda r: 0 if not r["_ads_current_active"] else 1, axis=1
-    )
-    ads_df["Opp"]    = ads_df["_opp_group"].map({0: "🏆 Acquire", 1: "⚡ Upselling"})
+    ads_df = data[ads_acquire].copy()
+    ads_df["_opp_group"] = 0
+    ads_df["Opp"]    = "🏆 Acquire"
     ads_df["Status"] = ads_df["_commercial_status_raw"].apply(_normalize_commercial_status)
 
     def _ads_suggested_booking(gmv_ars):
