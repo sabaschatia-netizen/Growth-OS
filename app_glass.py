@@ -14582,6 +14582,11 @@ def page_brand_finder():
     row = result.iloc[0]
     name = render_brand_profile(row, brand_id)
 
+    _render_followup_form(row, brand_id, name)
+
+
+@st.fragment
+def _render_followup_form(row, brand_id, name):
     st.markdown("<div class='wide-info-card'>", unsafe_allow_html=True)
     st.markdown("<div class='wide-info-title'>Comments History</div>", unsafe_allow_html=True)
 
