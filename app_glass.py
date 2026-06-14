@@ -386,7 +386,7 @@ def save_brand_changelog(brand_id, brand_name, updates_dict, old_row):
 # LOAD DATA
 # =========================
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_growth_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
@@ -404,7 +404,7 @@ def load_growth_data():
     return df
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_asignacion_junio():
     """
     Carga el sheet 'Asignacion Junio' y devuelve un DataFrame con columnas normalizadas:
@@ -496,7 +496,7 @@ def load_asignacion_junio():
     return out.reset_index(drop=True)
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_turbo_info(brand_id):
     """
     Devuelve True si la marca es STORE TURBO según 'Asignacion Junio'.
@@ -515,7 +515,7 @@ def get_turbo_info(brand_id):
         return False
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_current_churn():
     """
     Carga la hoja 'Current Churn' y devuelve un dict {store_id: churn_status},
@@ -547,7 +547,7 @@ def load_current_churn():
         return {}
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_current_churn_per_brand():
     """
     Carga la hoja 'Current Churn' y devuelve un dict {brand_id: worst_churn_status}.
@@ -584,7 +584,7 @@ def load_current_churn_per_brand():
         return {}
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_churn_status(brand_id):
     """
     Devuelve el Churn Status (peor estado) de una marca desde Current Churn, con emoji incluido.
@@ -599,7 +599,7 @@ def get_churn_status(brand_id):
     return _churn_label_with_emoji(raw)
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_earnings_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
@@ -607,7 +607,7 @@ def load_earnings_data():
     return pd.read_excel(EXCEL_FILE, sheet_name=EARNINGS_SHEET, header=None)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def load_agenda_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
@@ -662,7 +662,7 @@ def extract_brand_id_from_current(value):
         
     return normalize_brand_id(value)
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def _load_gmv_sheet_data(sheet_name):
     """
     Generic loader for GMV-style sheets with columns:
@@ -737,7 +737,7 @@ def load_may_gmv_data():
     return _load_gmv_sheet_data(MAY_GMV_SHEET)
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_may_brand_metrics(brand_id, brand_name=""):
     """
     Busca la marca en MAY GMV cruzando por:
@@ -824,7 +824,7 @@ def get_may_brand_metrics(brand_id, brand_name=""):
 
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_detalle_caba():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
@@ -850,7 +850,7 @@ def load_detalle_caba():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_cvr_data():
     """Carga CVR% → {brand_name_clean: avg_cvr_ultimas4semanas}."""
     if not os.path.exists(EXCEL_FILE):
@@ -930,7 +930,7 @@ def get_cvr_category_benchmark(categoria):
         return None
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_traffic_data():
     """Carga Traffic # -> {brand_name_clean: avg_traffic_semanal (promedio 5 semanas)}."""
     if not os.path.exists(EXCEL_FILE):
@@ -1001,7 +1001,7 @@ def get_traffic_category_benchmark(categoria):
         return None
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_market_context(categoria, lever, brand_gmv=None, brand_orders=None):
     df = load_detalle_caba()
     if df.empty:
@@ -1043,7 +1043,7 @@ def get_market_context(categoria, lever, brand_gmv=None, brand_orders=None):
     }
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_brand_metrics(brand_id):
     df = load_current_gmv_data()
 
@@ -1153,7 +1153,7 @@ def get_current_gmv_totals():
 
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_portfolio_ids():
     """
     Returns Brand IDs from Growth OS + Asignacion Junio combined.
@@ -1186,8 +1186,8 @@ def money_from_usd(usd_value):
     }
 
 
-@st.cache_data(ttl=3000)
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
+@st.cache_data(ttl=3000, show_spinner=False)
 def _read_current_sheet(sheet_name):
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
@@ -1226,7 +1226,7 @@ def _elapsed_days_for_current_month(value=None):
         return max(today.day, 1)
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_current_ads_data(portfolio_only=False):
     df = _read_current_sheet(CURRENT_ADS_SHEET)
     if df.empty:
@@ -1281,7 +1281,7 @@ def load_current_ads_data(portfolio_only=False):
     return grouped
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_ads_metrics(brand_id):
     df = load_current_ads_data(portfolio_only=False)
     if df.empty:
@@ -1370,7 +1370,7 @@ def _prepare_numeric_col(df, col_name):
     return pd.Series([0] * len(df), index=df.index)
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_current_md_data(portfolio_only=False, pro=False):
     """
     Loads Current MD or Current MD pro sheet.
@@ -1459,7 +1459,7 @@ def load_current_md_data(portfolio_only=False, pro=False):
 
     return df
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_md_metrics(brand_id, pro=False):
     df = load_current_md_data(portfolio_only=False, pro=pro)
 
@@ -1635,7 +1635,7 @@ def fmt_roi(value):
         return "-"
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def load_seasonal_events_data():
     df = _read_current_sheet(SEASONAL_EVENTS_SHEET)
     if df.empty:
@@ -1660,7 +1660,7 @@ def load_coinversion_data():
     return df
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600, show_spinner=False)
 def get_coinversion_info(brand_id, name=""):
     """Returns Coinversion sticker info for a brand.
     
@@ -1997,7 +1997,7 @@ def find_brand_row(ws, headers, brand_id):
     return None
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_brand_ranking_from_excel(brand_id):
     """
     Reads ranking from the already-cached Growth OS dataframe.
@@ -5290,7 +5290,7 @@ def _status_col_active_ids(sheet_df, status_candidates):
     return active
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_live_campaign_coverage_counts():
     """Unified calculator for Management Dashboard and Campaign Weekly Tracker.
     Counts active campaigns from Current exports plus manual dashboard activations in Growth OS.
@@ -6995,7 +6995,7 @@ def _render_target_input_block(ads_target_default, md_target_default):
     return ads_target_input, md_target_input, weeks_left
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_current_churn_raw_df():
     """
     Lee la hoja Current Churn completa y devuelve el DataFrame normalizado.
@@ -7769,7 +7769,7 @@ def get_last_comment_meta_map(limit=2):
     return result
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_productivity_effective_rows(excel_path):
     """
     Reads the Productivity sheet and returns a DataFrame with:
@@ -8379,7 +8379,7 @@ def page_call_quality_trainer():
 
 
     # ── Load from sheets inside EXCEL_FILE ───────────────────────────────────
-    @st.cache_data(ttl=3000)
+    @st.cache_data(ttl=3000, show_spinner=False)
     def _load_quality(excel_path):
         if not os.path.exists(excel_path):
             return pd.DataFrame()
@@ -8390,7 +8390,7 @@ def page_call_quality_trainer():
         except Exception:
             return pd.DataFrame()
 
-    @st.cache_data(ttl=3000)
+    @st.cache_data(ttl=3000, show_spinner=False)
     def _load_weekly(excel_path):
         if not os.path.exists(excel_path):
             return pd.DataFrame()
@@ -8822,7 +8822,7 @@ def page_productivity_heatmap():
     render_header("Productivity HeatMap", "Frecuencia de palancas y conversión semanal · Sabas Ramírez")
 
     # ── Load Productivity sheet from main Excel ───────────────────────────────
-    @st.cache_data(ttl=3000)
+    @st.cache_data(ttl=3000, show_spinner=False)
     def _load_hm_data(excel_path):
         if not os.path.exists(excel_path):
             return pd.DataFrame(), {}
@@ -9951,7 +9951,7 @@ def _match_row_by_name(df, name, candidates):
     return rows.iloc[0]
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def _load_sheet_safe(sheet_name):
     try:
         df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
@@ -9974,7 +9974,7 @@ def _weighted_average(values, weights=None):
         return 0
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600, show_spinner=False)
 def get_menu_metrics_for_brand(name):
     df = _load_sheet_safe("Perfect Store Data")
     matches = _match_rows_by_name(df, name, ["brand", "brand name", "store_name", "store name", "name"])
@@ -10088,7 +10088,7 @@ def _availability_candidate_from_rows(rows):
     return None
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600, show_spinner=False)
 def get_ops_metrics_for_brand(name):
     specs = [
         ("Availability Data", "Availability", "Fix Availability", ["w1 availability", "w2 availability"]),
@@ -10281,7 +10281,7 @@ def _count_unique_priority_promos(values):
     return len(ids)
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_priority_data():
     df = _load_sheet_safe(PRIORITY_DATA_SHEET)
     if df.empty:
@@ -10314,7 +10314,7 @@ def load_priority_data():
     return df
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600, show_spinner=False)
 def get_priority_signals_for_brand(brand_id, name=""):
     df = load_priority_data()
     if df.empty:
@@ -10560,7 +10560,7 @@ def _format_budget_range(low, high):
     return f"ARS {_format_ars_compact(low)}–{_format_ars_compact(high)}"
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def _load_store_id_map():
     df = _load_sheet_safe(STORE_ID_SHEET)
     if df.empty:
@@ -10578,7 +10578,7 @@ def _load_store_id_map():
     return result
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_definitive_top_products_for_brand(brand_id):
     """Returns the 3 products from Definitive Top Products using Store ID mapping."""
     store_map = _load_store_id_map()
@@ -13778,7 +13778,7 @@ def _campaign_period_label(baseline=False):
     return APP_PERIOD
 
 
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000, show_spinner=False)
 def _load_cpc_supervisor_data(excel_path):
     """Load CPC sheet from main Excel. Returns only STATUS=OK rows (active campaigns)."""
     try:
@@ -14626,8 +14626,15 @@ def page_brand_finder():
 
     # ── Análisis local en tiempo real (sin API) ───────────────────────────────
     transcript_analysis = None
+    _transcript_cache_key = f"_transcript_analysis_{brand_id}"
+    _transcript_text_key = f"_transcript_text_{brand_id}"
     if call_transcript.strip():
-        transcript_analysis = analyze_transcript_locally(call_transcript)
+        # Solo re-analiza si el texto cambió — evita rerun lento por cambio de status/selectbox
+        if (st.session_state.get(_transcript_text_key) != call_transcript or
+                _transcript_cache_key not in st.session_state):
+            st.session_state[_transcript_cache_key] = analyze_transcript_locally(call_transcript)
+            st.session_state[_transcript_text_key] = call_transcript
+        transcript_analysis = st.session_state.get(_transcript_cache_key)
         if transcript_analysis:
             sentiment_color = {"Positive": "#6FF24B", "Neutral": "#FF7124", "Negative": "#D95A10"}.get(transcript_analysis["sentiment"], "#FF7124")
             levers_str = " · ".join(transcript_analysis["levers"]) if transcript_analysis["levers"] else "Ninguna detectada"
@@ -15750,6 +15757,14 @@ Respondé SOLO con este formato JSON, sin texto adicional:
         else:
             st.info("Aplicá filtros y hacé click en 'Cargar objeción aleatoria' para empezar a practicar.")
 
+
+# =========================
+# CACHE WARM-UP (silencioso — evita spinners en primera carga)
+# =========================
+if "_cache_warmed" not in st.session_state:
+    load_cvr_data()
+    load_detalle_caba()
+    st.session_state["_cache_warmed"] = True
 
 # =========================
 # ROUTER
