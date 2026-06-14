@@ -687,8 +687,16 @@ def _load_gmv_sheet_data(sheet_name):
         return pd.DataFrame()
 
     df["_id"] = df[brand_col].apply(extract_brand_id_from_current)
-    df["_brand_name_norm"] = df[brand_col].apply(lambda v: normalize(str(v)))
-    df = df[df["_id"] != ""].copy()
+    # _brand_name_norm: nombre puro sin ID numérico al inicio (ej: "1234 - McDonald's" → "mcdonald's")
+    def _extract_pure_name(v):
+        s = str(v).strip()
+        # Remover prefijo "12345 - " o "12345 - " si existe
+        s = re.sub(r"^\d+[\s\-–]+", "", s)
+        return normalize(s)
+    df["_brand_name_norm"] = df[brand_col].apply(_extract_pure_name)
+    # Mantener filas con ID numérico OR con nombre de marca válido (MAY GMV solo tiene nombres)
+    df = df[(df["_id"] != "") | (df["_brand_name_norm"].str.len() > 0)].copy()
+    df = df[df["_brand_name_norm"].str.strip() != ""].copy()
 
     if df.empty:
         return df
