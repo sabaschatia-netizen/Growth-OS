@@ -2651,173 +2651,273 @@ def analyze_transcript_locally(transcript):
 
 def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email, call_date):
     """
-    Sends the transcript to Claude, evaluates it against the Call Detail matrix,
-    and appends the result as a new row in the Call Detail sheet of the Excel file.
+    Evaluates a call transcript using pure Python keyword/regex logic (no API),
+    then writes the full Call Detail matrix row to the Excel file.
     Runs silently — no UI output.
     """
-    SYSTEM_PROMPT = """Sos un evaluador de calidad de llamadas comerciales de Rappi.
-Vas a recibir la transcripción de una llamada entre un Farmer de Rappi y un aliado (restaurante).
-Tu trabajo es evaluar la llamada con exactamente la misma matriz de calidad que usa el sistema interno.
+    if not transcript or not transcript.strip():
+        return
 
-Evaluá cada dimensión con 0 (no cumple) o 1 (cumple), salvo donde se indique un valor decimal.
-Devolvé SOLO un JSON válido con exactamente estos campos, sin texto adicional ni markdown:
+    low = transcript.lower()
 
-{
-  "Call Sentiment": "Positive|Neutral|Negative",
-  "Summary": "<resumen breve de la llamada en español, 2-3 oraciones>",
-  "Action Items": "<acciones acordadas, separadas por \n>",
-  "Feature Requests": "<solicitudes del aliado que Rappi debería implementar, o vacío>",
-  "Introduction Comment": "<observación sobre la introducción>",
-  "%Introduction": <0-1 float, promedio de los 3 sub-items>,
-  "%Identified Himself": <0 o 1>,
-  "%Named Brand": <0 o 1>,
-  "%Said Hello": <0 o 1>,
-  "Handling Comment": "<observación sobre el manejo de la llamada>",
-  "%Call Handling": <0-1 float, promedio de los sub-items>,
-  "In Control": <0 o 1>,
-  "Partner Interaction Comment": "<observación sobre interacción con el aliado>",
-  "Effective Communication": <0 o 1>,
-  "Handle Unknown Responses": <0 o 1>,
-  "No Interruption": <0 o 1>,
-  "Executive Summary Comment": "<observación sobre el cierre y resumen>",
-  "Respond to All Questions": <0 o 1>,
-  "Self Service Info": <0 o 1>,
-  "Call Summary": "<resumen del cierre>",
-  "%Partner Interaction": <0-1 float, promedio EC+HUR+NI>,
-  "%Exec. Summary Provided": <0 o 1>,
-  "%Decision Maker Confirm.": <0 o 1>,
-  "Top Rest Comment": "<observación sobre si se trabajó la palanca Top Restaurant>",
-  "Top Rest Subject Present": <0 o 1>,
-  "%Top Rest Action Plan": <0 o 1>,
-  "Investment Comment": "<observación sobre la palanca de inversión ADS>",
-  "%Investment": <0 o 1>,
-  "Investment Subject Present": <0 o 1>,
-  "ADS Subject Present": <0 o 1>,
-  "%ADS Action Plan": <0 o 1>,
-  "MD Subject Present": <0 o 1>,
-  "Churn Comment": "<observación sobre si se identificó y trabajó riesgo de churn>",
-  "%Churn Subject Present": <0 o 1>,
-  "%Churn Action Plan": <0 o 1>,
-  "%Self Service Info": <0 o 1>,
-  "Assortment Comment": "<observación sobre si se trabajó catálogo/menú>",
-  "Assortment Subject Present": <0 o 1>,
-  "%Assortment": <0 o 1>,
-  "%EC": <0-1 float, efectividad de contacto global>,
-  "%ENC": <0-1 float, efectividad de no contacto / manejo de bloqueos>
-}
+    # ── Helper: check any keyword present ────────────────────────────────────
+    def has(keywords):
+        return 1 if any(k in low for k in keywords) else 0
 
-Criterios clave:
-- %Identified Himself: 1 si el agente dijo su nombre y/o rol antes de entrar al tema
-- %Named Brand: 1 si mencionó "Rappi" explícita o implícitamente validando que habla con el aliado correcto
-- %Said Hello: 1 si saludó al inicio
-- In Control: 1 si el agente guió la conversación hacia sus objetivos y no se dejó llevar
-- Effective Communication: 1 si el aliado respondió a las preguntas sin confusión
-- Handle Unknown Responses: 1 si cuando no supo algo ofreció una solución (escalar, enviar info, etc.)
-- No Interruption: 1 si el agente no interrumpió al aliado
-- %Exec. Summary Provided: 1 si al final recapituló lo acordado e indicó próximos pasos
-- %Decision Maker Confirm.: 1 si confirmó estar hablando con el tomador de decisiones
-- ADS Subject Present: 1 si se mencionó Rappi Ads / publicidad / banner / visibilidad paga
-- %ADS Action Plan: 1 si hubo un plan concreto de Ads (tipo, presupuesto o fecha)
-- MD Subject Present: 1 si se mencionó descuento / promo / markdown
-- %Churn Subject Present: 1 si se detectó e identificó riesgo de churn
-- %Churn Action Plan: 1 si se propuso un plan concreto para retener al aliado
-- Assortment Subject Present: 1 si se habló de menú, catálogo, fotos, productos
-- %Assortment: 1 si hubo una acción concreta sobre el catálogo
-- %EC: porcentaje de efectividad global de la llamada (0.0 a 1.0)
-- %ENC: efectividad en el manejo de situaciones donde no se llegó al tomador de decisiones
-"""
+    def has_pattern(patterns):
+        return 1 if any(re.search(p, low) for p in patterns) else 0
 
-    try:
-        resp = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"Content-Type": "application/json", "anthropic-version": "2023-06-01"},
-            json={
-                "model": "claude-sonnet-4-6",
-                "max_tokens": 2000,
-                "system": SYSTEM_PROMPT,
-                "messages": [{"role": "user", "content": f"Transcripción de la llamada:\n\n{transcript}"}],
-            },
-            timeout=60,
-        )
-        raw = resp.json()["content"][0]["text"].strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        result = json.loads(raw)
-    except Exception:
-        return  # Falla silenciosamente — el follow-up ya se guardó
+    def avg(*vals):
+        return round(sum(vals) / len(vals), 2)
 
+    # ── SENTIMENT ─────────────────────────────────────────────────────────────
+    pos = sum(1 for k in ["perfecto", "de acuerdo", "vamos", "sí claro", "me interesa",
+                           "lo hacemos", "dale", "genial", "excelente", "cerramos",
+                           "activamos", "okay", "ok", "buenísimo", "bárbaro",
+                           "confirmado", "listo"] if k in low)
+    neg = sum(1 for k in ["no me interesa", "no quiero", "estoy conforme", "no gracias",
+                           "no puedo", "no tengo presupuesto", "ya no", "lo dejo",
+                           "me retiro", "no voy a"] if k in low)
+    sentiment = "Negative" if (neg >= 2 or (neg > pos and neg > 0)) else ("Positive" if pos >= 2 or pos > neg else "Neutral")
+
+    # ── INTRODUCCIÓN ──────────────────────────────────────────────────────────
+    identified = has(["soy sabas", "soy de rappi", "te llamo de rappi", "mi nombre es",
+                       "habla sabas", "habla el farmer", "soy el farmer"])
+    named_brand = has(["rappi", "rappi ads", "la plataforma"])
+    said_hello  = has(["hola", "buenos días", "buenas tardes", "buenas noches", "buen día", "hey"])
+    pct_intro   = avg(identified, named_brand, said_hello)
+    intro_comment = (
+        "Introducción completa: se identificó, nombró Rappi y saludó." if pct_intro == 1.0
+        else "Introducción parcial — faltó alguno de: identificarse, nombrar Rappi o saludar."
+        if pct_intro > 0 else "No se detectó introducción clara."
+    )
+
+    # ── MANEJO DE LLAMADA (In Control) ────────────────────────────────────────
+    in_control = has(["vamos a ver", "te propongo", "la idea es", "lo que hicimos",
+                       "lo que sugiero", "entonces lo que hacemos", "lo que vamos a hacer",
+                       "mi propuesta", "te recomiendo", "arranquemos"])
+    # Penalize if agent got sidetracked by irrelevant topics
+    lost_control = has(["no sé cómo funciona", "no tengo esa info", "no puedo decirte",
+                         "no tengo acceso", "tendría que consultar"])
+    in_control_final = 1 if (in_control and not lost_control) else (0 if lost_control else in_control)
+    pct_handling = in_control_final
+    handling_comment = (
+        "El farmer mantuvo el control de la conversación y guió hacia los objetivos."
+        if in_control_final else
+        "No se evidenció claramente que el farmer llevara la conversación hacia sus metas."
+    )
+
+    # ── INTERACCIÓN CON ALIADO ────────────────────────────────────────────────
+    effective_comm   = has(["entendido", "claro", "sí, entiendo", "ya veo", "de acuerdo",
+                             "tiene sentido", "me parece", "sí sí"])
+    handle_unknown   = has(["te averiguo", "te consulto", "lo escalo", "te mando la info",
+                             "te envío", "pregunto y te confirmo", "no tengo ese dato pero"])
+    no_interruption  = 1 if not has(["perdón, te corto", "te interrumpo", "un momento",
+                                      "espera", "para, para"]) else 0
+    pct_partner      = avg(effective_comm, handle_unknown, no_interruption)
+    partner_comment  = (
+        "Buena interacción con el aliado: comunicación fluida, sin interrupciones."
+        if pct_partner >= 0.66
+        else "Interacción con el aliado mejorable — revisar manejo de respuestas y posibles interrupciones."
+    )
+
+    # ── CIERRE / EXECUTIVE SUMMARY ────────────────────────────────────────────
+    exec_summary = has(["entonces quedamos en", "como acordamos", "para resumir",
+                         "los próximos pasos son", "lo que vamos a hacer es",
+                         "te confirmo que", "cerramos con", "el plan es"])
+    dm_confirm   = has(["sos el dueño", "sos quien decide", "hablo con el encargado",
+                         "sos el que maneja", "el titular", "el responsable",
+                         "sos quien toma las decisiones"])
+    respond_all  = has(["respondido", "te expliqué", "ya te conté", "como te dije",
+                         "te aclaré", "ya te respondí"])
+    self_svc     = has(["en la app", "desde el portal", "podés hacerlo vos",
+                         "en el panel", "self service", "autogestión", "lo hacés solo"])
+    exec_comment = (
+        "El farmer cerró con resumen de próximos pasos y confirmó el plan."
+        if exec_summary else
+        "No se detectó un cierre con resumen claro de próximos pasos."
+    )
+    call_summary_text = (
+        "Llamada cerrada con acuerdo y próximos pasos definidos." if exec_summary and (pos >= 1)
+        else "Llamada cerrada sin acuerdo claro o próximos pasos pendientes."
+    )
+
+    # ── PALANCAS COMERCIALES ──────────────────────────────────────────────────
+    # TOP RESTAURANT
+    top_rest_present = has(["top restaurant", "destacado", "posicionamiento",
+                             "visibilidad orgánica", "ranking de restaurantes",
+                             "aparecer primero", "mejor posición"])
+    top_rest_action  = has(["activamos top", "vamos con top restaurant",
+                             "subimos el posicionamiento", "arrancamos con el destacado"]) if top_rest_present else 0
+    top_rest_comment = (
+        "Se trabajó Top Restaurant con plan de acción." if top_rest_action
+        else "Se mencionó Top Restaurant pero sin plan concreto." if top_rest_present
+        else "No se trabajó la palanca Top Restaurant."
+    )
+
+    # ADS / INVESTMENT
+    ads_present      = has(["rappi ads", "ads", "publicidad", "banner",
+                             "sponsored", "visibilidad paga", "campaña paga",
+                             "inversión en publicidad"])
+    ads_action       = has_pattern([
+        r"(presupuesto|budget).{0,30}(ads|publicidad)",
+        r"(ads|publicidad).{0,30}(presupuesto|budget|pesos|ars|\$)",
+        r"(arranc|activ|empez).{0,20}(ads|campaña|publicidad)",
+        r"\$\s*\d+.{0,10}(ads|publicidad|campaña)",
+    ]) if ads_present else 0
+    investment_present = ads_present
+    pct_investment   = ads_present
+    invest_comment   = (
+        "Se trabajó ADS con propuesta de presupuesto o plan concreto." if ads_action
+        else "Se mencionó ADS pero sin plan ni presupuesto concreto." if ads_present
+        else "No se trabajó la palanca ADS / Inversión."
+    )
+
+    # MARKDOWN / DESCUENTO
+    md_present = has(["descuento", "promo", "markdown", "20%", "25%", "30%",
+                       "oferta", "promoción", "deal", "porcentaje de descuento",
+                       "precio especial"])
+
+    # CHURN
+    churn_present = has(["cancelar", "dar de baja", "no quiero seguir", "churn",
+                          "me voy", "me retiro", "cerrar la cuenta",
+                          "dejar de usar rappi", "no vale la pena"])
+    churn_action  = has(["te propongo retener", "vamos a ayudarte", "podemos ofrecerte",
+                          "no te vayas", "qué necesitás para quedarte",
+                          "hagamos algo para que continúes"]) if churn_present else 0
+    churn_comment = (
+        "Se detectó riesgo de churn y se trabajó con plan de retención." if churn_action
+        else "Se detectó riesgo de churn pero sin plan de retención claro." if churn_present
+        else "No se detectó ni trabajó riesgo de churn."
+    )
+
+    # ASSORTMENT / MENÚ
+    assortment_present = has(["menú", "menu", "catálogo", "fotos", "productos",
+                                "carta", "assortment", "platos", "opciones del menú"])
+    assortment_action  = has(["subimos fotos", "actualizamos el menú", "agregamos productos",
+                                "mejoramos el catálogo", "activamos el menú",
+                                "completamos el catálogo"]) if assortment_present else 0
+    assortment_comment = (
+        "Se trabajó el catálogo/menú con acción concreta." if assortment_action
+        else "Se mencionó el catálogo/menú pero sin acción concreta." if assortment_present
+        else "No se trabajó la palanca de catálogo/menú."
+    )
+
+    # ── %EC / %ENC ────────────────────────────────────────────────────────────
+    # EC = efectividad de contacto: cuántas dimensiones clave se cumplieron
+    ec_items = [identified, named_brand, said_hello, in_control_final,
+                 effective_comm, exec_summary, dm_confirm,
+                 ads_present, md_present, top_rest_present]
+    pct_ec = round(sum(ec_items) / len(ec_items), 2)
+
+    # ENC = efectividad de no contacto: aplica si no se llegó al decision maker
+    enc_items = [handle_unknown, self_svc, no_interruption]
+    pct_enc = round(sum(enc_items) / len(enc_items), 2) if not dm_confirm else 0.0
+
+    # ── ACTION ITEMS (texto) ──────────────────────────────────────────────────
+    action_patterns = [
+        r"(enviar[á]?[a-záéíóúñü ]{3,40}(?:propuesta|plantilla|mail|información|info|cotización))",
+        r"(llamar[a-záéíóúñü ]{0,20}(?:la próxima semana|mañana|el [a-záéíóúñü]+))",
+        r"(agendar[a-záéíóúñü ]{0,30})",
+        r"(activar[a-záéíóúñü ]{3,40})",
+        r"(confirmar[a-záéíóúñü ]{3,40})",
+        r"(subir[a-záéíóúñü ]{3,30}(?:fotos|menú|productos|catálogo))",
+    ]
+    actions_found = []
+    for pat in action_patterns:
+        for m in re.findall(pat, low):
+            clean_a = m.strip().capitalize()
+            if len(clean_a) > 8 and clean_a not in actions_found:
+                actions_found.append(clean_a)
+    action_items_text = "\n".join(actions_found[:5]) if actions_found else ""
+
+    # ── SUMMARY auto-text ─────────────────────────────────────────────────────
+    levers_found = []
+    if ads_present:       levers_found.append("ADS")
+    if md_present:        levers_found.append("MD")
+    if top_rest_present:  levers_found.append("Top Restaurant")
+    if assortment_present: levers_found.append("Assortment")
+    if churn_present:     levers_found.append("Churn")
+    summary_text = (
+        f"Llamada {sentiment.lower()}. "
+        f"Palancas trabajadas: {', '.join(levers_found) if levers_found else 'ninguna detectada'}. "
+        f"{'Cerró con próximos pasos.' if exec_summary else 'Sin cierre claro.'}"
+    )
+
+    # ── BUILD RESULT DICT ─────────────────────────────────────────────────────
+    result = {
+        "Call Sentiment":              sentiment,
+        "Summary":                     summary_text,
+        "Action Items":                action_items_text,
+        "Feature Requests":            "",
+        "Introduction Comment":        intro_comment,
+        "%Introduction":               pct_intro,
+        "%Identified Himself":         identified,
+        "%Named Brand":                named_brand,
+        "%Said Hello":                 said_hello,
+        "Handling Comment":            handling_comment,
+        "%Call Handling":              pct_handling,
+        "In Control":                  in_control_final,
+        "Partner Interaction Comment": partner_comment,
+        "Effective Communication":     effective_comm,
+        "Handle Unknown Responses":    handle_unknown,
+        "No Interruption":             no_interruption,
+        "Executive Summary Comment":   exec_comment,
+        "Respond to All Questions":    respond_all,
+        "Self Service Info":           self_svc,
+        "Call Summary":                call_summary_text,
+        "%Partner Interaction":        pct_partner,
+        "%Exec. Summary Provided":     exec_summary,
+        "%Decision Maker Confirm.":    dm_confirm,
+        "Top Rest Comment":            top_rest_comment,
+        "Top Rest Subject Present":    top_rest_present,
+        "%Top Rest Action Plan":       top_rest_action,
+        "Investment Comment":          invest_comment,
+        "%Investment":                 pct_investment,
+        "Investment Subject Present":  investment_present,
+        "ADS Subject Present":         ads_present,
+        "%ADS Action Plan":            ads_action,
+        "MD Subject Present":          md_present,
+        "Churn Comment":               churn_comment,
+        "%Churn Subject Present":      churn_present,
+        "%Churn Action Plan":          churn_action,
+        "%Self Service Info":          self_svc,
+        "Assortment Comment":          assortment_comment,
+        "Assortment Subject Present":  assortment_present,
+        "%Assortment":                 assortment_action,
+        "%EC":                         pct_ec,
+        "%ENC":                        pct_enc,
+    }
+
+    # ── WRITE TO EXCEL ────────────────────────────────────────────────────────
     try:
         wb = openpyxl.load_workbook(EXCEL_FILE)
         if "Call Detail" not in wb.sheetnames:
             return
         ws = wb["Call Detail"]
-
-        # Read header from row 1
         headers = [str(cell.value).strip() if cell.value is not None else "" for cell in ws[1]]
 
         new_row_data = {
-            "Call Sentiment":           result.get("Call Sentiment", "Neutral"),
-            "Líder":                    "",
-            "Country":                  "AR",
-            "Farmer":                   farmer_email,
-            "Rol":                      "Farmer Jr",
-            "Call Date":                call_date,
-            "Start":                    datetime.now(),
-            "End":                      datetime.now(),
-            "Duration":                 "",
-            "Duration (s)":             0,
-            "Destination Number":       "",
-            "Country Brand ID":         str(brand_id),
-            "%Interaction Success":     result.get("%EC", 0),
-            "Summary":                  result.get("Summary", ""),
-            "Action Items":             result.get("Action Items", ""),
-            "Feature Requests":         result.get("Feature Requests", ""),
-            "Introduction Comment":     result.get("Introduction Comment", ""),
-            "%Introduction":            result.get("%Introduction", 0),
-            "%Identified Himself":      result.get("%Identified Himself", 0),
-            "%Named Brand":             result.get("%Named Brand", 0),
-            "%Said Hello":              result.get("%Said Hello", 0),
-            "Handling Comment":         result.get("Handling Comment", ""),
-            "%Call Handling":           result.get("%Call Handling", 0),
-            "In Control":               result.get("In Control", 0),
-            "Partner Interaction Comment": result.get("Partner Interaction Comment", ""),
-            "Effective Communication":  result.get("Effective Communication", 0),
-            "Handle Unknown Responses": result.get("Handle Unknown Responses", 0),
-            "No Interruption":          result.get("No Interruption", 0),
-            "Executive Summary Comment": result.get("Executive Summary Comment", ""),
-            "Respond to All Questions": result.get("Respond to All Questions", 0),
-            "Self Service Info":        result.get("Self Service Info", 0),
-            "Call Summary":             result.get("Call Summary", ""),
-            "%Partner Interaction":     result.get("%Partner Interaction", 0),
-            "%Exec. Summary Provided":  result.get("%Exec. Summary Provided", 0),
-            "%Decision Maker Confirm.": result.get("%Decision Maker Confirm.", 0),
-            "Top Rest Comment":         result.get("Top Rest Comment", ""),
-            "Top Rest Subject Present": result.get("Top Rest Subject Present", 0),
-            "%Top Rest Action Plan":    result.get("%Top Rest Action Plan", 0),
-            "Investment Comment":       result.get("Investment Comment", ""),
-            "%Investment":              result.get("%Investment", 0),
-            "Investment Subject Present": result.get("Investment Subject Present", 0),
-            "ADS Subject Present":      result.get("ADS Subject Present", 0),
-            "%ADS Action Plan":         result.get("%ADS Action Plan", 0),
-            "MD Subject Present":       result.get("MD Subject Present", 0),
-            "Churn Comment":            result.get("Churn Comment", ""),
-            "%Churn Subject Present":   result.get("%Churn Subject Present", 0),
-            "%Churn Action Plan":       result.get("%Churn Action Plan", 0),
-            "%Self Service Info":       result.get("%Self Service Info", 0),
-            "Assortment Comment":       result.get("Assortment Comment", ""),
-            "Assortment Subject Present": result.get("Assortment Subject Present", 0),
-            "%Assortment":              result.get("%Assortment", 0),
-            "%EC":                      result.get("%EC", 0),
-            "%ENC":                     result.get("%ENC", 0),
-            "Caller ID":                "",
-            "Disconnected By":          "agent",
-            "Log ID":                   str(uuid.uuid4()),
+            "Call Sentiment":              result["Call Sentiment"],
+            "Líder":                       "",
+            "Country":                     "AR",
+            "Farmer":                      farmer_email,
+            "Rol":                         "Farmer Jr",
+            "Call Date":                   call_date,
+            "Start":                       datetime.now(),
+            "End":                         datetime.now(),
+            "Duration":                    "",
+            "Duration (s)":                0,
+            "Destination Number":          "",
+            "Country Brand ID":            str(brand_id),
+            "%Interaction Success":        result["%EC"],
+            **result,
+            "Caller ID":                   "",
+            "Disconnected By":             "agent",
+            "Log ID":                      str(uuid.uuid4()),
         }
 
-        row_values = []
-        for h in headers:
-            row_values.append(new_row_data.get(h, None))
-
-        ws.append(row_values)
+        ws.append([new_row_data.get(h, None) for h in headers])
         wb.save(EXCEL_FILE)
     except Exception:
         return  # Falla silenciosamente
