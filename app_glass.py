@@ -3829,6 +3829,7 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
     """
     Rule-based pre-call message generator.
     Returns (subject, whatsapp_body, email_body) — no API, fully offline.
+    Vocabulario: venta total (no GMV), ticket promedio (no AOV), promo (no markdown/MD).
     """
     lever = lever or "Ads"
     ads_active = bool(ads_current.get("active", False))
@@ -3840,34 +3841,58 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
     impact_high = campaign_design.get("impact_high", 12)
     cr_val     = _normalize_rate_value(cr) or 0
 
-    # ── Dato de dolor por palanca ─────────────────────────────────────────────
     if lever == "MD" and not md_active:
-        pain_wa  = f"Vi que {name} aún no tiene Markdown activo en Rappi. En {category}, las marcas con MD activo están generando hasta un {impact_high}% más de GMV. Te llamo hoy para mostrarte cómo activarlo con {discount}% en {hero} — sin complicaciones."
-        pain_email = f"Analizando el portafolio de {category}, noté que {name} todavía no tiene Markdown activo. Eso significa tráfico orgánico que hoy va a la competencia.\n\nTe propongo activar una campaña con {discount}% OFF en {hero}, con impacto proyectado de +{impact_low}%–+{impact_high}% GMV. Te llamo hoy para revisarlo juntos."
-        subject = f"Oportunidad de Markdown para {name} — {discount}% en {hero}"
+        pain_wa    = (f"Vi que {name} aún no tiene una promo activa en Rappi. En {category}, "
+                      f"las marcas con promo activa están creciendo hasta un {impact_high}% más en ventas. "
+                      f"Te llamo hoy para mostrarte cómo activarla con {discount}% en {hero} — sin complicaciones.")
+        pain_email = (f"Analizando el portafolio de {category}, noté que {name} todavía no tiene promo activa. "
+                      f"Eso significa tráfico orgánico que hoy va a la competencia.\n\n"
+                      f"Te propongo activar una campaña con {discount}% OFF en {hero}, "
+                      f"con impacto proyectado de +{impact_low}%–+{impact_high}% en ventas. "
+                      f"Te llamo hoy para revisarlo juntos.")
+        subject = f"Oportunidad de promo para {name} — {discount}% en {hero}"
 
     elif lever == "Ads" and not ads_active:
-        pain_wa  = f"Vi que {name} no tiene Ads activo en Rappi. En {category}, el tráfico pago va a quienes tienen campaña activa — hoy ese tráfico va a tu competencia. Te llamo hoy para mostrarte el presupuesto de entrada y el impacto esperado."
-        pain_email = f"Revisando el rendimiento de marcas en {category}, noté que {name} no tiene Ads activo en Rappi. Eso representa visibilidad que hoy está capturando la competencia.\n\nEl modelo de Ads tiene un ROI promedio sano en tu categoría. Te llamo hoy para mostrarte los números concretos y un presupuesto de entrada."
-        subject = f"Oportunidad de Ads para {name} — empezamos esta semana"
+        pain_wa    = (f"Vi que {name} no tiene publicidad paga activa en Rappi. En {category}, "
+                      f"el tráfico pago va a quienes tienen campaña activa — hoy ese tráfico va a tu competencia. "
+                      f"Te llamo hoy para mostrarte el presupuesto de entrada y el impacto esperado.")
+        pain_email = (f"Revisando el rendimiento de marcas en {category}, noté que {name} no tiene publicidad paga activa en Rappi. "
+                      f"Eso representa visibilidad que hoy está capturando la competencia.\n\n"
+                      f"El modelo de publicidad tiene un retorno promedio sano en tu categoría. "
+                      f"Te llamo hoy para mostrarte los números concretos y un presupuesto de entrada.")
+        subject = f"Oportunidad de publicidad para {name} — empezamos esta semana"
 
     elif lever == "Ads" and ads_active and ads_roi >= 3:
-        pain_wa  = f"Vi que los Ads de {name} están corriendo con ROI de {ads_roi:.1f}x — eso está muy bien. Lo que significa es que hay espacio real para escalar el presupuesto y multiplicar ese resultado. Te llamo hoy para mostrarte los números."
-        pain_email = f"Revisando el rendimiento de {name}, los Ads están generando un ROI de {ads_roi:.1f}x. Eso es una señal clara de que el canal funciona.\n\nEl paso lógico es escalar el presupuesto, no mantenerlo. Te llamo hoy para mostrarte la proyección concreta."
-        subject = f"Escalar Ads de {name} — ROI actual {ads_roi:.1f}x"
+        pain_wa    = (f"Vi que la publicidad de {name} está corriendo con un retorno de {ads_roi:.1f}x — eso está muy bien. "
+                      f"Lo que significa es que hay espacio real para escalar el presupuesto y multiplicar ese resultado. "
+                      f"Te llamo hoy para mostrarte los números.")
+        pain_email = (f"Revisando el rendimiento de {name}, la publicidad está generando un retorno de {ads_roi:.1f}x. "
+                      f"Eso es una señal clara de que el canal funciona.\n\n"
+                      f"El paso lógico es escalar el presupuesto, no mantenerlo. "
+                      f"Te llamo hoy para mostrarte la proyección concreta.")
+        subject = f"Escalar publicidad de {name} — retorno actual {ads_roi:.1f}x"
 
     elif cr_val and cr_val < 0.12:
-        pain_wa  = f"Revisando los datos de {name}, vi que la tasa de conversión está por debajo del promedio de {category}. El Markdown puede ser la palanca más directa para moverla. Te llamo hoy con una propuesta concreta."
-        pain_email = f"Analizando el rendimiento de {name} en {category}, la tasa de conversión está por debajo del promedio de la categoría. Eso frena el impacto de cualquier tráfico que estén generando.\n\nEl Markdown con {discount}% en {hero} es la palanca más directa para mover esa conversión. Te llamo hoy para revisarlo."
+        pain_wa    = (f"Revisando los datos de {name}, vi que la tasa de conversión está por debajo del promedio de {category}. "
+                      f"Una promo puede ser la palanca más directa para moverla. "
+                      f"Te llamo hoy con una propuesta concreta.")
+        pain_email = (f"Analizando el rendimiento de {name} en {category}, la tasa de conversión está por debajo del promedio de la categoría. "
+                      f"Eso frena el impacto de cualquier tráfico que estén generando.\n\n"
+                      f"Una promo con {discount}% en {hero} es la palanca más directa para mover esa conversión. "
+                      f"Te llamo hoy para revisarlo.")
         subject = f"Propuesta de conversión para {name} — {category}"
 
     else:
-        pain_wa  = f"Te llamo hoy para revisar una oportunidad concreta de crecimiento para {name} en Rappi. Tengo los datos de {category} y una propuesta lista."
-        pain_email = f"Tengo una propuesta de crecimiento para {name} basada en el análisis actual de {category} en Rappi. Te llamo hoy para revisarla juntos."
+        pain_wa    = (f"Te llamo hoy para revisar una oportunidad concreta de crecimiento para {name} en Rappi. "
+                      f"Tengo los datos de {category} y una propuesta lista.")
+        pain_email = (f"Tengo una propuesta de crecimiento para {name} basada en el análisis actual de {category} en Rappi. "
+                      f"Te llamo hoy para revisarla juntos.")
         subject = f"Propuesta comercial para {name} — Rappi"
 
     greeting_wa    = f"Hola, soy Sabas de Rappi 👋 {pain_wa}"
-    greeting_email = f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n{pain_email}\n\n¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina"
+    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n"
+                      f"{pain_email}\n\n"
+                      f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina")
 
     return subject, greeting_wa, greeting_email
 
@@ -3875,37 +3900,45 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
 def page_day_queue():
     render_header("Day Queue", "Cola diaria de pre-llamada · plantillas listas por marca")
 
-    # ── Load scored portfolio ─────────────────────────────────────────────────
-    data = _prepare_growth_scored_data()
-    if data.empty:
-        st.error("No se encontró data del portafolio.")
-        return
+    # ── Load scored portfolio from Priority Data sheet ────────────────────────
+    priority_df = load_priority_data()
+    use_priority = not priority_df.empty
 
-    # ── Load last contact maps (unified) ─────────────────────────────────────
+    if use_priority:
+        # Build a unique brand list from Priority Data (total rows only)
+        total_rows = priority_df[priority_df["_metric_norm"] == "total"].copy()
+        if total_rows.empty:
+            total_rows = priority_df.drop_duplicates(subset=["_id"]).copy()
+        total_rows = total_rows.sort_values("_score", ascending=False).reset_index(drop=True)
+        queue_source = total_rows
+    else:
+        # Fallback to Growth OS scored data
+        data = _prepare_growth_scored_data()
+        if data.empty:
+            st.error("No se encontró data del portafolio (Priority Data ni Growth OS).")
+            return
+        id_col = get_id_column_name(data)
+        if not id_col:
+            st.error("Columna ID no encontrada.")
+            return
+        data = data.sort_values("_opportunity_score", ascending=False).reset_index(drop=True)
+        queue_source = data
+
+    # ── Load last contact maps ────────────────────────────────────────────────
     prod_map = get_productivity_last_contact_map(EXCEL_FILE)
     meta_map = get_last_comment_meta_map(limit=1)
 
-    # ── Sort by opportunity score desc (smart priorities order) ───────────────
-    id_col = get_id_column_name(data)
-    if not id_col:
-        st.error("Columna ID no encontrada.")
-        return
-
-    data = data.sort_values("_opportunity_score", ascending=False).reset_index(drop=True)
-    data["_last_contact_dt"] = data.apply(
-        lambda r: get_last_contact_dt(r["_id"], r["_name"], prod_map, meta_map), axis=1
-    )
-
     # ── Cursor logic ──────────────────────────────────────────────────────────
-    cursor = _load_day_queue_cursor()
+    cursor          = _load_day_queue_cursor()
     cursor_brand_id = cursor.get("brand_id", "")
     cursor_saved_at = cursor.get("saved_at", "")
 
     start_idx = 0
     if cursor_brand_id:
-        matches = data[data["_id"] == normalize_brand_id(cursor_brand_id)].index.tolist()
+        cid = normalize_brand_id(cursor_brand_id)
+        matches = queue_source[queue_source["_id"].apply(normalize_brand_id) == cid].index.tolist()
         if matches:
-            start_idx = matches[0] + 1  # start AFTER the marked brand
+            start_idx = matches[0] + 1
 
     # ── Header: cursor info + controls ───────────────────────────────────────
     col_info, col_reset = st.columns([3, 1])
@@ -3922,7 +3955,7 @@ def page_day_queue():
             st.rerun()
 
     # ── Slice: next 40 brands from cursor ────────────────────────────────────
-    queue_slice = data.iloc[start_idx:start_idx + 40].copy()
+    queue_slice = queue_source.iloc[start_idx:start_idx + 40].copy()
 
     if queue_slice.empty:
         st.info("Llegaste al final del portafolio. Reiniciá la posición para volver al inicio.")
@@ -3930,68 +3963,89 @@ def page_day_queue():
 
     st.markdown(f"### {len(queue_slice)} marcas · hoy")
 
-    # ── Load current metrics maps for campaign design ─────────────────────────
-    # (batch load to avoid per-row Excel reads)
-    QUEUE_BATCH_SIZE = 40
+    # ── Helper: sticker badge ─────────────────────────────────────────────────
+    def _sticker(label, value, color_val="#E8DFD5", bg="rgba(255,255,255,0.06)", border="rgba(255,255,255,0.10)"):
+        return (
+            f"<div style='background:{bg};border:1px solid {border};border-radius:10px;"
+            f"padding:8px 14px;display:inline-block;margin-right:8px;margin-bottom:6px;'>"
+            f"<div style='font-size:10px;font-weight:700;letter-spacing:.06em;"
+            f"color:rgba(232,223,213,.5);text-transform:uppercase;margin-bottom:2px;'>{label}</div>"
+            f"<div style='font-size:15px;font-weight:700;color:{color_val};'>{value}</div>"
+            f"</div>"
+        )
 
     # ── Render each brand card ────────────────────────────────────────────────
     for idx, (_, row) in enumerate(queue_slice.iterrows()):
-        brand_id   = row["_id"]
-        name       = clean(row.get("_name"), f"Marca {brand_id}")
-        category_raw = clean(get_from_row(row, ["category", "categoria", "cat"], ""), "")
-        category   = category_raw.split("·")[0].strip() if "·" in category_raw else category_raw.strip()
-        gmv_ars    = to_number(row.get("_gmv"), 0)
-        aov_ars    = to_number(row.get("_aov"), 0)
-        cr_raw     = row.get("_cr", 0)
-        pro_raw    = row.get("_pro", 0)
-        opp_score  = round(float(row.get("_opportunity_score", 0)), 1)
+        brand_id = normalize_brand_id(row.get("_id", ""))
+        if not brand_id:
+            continue
+
+        # Name & category — try Priority Data cols first, fall back to Growth OS
+        name = clean(row.get("_brand_col") or row.get("_name"), f"Marca {brand_id}")
+        opp_score = round(float(to_number(row.get("_score") or row.get("_opportunity_score"), 0)), 1)
+
+        # Pull full brand metrics from Growth OS
+        growth_df = load_growth_data()
+        id_col_g  = get_id_column_name(growth_df) if not growth_df.empty else None
+        brand_row = None
+        if id_col_g and not growth_df.empty:
+            match = growth_df[growth_df[id_col_g].apply(normalize_brand_id) == brand_id]
+            if not match.empty:
+                brand_row = match.iloc[0]
+
+        category_raw = clean(get_from_row(brand_row, ["category", "categoria", "cat"], ""), "") if brand_row is not None else ""
+        category     = category_raw.split("·")[0].strip() if "·" in category_raw else category_raw.strip()
+        gmv_ars      = to_number(get_from_row(brand_row, ["last gmv ars", "gmv ars"], 0), 0) if brand_row is not None else 0
+        aov_ars      = to_number(get_from_row(brand_row, ["last aov ars", "aov ars"], 0), 0) if brand_row is not None else 0
+        cr_raw       = to_number(get_from_row(brand_row, ["cr %", "conversion rate", "cr"], 0), 0) if brand_row is not None else 0
 
         # Last contact badge
-        last_dt = row["_last_contact_dt"]
+        last_dt = get_last_contact_dt(brand_id, name, prod_map, meta_map)
         if pd.isna(pd.to_datetime(last_dt, errors="coerce")):
-            days_ago   = None
+            days_ago      = None
             contact_badge = "🔴 Sin contacto"
-            badge_color   = "rgba(229,51,42,0.10)"
-            badge_text    = "#E5332A"
+            badge_bg      = "rgba(229,51,42,0.12)"
+            badge_txt     = "#E5332A"
         else:
             days_ago = (datetime.now() - pd.to_datetime(last_dt)).days
-            if days_ago == 0:
-                contact_badge = "🟢 Hoy"
-            elif days_ago <= 7:
-                contact_badge = f"🟢 Hace {days_ago}d"
-            elif days_ago <= 14:
-                contact_badge = f"🟡 Hace {days_ago}d"
-            elif days_ago <= 21:
-                contact_badge = f"🟠 Hace {days_ago}d"
-            else:
-                contact_badge = f"🔴 Hace {days_ago}d"
-            badge_color = "rgba(111,242,75,0.08)" if (days_ago or 99) <= 7 else ("rgba(255,113,36,0.08)" if (days_ago or 99) <= 14 else "rgba(255,113,36,0.08)" if (days_ago or 99) <= 21 else "rgba(229,51,42,0.10)")
-            badge_text  = "#6FF24B" if (days_ago or 99) <= 7 else ("#D95A10" if (days_ago or 99) <= 14 else "#D95A10" if (days_ago or 99) <= 21 else "#E5332A")
+            contact_badge = (
+                "🟢 Hoy" if days_ago == 0
+                else f"🟢 Hace {days_ago}d" if days_ago <= 7
+                else f"🟡 Hace {days_ago}d" if days_ago <= 14
+                else f"🟠 Hace {days_ago}d" if days_ago <= 21
+                else f"🔴 Hace {days_ago}d"
+            )
+            badge_bg  = ("rgba(111,242,75,0.08)" if (days_ago or 99) <= 7
+                         else "rgba(255,113,36,0.10)" if (days_ago or 99) <= 21
+                         else "rgba(229,51,42,0.10)")
+            badge_txt = ("#6FF24B" if (days_ago or 99) <= 7
+                         else "#D95A10" if (days_ago or 99) <= 21
+                         else "#E5332A")
 
-        # Load current lever status
-        ads_current_raw = get_current_ads_metrics(brand_id)
-        md_current_raw  = get_current_md_metrics(brand_id, pro=False)
+        # Lever status
+        ads_current_raw   = get_current_ads_metrics(brand_id)
+        md_current_raw    = get_current_md_metrics(brand_id, pro=False)
         md_pro_current_raw = get_current_md_metrics(brand_id, pro=True)
         ads_current, md_current, md_pro_current = _merge_growth_manual_status(
-            row, ads_current_raw, md_current_raw, md_pro_current_raw
+            brand_row if brand_row is not None else row,
+            ads_current_raw, md_current_raw, md_pro_current_raw
         )
 
         ads_active = bool(ads_current.get("active", False))
         md_active  = bool(md_current.get("active", False))
         ads_roi    = to_number(ads_current.get("roi"), 0)
+        ads_budget = to_number(ads_current.get("budget") or ads_current.get("bookings"), 0)
+        md_campaign_name = clean(md_current.get("campaign_name") or md_current.get("name") or md_current.get("promo_name"), "")
 
-        # Determine lever
-        lever = "Ads" if md_current.get("active", False) else "MD"
+        lever = "Ads" if ads_active else "MD"
 
-        # Light campaign design for templates (no full render needed)
-        commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
-        booster = recommend_booster_for_brand(category, gmv_ars, aov_ars, cr_raw, pro_raw, ads_current, md_current)
-        actions_raw = get_from_row(row, ["actions", "action", "accion"], {})
-
+        commission_raw = _normalize_rate_value(get_from_row(brand_row if brand_row is not None else row,
+                                                             ["comm. rate", "commission rate", "commission"], 0))
+        booster = recommend_booster_for_brand(category, gmv_ars, aov_ars, cr_raw, 0, ads_current, md_current)
         campaign_design = design_campaign_for_brand(
-            name, category, gmv_ars, aov_ars, cr_raw, pro_raw,
+            name, category, gmv_ars, aov_ars, cr_raw, 0,
             commission_raw, ads_current, md_current, md_pro_current,
-            booster, actions_raw if isinstance(actions_raw, dict) else {}, brand_id=brand_id
+            booster, {}, brand_id=brand_id
         )
 
         subject, wa_body, email_body = _build_day_queue_message(
@@ -4008,16 +4062,20 @@ def page_day_queue():
             # Top row: badges + mark position button
             top_l, top_r = st.columns([3, 1])
             with top_l:
+                ads_badge_bg  = "rgba(59,72,131,0.20)" if ads_active else "rgba(255,255,255,0.05)"
+                ads_badge_txt = "#8B9ED4" if ads_active else "rgba(232,223,213,.35)"
+                md_badge_bg   = "rgba(111,242,75,0.10)" if md_active else "rgba(255,255,255,0.05)"
+                md_badge_txt  = "#6FF24B" if md_active else "rgba(232,223,213,.35)"
                 st.markdown(
-                    f"<span style='background:{badge_color};color:{badge_text};font-size:12px;"
+                    f"<span style='background:{badge_bg};color:{badge_txt};font-size:12px;"
                     f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;'>"
                     f"{contact_badge}</span>"
-                    f"<span style='background:rgba(59,72,131,0.12);color:#3B4883;font-size:12px;font-weight:600;"
+                    f"<span style='background:{ads_badge_bg};color:{ads_badge_txt};font-size:12px;font-weight:600;"
                     f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
-                    f"{'✅ Ads' if ads_active else '⬜ Sin Ads'}</span>"
-                    f"<span style='background:rgba(111,242,75,0.08);color:#6FF24B;font-size:12px;font-weight:600;"
+                    f"{'✅ Publicidad' if ads_active else '⬜ Sin Publicidad'}</span>"
+                    f"<span style='background:{md_badge_bg};color:{md_badge_txt};font-size:12px;font-weight:600;"
                     f"padding:3px 10px;border-radius:20px;'>"
-                    f"{'✅ MD' if md_active else '⬜ Sin MD'}</span>",
+                    f"{'✅ Promo' if md_active else '⬜ Sin Promo'}</span>",
                     unsafe_allow_html=True
                 )
             with top_r:
@@ -4026,22 +4084,48 @@ def page_day_queue():
                     st.success(f"Posición guardada en {name}")
                     st.rerun()
 
-            # Quick data row
-            d1, d2, d3, d4 = st.columns(4)
-            d1.metric("GMV mensual", fmt_ars(gmv_ars) if gmv_ars else "N/D")
-            d2.metric("AOV", fmt_ars(aov_ars) if aov_ars else "N/D")
-            d3.metric("CR", fmt_percent0(cr_raw) if cr_raw else "N/D")
-            d4.metric("Ads ROI", f"{ads_roi:.1f}x" if ads_roi and ads_active else "—")
+            # ── Stickers de métricas ───────────────────────────────────────────
+            stickers_html = ""
+            # Venta total (GMV)
+            if gmv_ars and gmv_ars > 0:
+                gmv_fmt = f"ARS {fmt_money(gmv_ars)}" if gmv_ars < 1_000_000 else f"ARS {gmv_ars/1_000_000:.1f}M"
+                stickers_html += _sticker("Venta total", gmv_fmt, "#E8DFD5")
+            # Ticket promedio (AOV)
+            if aov_ars and aov_ars > 0:
+                stickers_html += _sticker("Ticket promedio", f"ARS {fmt_money(aov_ars)}", "#E8DFD5")
+            # Tasa de conversión
+            if cr_raw and to_number(cr_raw, 0) > 0:
+                stickers_html += _sticker("Conversión", fmt_percent0(cr_raw), "#DBBBA7")
+            # Budget de publicidad (si tiene)
+            if ads_active and ads_budget > 0:
+                stickers_html += _sticker("Budget publicidad", f"ARS {fmt_money(ads_budget)}", "#8B9ED4",
+                                           "rgba(59,72,131,0.15)", "rgba(59,72,131,0.35)")
+            # Retorno publicidad (si tiene)
+            if ads_active and ads_roi and ads_roi > 0:
+                roi_color = "#6FF24B" if ads_roi >= 3 else ("#FF7124" if ads_roi >= 1.5 else "#E5332A")
+                stickers_html += _sticker("Retorno publicidad", f"{ads_roi:.1f}x", roi_color,
+                                           "rgba(111,242,75,0.08)", "rgba(111,242,75,0.20)")
+            # Nombre campaña promo (si tiene)
+            if md_active and md_campaign_name and md_campaign_name not in ["-", ""]:
+                short_camp = md_campaign_name[:28] + "…" if len(md_campaign_name) > 28 else md_campaign_name
+                stickers_html += _sticker("Campaña promo", short_camp, "#6FF24B",
+                                           "rgba(111,242,75,0.08)", "rgba(111,242,75,0.20)")
 
-            # Palanca recomendada
+            if stickers_html:
+                st.markdown(
+                    f"<div style='display:flex;flex-wrap:wrap;gap:0;margin:12px 0 8px 0;'>{stickers_html}</div>",
+                    unsafe_allow_html=True
+                )
+
+            # ── Palanca recomendada ────────────────────────────────────────────
             if lever == "Ads" and ads_active:
-                _lever_label = "📢 Ads — escalar ROI existente"
+                _lever_label = "📢 Publicidad — escalar retorno existente"
             elif lever == "Ads":
-                _lever_label = "📢 Ads — activar primera campaña"
+                _lever_label = "📢 Publicidad — activar primera campaña"
             else:
                 _disc = campaign_design.get("discount", 20)
                 _hero = campaign_design.get("hero_product", "producto principal")
-                _lever_label = f"💸 MD — activar {_disc}% en {_hero}"
+                _lever_label = f"💸 Promo — activar {_disc}% en {_hero}"
 
             st.markdown(
                 f"<div style='font-size:12px;font-weight:700;color:#DBBBA7;text-transform:uppercase;"
@@ -4051,7 +4135,7 @@ def page_day_queue():
                 unsafe_allow_html=True
             )
 
-            # Templates
+            # ── Templates ─────────────────────────────────────────────────────
             t1, t2 = st.tabs(["WhatsApp / Treble", "Email"])
             with t1:
                 st.text_area(
