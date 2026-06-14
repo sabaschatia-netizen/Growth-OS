@@ -13024,17 +13024,7 @@ def render_brand_profile(row, brand_id):
 </div>
 """, unsafe_allow_html=True)
 
-    if not finder_saved_link:
-        finder_new_link = st.text_input(
-            "",
-            value="",
-            key=f"glink_finder_{normalize_brand_id(brand_id)}",
-            placeholder="Pegá aquí el link de Google Maps / Google del local…",
-        )
-        if finder_new_link.strip():
-            if _save_brand_link(brand_id, name, finder_new_link.strip()):
-                st.success("Link guardado ✅")
-                st.rerun()
+
 
 
     # ── Historia del aliado (changelog) ──────────────────────────────────────
