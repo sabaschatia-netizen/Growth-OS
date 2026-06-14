@@ -3917,6 +3917,54 @@ def _format_priority_topics_line(topics):
     return f"Además, debemos revisar todos los puntos que tenemos en este momento: {items}."
 
 
+def _churn_risk_reading(churn_status):
+    """
+    Lectura corta de riesgo/acción a partir del label de churn con emoji
+    (✅ On · ⚠️ W1 · 🚨 W2 · 🆘 W3 · 😴 Off).
+    Devuelve (risk_text, action_text).
+    """
+    churn_text = norm_text(clean(churn_status, ""))
+    if "w3" in churn_text or "🆘" in str(churn_status) or "☠" in str(churn_status):
+        return "riesgo alto / deterioro avanzado", "definir acción de recuperación prioritaria"
+    if "w2" in churn_text or "🚨" in str(churn_status):
+        return "riesgo medio con alerta activa", "revisar la causa del deterioro y acordar una corrección"
+    if "w1" in churn_text or "⚠" in str(churn_status):
+        return "alerta temprana", "prevenir que la marca siga deteriorándose"
+    if "off" in churn_text or "😴" in str(churn_status):
+        return "marca apagada / inactiva", "evaluar una reactivación"
+    return "marca activa", "mantener el seguimiento para evitar una caída"
+
+
+def _build_churn_day_queue_message(name, category, churn_status, priority_topics=None):
+    """
+    Mensaje pre-llamada específico para marcas que aparecen en Priority Data
+    y/o en Current Churn con un estado de riesgo (W1/W2/W3/Off).
+    Returns (subject, whatsapp_body, email_body) — sin API, fully offline.
+    """
+    risk, action = _churn_risk_reading(churn_status)
+    churn_label = clean(churn_status, "✅ On")
+
+    subject = f"Revisión Chon/Churn — {name} ({churn_label})"
+
+    pain_wa = (f"Vi que {name} está en {category} con estado Chon {churn_label} ({risk}). "
+               f"Te llamo hoy para revisarlo juntos y {action}.")
+    pain_email = (f"Revisando el portafolio de {category}, {name} aparece con estado Chon {churn_label} ({risk}). "
+                   f"Te llamo hoy para revisarlo juntos. La idea es {action} antes de que siga avanzando.")
+
+    topics_line = _format_priority_topics_line(priority_topics or [])
+
+    greeting_wa = f"Hola, soy Sabas de Rappi 👋 {pain_wa}"
+    if topics_line:
+        greeting_wa += f" {topics_line}"
+
+    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n"
+                      f"{pain_email}\n\n"
+                      + (f"{topics_line}\n\n" if topics_line else "")
+                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina")
+
+    return subject, greeting_wa, greeting_email
+
+
 def _build_day_queue_message(name, category, lever, ads_current, md_current, cr, gmv_ars, aov_ars, campaign_design, priority_topics=None):
     """
     Rule-based pre-call message generator.
@@ -4152,10 +4200,24 @@ def page_day_queue():
             brand_id, name, ads_current, md_current, ads_roi
         )
 
-        subject, wa_body, email_body = _build_day_queue_message(
-            strip_brand_id_prefix(name), category, lever, ads_current, md_current,
-            cr_raw, gmv_ars, aov_ars, campaign_design, priority_topics
-        )
+        # ── Estado Chon/Churn y presencia en Priority Data ──────────────────
+        churn_status = get_churn_status(brand_id)  # "✅ On" si no figura en Current Churn
+        churn_text_norm = norm_text(clean(churn_status, ""))
+        in_churn_risk = any(k in churn_text_norm for k in ["w1", "w2", "w3", "off"]) or \
+                        any(c in str(churn_status) for c in ["⚠", "🚨", "🆘", "😴", "☠"])
+        sp_signals_for_churn = get_priority_signals_for_brand(brand_id, name)
+        in_priority_data = bool(sp_signals_for_churn.get("found"))
+        show_churn_sticker = in_priority_data or in_churn_risk
+
+        if in_churn_risk:
+            subject, wa_body, email_body = _build_churn_day_queue_message(
+                strip_brand_id_prefix(name), category, churn_status, priority_topics
+            )
+        else:
+            subject, wa_body, email_body = _build_day_queue_message(
+                strip_brand_id_prefix(name), category, lever, ads_current, md_current,
+                cr_raw, gmv_ars, aov_ars, campaign_design, priority_topics
+            )
 
         # ── Card ──────────────────────────────────────────────────────────────
         card_key = f"dq_{brand_id}_{idx}"
@@ -4170,6 +4232,19 @@ def page_day_queue():
                 ads_badge_txt = "#8B9ED4" if ads_active else "rgba(232,223,213,.35)"
                 md_badge_bg   = "rgba(111,242,75,0.10)" if md_active else "rgba(255,255,255,0.05)"
                 md_badge_txt  = "#6FF24B" if md_active else "rgba(232,223,213,.35)"
+                churn_badge_html = ""
+                if show_churn_sticker:
+                    _churn_bg = ("rgba(229,51,42,0.15)" if any(c in str(churn_status) for c in ["🆘", "🚨", "☠"])
+                                  else "rgba(255,113,36,0.15)" if "⚠" in str(churn_status)
+                                  else "rgba(255,255,255,0.06)")
+                    _churn_txt = ("#E5332A" if any(c in str(churn_status) for c in ["🆘", "🚨", "☠"])
+                                   else "#FF7124" if "⚠" in str(churn_status)
+                                   else "rgba(232,223,213,.7)")
+                    churn_badge_html = (
+                        f"<span style='background:{_churn_bg};color:{_churn_txt};font-size:12px;font-weight:600;"
+                        f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
+                        f"📊 Chon — {html.escape(clean(churn_status, '✅ On'))}</span>"
+                    )
                 st.markdown(
                     f"<span style='background:{badge_bg};color:{badge_txt};font-size:12px;"
                     f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;'>"
@@ -4178,8 +4253,9 @@ def page_day_queue():
                     f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
                     f"{'✅ Ads' if ads_active else '⬜ Sin Ads'}</span>"
                     f"<span style='background:{md_badge_bg};color:{md_badge_txt};font-size:12px;font-weight:600;"
-                    f"padding:3px 10px;border-radius:20px;'>"
-                    f"{'✅ Markdown' if md_active else '⬜ Sin Markdown'}</span>",
+                    f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
+                    f"{'✅ Markdown' if md_active else '⬜ Sin Markdown'}</span>"
+                    f"{churn_badge_html}",
                     unsafe_allow_html=True
                 )
             with top_r:
