@@ -11642,21 +11642,23 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
 def _build_menu_tactical_card(record, name, menu_metrics, campaign_design):
     metric = clean(record.get("metric"), "Menu signal")
     kind = record.get("kind", "menu_catalog")
-    photos = to_number(menu_metrics.get("photos"), 0) if menu_metrics else 0
-    purchasing = to_number(menu_metrics.get("purchasing_experience"), 0) if menu_metrics else 0
-    missing = to_number(menu_metrics.get("missing_products"), 0) if menu_metrics else 0
+    # Solo leer métricas reales si Perfect Store encontró datos para este brand
+    has_real_data = bool(menu_metrics and menu_metrics.get("found"))
+    photos = to_number(menu_metrics.get("photos"), 0) if has_real_data else None
+    purchasing = to_number(menu_metrics.get("purchasing_experience"), 0) if has_real_data else None
+    missing = to_number(menu_metrics.get("missing_products"), 0) if has_real_data else None
 
     if kind == "menu_photos":
         main = "📸 Photos = conversion surface"
-        argument = f"No lo vendas como 'faltan fotos'; véndelo como conversión. El usuario decide visualmente y las fotos actuales marcan {fmt_percent0(photos) if photos else '-'}; si no se ve comprable, Ads y MD rinden peor."
+        argument = f"No lo vendas como 'faltan fotos'; véndelo como conversión. El usuario decide visualmente y las fotos actuales marcan {fmt_percent0(photos) if photos is not None else '-'}; si no se ve comprable, Ads y MD rinden peor."
         cue = "Pide priorizar fotos de productos top y combos antes de empujar tráfico fuerte."
-        cls = "health-yellow" if photos >= 0.75 else "health-orange"
+        cls = "health-yellow" if (photos or 0) >= 0.75 else "health-orange"
 
     elif kind == "menu_purchase_experience":
         main = "🛒 Purchase experience = less friction"
-        argument = f"La experiencia de compra está en {fmt_percent0(purchasing) if purchasing else '-'}. Si el usuario no entiende rápido qué compra, baja conversión y sube el riesgo de reclamos."
+        argument = f"La experiencia de compra está en {fmt_percent0(purchasing) if purchasing is not None else '-'}. Si el usuario no entiende rápido qué compra, baja conversión y sube el riesgo de reclamos."
         cue = "Valida nombres, descripciones, modificadores y claridad del producto recibido."
-        cls = "health-yellow" if purchasing >= 0.75 else "health-orange"
+        cls = "health-yellow" if (purchasing or 0) >= 0.75 else "health-orange"
 
     elif kind == "menu_pdf":
         main = "📄 PDF · Reactualización del algoritmo"
@@ -11665,7 +11667,7 @@ def _build_menu_tactical_card(record, name, menu_metrics, campaign_design):
         cls = "health-yellow"
 
     else:
-        # kind == "menu_catalog": mostrar los issues concretos sin título genérico
+        # kind == "menu_catalog": solo mostrar issues con datos reales confirmados
         issues = []
         if photos is not None and photos < 0.90:
             issues.append(f"📸 Fotos {fmt_percent0(photos)} — por debajo del 90%")
@@ -11674,7 +11676,7 @@ def _build_menu_tactical_card(record, name, menu_metrics, campaign_design):
         if purchasing is not None and purchasing < 0.90:
             issues.append(f"🛒 Purchasing experience {fmt_percent0(purchasing)} — por debajo del 90%")
         main = " · ".join(issues) if issues else "🍔 Ajustar catálogo antes de activar presión comercial"
-        argument = "Corregir estas métricas antes de escalar tráfico o activar pauta — si la base no convierte, el gasto es ineficiente."
+        argument = "Corregir estas métricas antes de escalar tráfico o activar pauta — si la base no convierte, el gasto es ineficiente." if issues else "Validar catálogo directamente con el aliado — no hay lectura cruzada de Perfect Store para este brand."
         cue = "Pide ajustar productos top/hero antes de activar una presión comercial más fuerte."
         cls = "health-yellow"
 
