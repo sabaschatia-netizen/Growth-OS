@@ -15,6 +15,7 @@ import uuid
 import json
 import requests
 from datetime import datetime, date, time, timedelta
+from urllib.parse import quote_plus
 
 # =========================
 # CONFIG
@@ -37,6 +38,7 @@ DAY_QUEUE_CURSOR_FILE = "growth_os_day_queue_cursor.json"
 CALL_QUALITY_HISTORY_FILE = "growth_os_call_quality_history.csv"
 ROLEPLAY_OBJECTIONS_FILE = "growth_os_roleplay_objections.csv"
 ROLEPLAY_HISTORY_FILE = "growth_os_roleplay_history.csv"
+BRAND_LINKS_FILE = "growth_os_brand_links.csv"
 BACKUP_FOLDER = "backups"
 
 ARS_PER_USD = 1400
@@ -3839,6 +3841,69 @@ def _save_day_queue_cursor(brand_id, brand_name):
         pass
 
 
+# ── Búsqueda en Google del restaurante (link guardado, sin API) ────────────
+
+def _build_google_search_url(brand_name, category="", contact=""):
+    """
+    Arma una URL de búsqueda de Google con nombre + categoría + 'Argentina'
+    (y teléfono si está disponible) para encontrar el local: nombre, dirección,
+    teléfono y mapa.
+    """
+    parts = [strip_brand_id_prefix(brand_name)]
+    if category and category not in ["", "-"]:
+        parts.append(category)
+    parts.append("Argentina")
+    if contact and contact not in ["", "-"]:
+        parts.append(contact)
+    query = " ".join(str(p) for p in parts if p)
+    return "https://www.google.com/search?q=" + quote_plus(query)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _load_brand_links_df():
+    if not os.path.exists(BRAND_LINKS_FILE):
+        return pd.DataFrame(columns=["brand_id", "brand_name", "google_link", "saved_at"])
+    try:
+        df = pd.read_csv(BRAND_LINKS_FILE, dtype=str).fillna("")
+        for col in ["brand_id", "brand_name", "google_link", "saved_at"]:
+            if col not in df.columns:
+                df[col] = ""
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["brand_id", "brand_name", "google_link", "saved_at"])
+
+
+def _get_saved_brand_link(brand_id):
+    df = _load_brand_links_df()
+    if df.empty:
+        return ""
+    bid = normalize_brand_id(brand_id)
+    match = df[df["brand_id"].apply(normalize_brand_id) == bid]
+    if match.empty:
+        return ""
+    return clean(match.iloc[-1].get("google_link"), "")
+
+
+def _save_brand_link(brand_id, brand_name, link):
+    """Guarda (o actualiza) el link de Google encontrado para una marca. No vuelve a buscar después."""
+    link = clean(link, "").strip()
+    if not link:
+        return False
+    bid = normalize_brand_id(brand_id)
+    df = _load_brand_links_df()
+    df = df[df["brand_id"].apply(normalize_brand_id) != bid].copy()
+    new_row = pd.DataFrame([{
+        "brand_id": str(bid),
+        "brand_name": str(brand_name),
+        "google_link": link,
+        "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }])
+    out = pd.concat([df, new_row], ignore_index=True)
+    out.to_csv(BRAND_LINKS_FILE, index=False, encoding="utf-8-sig")
+    _load_brand_links_df.clear()
+    return True
+
+
 def _collect_priority_topics(brand_id, name, ads_current, md_current, ads_roi):
     """
     Detecta los 'temas importantes' que deben mencionarse en los mensajes de Day Queue:
@@ -4213,6 +4278,10 @@ def page_day_queue():
             brand_id, name, ads_current, md_current, ads_roi
         )
 
+        contact_number = fmt_contact_number(
+            get_from_row(brand_row if brand_row is not None else row, ["contact number", "phone", "contact"], "")
+        ) if (brand_row is not None or row is not None) else ""
+
         # ── Estado Chon/Churn y presencia en Priority Data ──────────────────
         churn_status = get_churn_status(brand_id)  # "✅ On" si no figura en Current Churn
         churn_text_norm = norm_text(clean(churn_status, ""))
@@ -4283,6 +4352,32 @@ def page_day_queue():
                     _save_day_queue_cursor(brand_id, name)
                     st.success(f"Posición guardada en {name}")
                     st.rerun()
+
+            # ── Buscar en Google: nombre, teléfono y ubicación del local ───────
+            saved_link = _get_saved_brand_link(brand_id)
+            search_url = _build_google_search_url(name, category, contact_number)
+            gl_col1, gl_col2 = st.columns([1, 3])
+            with gl_col1:
+                st.link_button("🔎 Buscar en Google", search_url, use_container_width=True)
+            with gl_col2:
+                new_link = st.text_input(
+                    "Link encontrado (se guarda y no se vuelve a pedir)",
+                    value=saved_link,
+                    key=f"glink_{card_key}",
+                    placeholder="Pegá aquí el link de Google Maps / Google del local…",
+                    label_visibility="collapsed",
+                )
+            if new_link.strip() and new_link.strip() != saved_link:
+                if _save_brand_link(brand_id, name, new_link.strip()):
+                    st.success("Link guardado ✅")
+                    st.rerun()
+            if saved_link:
+                st.markdown(
+                    f"<div style='font-size:12px;margin:2px 0 8px;'>"
+                    f"<a href='{html.escape(saved_link)}' target='_blank' style='color:#8B9ED4;'>"
+                    f"📍 Ver local guardado: {html.escape(strip_brand_id_prefix(name))}</a></div>",
+                    unsafe_allow_html=True
+                )
 
             # ── Stickers de métricas ───────────────────────────────────────────
             stickers_html = ""
