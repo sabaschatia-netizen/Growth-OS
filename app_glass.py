@@ -10858,10 +10858,6 @@ def render_campaign_designer_html(design):
         for reason in reasons[:8]
     ]) or "<span class='card-chip'>No reasons available</span>"
 
-    mundialista_ready = bool(design.get("mundialista_ready"))
-    mundialista_status = "Aliado Mundialista ✅" if mundialista_ready else "Aliado Mundialista Candidate"
-    mundialista_status_color = "#6FF24B" if mundialista_ready else "#FF7124"
-
     # ── helpers ──────────────────────────────────────────────────
     def chip(text):
         return f"<span class='card-chip'>{html.escape(text)}</span>"
@@ -10921,28 +10917,6 @@ def render_campaign_designer_html(design):
         f"<div class='card-label'>🚀 Strategy · Full Campaign Plan</div>"
         f"<div class='card-value' style='font-size:20px;margin-bottom:14px'>{html.escape(clean(design.get('strategy'), '-'))}</div>"
         f"<div style='display:flex;flex-wrap:wrap;gap:10px'>{sub_cards_html}</div>"
-        f"</div>"
-    )
-
-    # ── 2. ALIADO MUNDIALISTA CARD ────────────────────────────────
-    checklist_items = [
-        ("Photos ≥90%", True),
-        ("Availability ≥90%", True),
-        ("25% OFF on 2 Top Products", mundialista_ready),
-        ("+5% PRO activated", mundialista_ready),
-        ("Combo 10% with Top Product", mundialista_ready),
-        ("Free Shipping capacity", mundialista_ready),
-    ]
-    checklist_html = "".join([check_row(lbl, ok) for lbl, ok in checklist_items])
-    mundialista_stack = clean(design.get("mundialista_stack"), "-")
-    mundialista_card = (
-        f"<div class='campaign-mini-card lever-pro' style='padding:20px 22px'>"
-        f"<div class='card-label'>🏆 Aliado Mundialista</div>"
-        f"<div style='display:flex;align-items:center;gap:10px;margin:8px 0 12px'>"
-        f"<span style='font-size:19px;font-weight:900;color:{mundialista_status_color}'>{html.escape(mundialista_status)}</span>"
-        f"</div>"
-        f"<div style='font-size:11px;color:#DBBBA7;margin-bottom:10px;line-height:1.35'>{html.escape(mundialista_stack)}</div>"
-        f"{checklist_html}"
         f"</div>"
     )
 
@@ -11183,12 +11157,10 @@ def render_campaign_designer_html(design):
 
     # ── GRID LAYOUT ───────────────────────────────────────────────
     # Row 1: Strategy mega card (full width)
-    # Row 2 (2 cols): Top Products Pyramid | Aliado Mundialista
-    # Row 3 (full width): Guardrails
+    # Row 2: Top Products Pyramid (full width)
+    # Row 3: Guardrails (full width)
     bottom_grid = (
-        f"<div style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px'>"
-        f"{pyramid_card}{mundialista_card}"
-        f"</div>"
+        f"<div style='margin-top:14px'>{pyramid_card}</div>"
         f"<div style='margin-top:14px'>{guardrails_card}</div>"
     )
 
