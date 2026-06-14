@@ -12694,25 +12694,104 @@ def render_brand_profile(row, brand_id):
     )
 
     _bf_last_note = _bf_meta.get("notes", "-")
-    # Build full history for "Última nota": Excel comments + CSV saved comments
+
+    # ── Última nota: la entrada más reciente (no el historial completo) ───────
     _excel_comments_bf = clean(get_from_row(row, ["comments", "comment"], ""))
-    _saved_comments_bf = get_saved_comments(brand_id)
-    _full_history_bf = ""
-    if _excel_comments_bf not in ["", "-"]:
-        _full_history_bf += _excel_comments_bf
-    if _saved_comments_bf:
-        _full_history_bf += ("\n\n" if _full_history_bf else "") + _saved_comments_bf
-    if not _full_history_bf.strip():
-        _full_history_bf = _bf_last_note  # fallback to meta
+    _saved_comments_df_bf = _load_comments_df()
+    _last_saved_comment = ""
+    if not _saved_comments_df_bf.empty and "brand_id" in _saved_comments_df_bf.columns:
+        _brand_rows_bf = _saved_comments_df_bf[
+            _saved_comments_df_bf["brand_id"] == normalize_brand_id(brand_id)
+        ].copy()
+        if not _brand_rows_bf.empty:
+            _brand_rows_bf = _brand_rows_bf.sort_values("_dt", ascending=False, na_position="last")
+            _most_recent = _brand_rows_bf.iloc[0]
+            _last_saved_comment = clean(_most_recent.get("comment", ""), "")
+
+    # Prioridad: último comment CSV → Excel comments → meta notes
+    if _last_saved_comment.strip():
+        _display_last_note = _last_saved_comment.strip()
+    elif _excel_comments_bf not in ["", "-"]:
+        _display_last_note = _excel_comments_bf.strip()
+    else:
+        _display_last_note = _bf_last_note
+
+    # ── Retomar llamada: análisis local de la última nota ─────────────────────
+    def _build_retomar_html(note_text):
+        """Pure-Python analysis of last note to suggest call re-entry point."""
+        if not note_text or note_text.strip() in ["-", ""]:
+            return '<span style="font-size:11px;color:#aaa;">Sin nota previa para analizar</span>'
+
+        low = note_text.lower()
+
+        # Detect dominant lever from note
+        lever_scores = {
+            "ADS":            sum(1 for k in ["ads", "publicidad", "banner", "campaña", "sponsored", "visibilidad paga", "investment"] if k in low),
+            "Markdown":       sum(1 for k in ["descuento", "promo", "markdown", "porcentaje", "%", "oferta"] if k in low),
+            "Top Restaurant": sum(1 for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "orgánica"] if k in low),
+            "Menú / Assortment": sum(1 for k in ["menú", "menu", "catálogo", "fotos", "productos", "carta", "assortment"] if k in low),
+            "Churn":          sum(1 for k in ["cancelar", "baja", "churn", "retiro", "no quiero seguir", "cerrar cuenta"] if k in low),
+        }
+        top_lever = max(lever_scores, key=lever_scores.get)
+        top_score = lever_scores[top_lever]
+
+        # Detect pending situation
+        pending_signals = []
+        if any(k in low for k in ["lo pienso", "lo consulto", "voy a ver", "te llamo", "la próxima"]):
+            pending_signals.append("el aliado quedó en pensar")
+        if any(k in low for k in ["enviar", "mandar", "propuesta", "plantilla", "mail"]):
+            pending_signals.append("pendiente envío de propuesta")
+        if any(k in low for k in ["negociando", "pendiente", "negotiation", "esperando"]):
+            pending_signals.append("hay una negociación abierta")
+        if any(k in low for k in ["rechazó", "no le interesa", "rejected", "no quiere"]):
+            pending_signals.append("la última interacción fue un rechazo")
+
+        # Build opener suggestion
+        if top_score == 0:
+            opener = "Arrancá con una apertura de contexto general — no hay palanca clara en la nota anterior."
+            color = PALETTE["cinnamon_ice"]
+        elif top_lever == "Churn":
+            opener = "⚠️ Retomá priorizando retención — hay señales de riesgo de baja. Abrí con datos de valor y propuesta concreta."
+            color = PALETTE["burning_orange"]
+        elif top_lever == "ADS":
+            opener = f"Retomá desde ADS — fue la palanca dominante. Abrí con el ROI de la categoría y un budget concreto."
+            color = PALETTE["blue_estate"]
+        elif top_lever == "Markdown":
+            opener = "Retomá desde la promo — fue lo que se estaba trabajando. Abrí con el descuento pendiente y la fecha de activación."
+            color = PALETTE["laser_green"]
+        elif top_lever == "Top Restaurant":
+            opener = "Retomá desde posicionamiento — hablaron de visibilidad. Abrí con el ranking actual y qué cambiaría activando."
+            color = PALETTE["blue_glow"]
+        else:
+            opener = "Retomá desde menú / catálogo — hablaron de productos. Abrí con fotos o la lista de top products de la categoría."
+            color = PALETTE["cinnamon_ice"]
+
+        pending_html = ""
+        if pending_signals:
+            items = "".join(f'<li style="margin-bottom:3px;">{s.capitalize()}</li>' for s in pending_signals)
+            pending_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;font-size:11px;color:rgba(232,223,213,.65);">{items}</ul>'
+
+        return f"""
+        <div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>
+        {pending_html}
+        """
+
+    _retomar_html = _build_retomar_html(_display_last_note)
+
+    # ── Render: último note display ───────────────────────────────────────────
+    # If it's an [Auto] summary, strip the prefix for cleaner display
+    _note_display_clean = _display_last_note
+    if _note_display_clean.startswith("[Auto]"):
+        _note_display_clean = _note_display_clean.replace("[Auto]", "").strip(" ·")
 
     _bf_last_note_html = (
-        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;white-space:pre-wrap;line-height:1.5;">{html.escape(_full_history_bf.strip())}</span>'
-        if _full_history_bf and _full_history_bf.strip() not in ["-", ""] else
+        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;white-space:pre-wrap;line-height:1.5;">{html.escape(_note_display_clean)}</span>'
+        if _display_last_note and _display_last_note.strip() not in ["-", ""] else
         '<span style="font-size:11px;color:#aaa;">Sin nota reciente</span>'
     )
 
     st.markdown(f"""
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
       <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Último contacto</div>
         <div style="font-size:13px;font-weight:800;color:{_bf_days_color};">{_bf_days_label}</div>
@@ -12725,6 +12804,10 @@ def render_brand_profile(row, brand_id):
       <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
         <div style="margin-top:2px;">{_bf_last_note_html}</div>
+      </div>
+      <div style="background:rgba(59,72,131,0.18);border:1px solid rgba(59,72,131,0.35);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:{PALETTE['blue_glow']};margin-bottom:8px;">🎯 Retomar llamada</div>
+        <div style="margin-top:2px;">{_retomar_html}</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
