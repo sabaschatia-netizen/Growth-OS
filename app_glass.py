@@ -4072,10 +4072,10 @@ def page_day_queue():
                     f"{contact_badge}</span>"
                     f"<span style='background:{ads_badge_bg};color:{ads_badge_txt};font-size:12px;font-weight:600;"
                     f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
-                    f"{'✅ Publicidad' if ads_active else '⬜ Sin Publicidad'}</span>"
+                    f"{'✅ Ads' if ads_active else '⬜ Sin Ads'}</span>"
                     f"<span style='background:{md_badge_bg};color:{md_badge_txt};font-size:12px;font-weight:600;"
                     f"padding:3px 10px;border-radius:20px;'>"
-                    f"{'✅ Promo' if md_active else '⬜ Sin Promo'}</span>",
+                    f"{'✅ Markdown' if md_active else '⬜ Sin Markdown'}</span>",
                     unsafe_allow_html=True
                 )
             with top_r:
@@ -4103,7 +4103,7 @@ def page_day_queue():
             # Retorno publicidad (si tiene)
             if ads_active and ads_roi and ads_roi > 0:
                 roi_color = "#6FF24B" if ads_roi >= 3 else ("#FF7124" if ads_roi >= 1.5 else "#E5332A")
-                stickers_html += _sticker("Retorno publicidad", f"{ads_roi:.1f}x", roi_color,
+                stickers_html += _sticker("Retorno ads", f"{ads_roi:.1f}x", roi_color,
                                            "rgba(111,242,75,0.08)", "rgba(111,242,75,0.20)")
             # Nombre campaña promo (si tiene)
             if md_active and md_campaign_name and md_campaign_name not in ["-", ""]:
@@ -4117,11 +4117,71 @@ def page_day_queue():
                     unsafe_allow_html=True
                 )
 
+            # ── Alertas Smart Priorities ───────────────────────────────────────
+            sp_signals = get_priority_signals_for_brand(brand_id, name)
+            sp_alerts_html = ""
+            if sp_signals.get("found"):
+                for lv in sp_signals.get("levers", []):
+                    kind = _classify_priority_lever(lv.get("metric", ""))
+                    metric_label = clean(lv.get("metric"), "")
+                    if kind == "ops_claims":
+                        sp_alerts_html += (
+                            f"<span style='background:rgba(229,51,42,0.15);color:#E5332A;font-size:12px;"
+                            f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                            f"⚠️ Reclamaciones — {html.escape(metric_label)}</span>"
+                        )
+                    elif kind == "ops_cancellations":
+                        sp_alerts_html += (
+                            f"<span style='background:rgba(229,51,42,0.15);color:#E5332A;font-size:12px;"
+                            f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                            f"⚠️ Cancelaciones — {html.escape(metric_label)}</span>"
+                        )
+                    elif kind == "menu_photos":
+                        sp_alerts_html += (
+                            f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                            f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                            f"📸 Fotos — {html.escape(metric_label)}</span>"
+                        )
+                    elif kind == "ops_availability":
+                        sp_alerts_html += (
+                            f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                            f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                            f"🔌 Availability — {html.escape(metric_label)}</span>"
+                        )
+                    elif kind == "menu_purchase_experience":
+                        sp_alerts_html += (
+                            f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                            f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                            f"🛒 Chasing Experience — {html.escape(metric_label)}</span>"
+                        )
+            # Also check menu metrics for photos/chasing_experience thresholds directly
+            _menu_for_alert = get_menu_health_for_brand(brand_id, name) if "get_menu_health_for_brand" in dir() else {}
+            if isinstance(_menu_for_alert, dict):
+                _photos_val = to_number(_menu_for_alert.get("photos"), 0)
+                _purch_val  = to_number(_menu_for_alert.get("purchasing_experience"), 0)
+                if _photos_val and _photos_val < 0.90 and "📸 Fotos" not in sp_alerts_html:
+                    sp_alerts_html += (
+                        f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                        f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                        f"📸 Fotos {fmt_percent0(_photos_val)} — por debajo del 90%</span>"
+                    )
+                if _purch_val and _purch_val < 0.90 and "🛒 Chasing Experience" not in sp_alerts_html:
+                    sp_alerts_html += (
+                        f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                        f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
+                        f"🛒 Chasing Experience {fmt_percent0(_purch_val)} — por debajo del 90%</span>"
+                    )
+            if sp_alerts_html:
+                st.markdown(
+                    f"<div style='display:flex;flex-wrap:wrap;gap:0;margin:8px 0 8px 0;'>{sp_alerts_html}</div>",
+                    unsafe_allow_html=True
+                )
+
             # ── Palanca recomendada ────────────────────────────────────────────
             if lever == "Ads" and ads_active:
-                _lever_label = "📢 Publicidad — escalar retorno existente"
+                _lever_label = "📢 Ads — escalar retorno existente"
             elif lever == "Ads":
-                _lever_label = "📢 Publicidad — activar primera campaña"
+                _lever_label = "📢 Ads — activar primera campaña"
             else:
                 _disc = campaign_design.get("discount", 20)
                 _hero = campaign_design.get("hero_product", "producto principal")
