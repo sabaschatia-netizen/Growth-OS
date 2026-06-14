@@ -3921,35 +3921,46 @@ def _churn_risk_reading(churn_status):
     """
     Lectura corta de riesgo/acción a partir del label de churn con emoji
     (✅ On · ⚠️ W1 · 🚨 W2 · 🆘 W3 · 😴 Off).
-    Devuelve (risk_text, action_text).
+    Devuelve (risk_text, action_text, urgent_bool).
+    'Off' se trata como caso urgente: la marca está apagada y hay que reconectar ya.
     """
     churn_text = norm_text(clean(churn_status, ""))
-    if "w3" in churn_text or "🆘" in str(churn_status) or "☠" in str(churn_status):
-        return "riesgo alto / deterioro avanzado", "definir acción de recuperación prioritaria"
-    if "w2" in churn_text or "🚨" in str(churn_status):
-        return "riesgo medio con alerta activa", "revisar la causa del deterioro y acordar una corrección"
-    if "w1" in churn_text or "⚠" in str(churn_status):
-        return "alerta temprana", "prevenir que la marca siga deteriorándose"
     if "off" in churn_text or "😴" in str(churn_status):
-        return "marca apagada / inactiva", "evaluar una reactivación"
-    return "marca activa", "mantener el seguimiento para evitar una caída"
+        return "marca apagada / desconectada", "reconectar la marca de forma urgente y entender qué pasó", True
+    if "w3" in churn_text or "🆘" in str(churn_status) or "☠" in str(churn_status):
+        return "riesgo alto / deterioro avanzado", "definir acción de recuperación prioritaria", True
+    if "w2" in churn_text or "🚨" in str(churn_status):
+        return "riesgo medio con alerta activa", "revisar la causa del deterioro y acordar una corrección", False
+    if "w1" in churn_text or "⚠" in str(churn_status):
+        return "alerta temprana", "prevenir que la marca siga deteriorándose", False
+    return "marca activa", "mantener el seguimiento para evitar una caída", False
 
 
 def _build_churn_day_queue_message(name, category, churn_status, priority_topics=None):
     """
     Mensaje pre-llamada específico para marcas que aparecen en Priority Data
     y/o en Current Churn con un estado de riesgo (W1/W2/W3/Off).
+    Si el estado es 'Off', el mensaje es urgente: la marca está desconectada
+    y la prioridad es retomar el contacto ya.
     Returns (subject, whatsapp_body, email_body) — sin API, fully offline.
     """
-    risk, action = _churn_risk_reading(churn_status)
+    risk, action, urgent = _churn_risk_reading(churn_status)
     churn_label = clean(churn_status, "✅ On")
 
-    subject = f"Revisión Chon/Churn — {name} ({churn_label})"
-
-    pain_wa = (f"Vi que {name} está en {category} con estado Chon {churn_label} ({risk}). "
-               f"Te llamo hoy para revisarlo juntos y {action}.")
-    pain_email = (f"Revisando el portafolio de {category}, {name} aparece con estado Chon {churn_label} ({risk}). "
-                   f"Te llamo hoy para revisarlo juntos. La idea es {action} antes de que siga avanzando.")
+    if urgent:
+        subject = f"🚨 URGENTE — Reconexión Churn — {name} ({churn_label})"
+        pain_wa = (f"⚠️ Urgente: {name} aparece con estado Churn {churn_label} ({risk}) en {category}. "
+                   f"Esto significa que la marca está desconectada / fuera de operación en Rappi ahora mismo. "
+                   f"Necesito retomar contacto hoy mismo para entender qué pasó y reactivarla cuanto antes.")
+        pain_email = (f"Te escribo con carácter urgente: {name} aparece con estado Churn {churn_label} ({risk}) "
+                       f"en el portafolio de {category}. La marca está desconectada / fuera de operación en este momento.\n\n"
+                       f"Necesitamos {action}. Te pido coordinar una llamada hoy mismo, es prioritario antes de que se pierda más venta.")
+    else:
+        subject = f"Revisión Churn — {name} ({churn_label})"
+        pain_wa = (f"Vi que {name} está en {category} con estado Churn {churn_label} ({risk}). "
+                   f"Te llamo hoy para revisarlo juntos y {action}.")
+        pain_email = (f"Revisando el portafolio de {category}, {name} aparece con estado Churn {churn_label} ({risk}). "
+                       f"Te llamo hoy para revisarlo juntos. La idea es {action} antes de que siga avanzando.")
 
     topics_line = _format_priority_topics_line(priority_topics or [])
 
@@ -3960,7 +3971,9 @@ def _build_churn_day_queue_message(name, category, churn_status, priority_topics
     greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n"
                       f"{pain_email}\n\n"
                       + (f"{topics_line}\n\n" if topics_line else "")
-                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina")
+                      + (f"¿Tenés un momento hoy para una llamada urgente?\n\nSaludos,\nSabas Ramírez\nRappi Argentina"
+                         if urgent else
+                         f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina"))
 
     return subject, greeting_wa, greeting_email
 
@@ -4234,17 +4247,24 @@ def page_day_queue():
                 md_badge_txt  = "#6FF24B" if md_active else "rgba(232,223,213,.35)"
                 churn_badge_html = ""
                 if show_churn_sticker:
-                    _churn_bg = ("rgba(229,51,42,0.15)" if any(c in str(churn_status) for c in ["🆘", "🚨", "☠"])
+                    _is_urgent_churn = any(c in str(churn_status) for c in ["🆘", "🚨", "☠", "😴"])
+                    _churn_bg = ("rgba(229,51,42,0.15)" if _is_urgent_churn
                                   else "rgba(255,113,36,0.15)" if "⚠" in str(churn_status)
                                   else "rgba(255,255,255,0.06)")
-                    _churn_txt = ("#E5332A" if any(c in str(churn_status) for c in ["🆘", "🚨", "☠"])
+                    _churn_txt = ("#E5332A" if _is_urgent_churn
                                    else "#FF7124" if "⚠" in str(churn_status)
                                    else "rgba(232,223,213,.7)")
                     churn_badge_html = (
                         f"<span style='background:{_churn_bg};color:{_churn_txt};font-size:12px;font-weight:600;"
                         f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
-                        f"📊 Chon — {html.escape(clean(churn_status, '✅ On'))}</span>"
+                        f"📊 Churn — {html.escape(clean(churn_status, '✅ On'))}</span>"
                     )
+                    if _is_urgent_churn:
+                        churn_badge_html += (
+                            f"<span style='background:rgba(229,51,42,0.20);color:#E5332A;font-size:12px;font-weight:700;"
+                            f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
+                            f"🚨 Urgente — reconectar</span>"
+                        )
                 st.markdown(
                     f"<span style='background:{badge_bg};color:{badge_txt};font-size:12px;"
                     f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;'>"
