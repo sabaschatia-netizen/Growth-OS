@@ -6571,6 +6571,7 @@ def _render_churn_distribution_bar(counts, total):
 
 
 
+def _render_target_input_block(ads_target_default, md_target_default):
     """
     Compact target input row. Returns (ads_target_usd, md_target_usd, weeks_left).
     Tries to pre-fill from the Earnings sheet; user can override inline.
@@ -7307,17 +7308,31 @@ def page_opportunity_list():
     st.markdown("## 🔴 CHURN")
 
     # ── Barra de distribución de severidad (On/W1/W2/W3/Off) ─────────────────
-    if not _raw_churn_df.empty and _cc_sta_col:
-        _all_statuses = _raw_churn_df[_cc_sta_col].apply(lambda x: clean(x, "").strip())
+    # "On" = total de stores del portfolio (Asignacion Junio) que NO aparecen
+    # en Current Churn con un estado W1/W2/W3/Off. El total de la barra es el
+    # universo completo del portfolio, no solo las filas de Current Churn.
+    if _cc_sta_col is not None:
+        _all_statuses = _raw_churn_df[_cc_sta_col].apply(lambda x: clean(x, "").strip()) if not _raw_churn_df.empty else pd.Series([], dtype=str)
         _all_statuses = _all_statuses[_all_statuses != ""]
         _dist_counts = _all_statuses.value_counts().to_dict()
-        # Normalizar claves a On/W1/W2/W3/Off (lo que sea distinto se ignora del total)
+        # Normalizar claves a W1/W2/W3/Off (estados "en churn")
         _dist_counts_norm = {}
         for k, v in _dist_counts.items():
             kn = k.strip()
-            if kn in ("On", "W1", "W2", "W3", "Off"):
+            if kn in ("W1", "W2", "W3", "Off"):
                 _dist_counts_norm[kn] = _dist_counts_norm.get(kn, 0) + v
-        _dist_total = sum(_dist_counts_norm.values())
+
+        _n_churned = sum(_dist_counts_norm.values())
+        _asignacion_df = load_asignacion_junio()
+        _portfolio_total = len(_asignacion_df)
+
+        if _portfolio_total > 0:
+            _dist_counts_norm["On"] = max(_portfolio_total - _n_churned, 0)
+            _dist_total = _portfolio_total
+        else:
+            # Fallback: sin Asignacion Junio, usar solo lo que hay en Current Churn
+            _dist_total = sum(_dist_counts_norm.values())
+
         _render_churn_distribution_bar(_dist_counts_norm, _dist_total)
 
     if total_gmv_at_risk > 0:
