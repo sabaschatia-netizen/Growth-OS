@@ -1429,11 +1429,12 @@ def load_current_md_data(portfolio_only=False, pro=False):
 
     df = raw.copy()
 
-    # ── Positional anchors (0-based): col E = idx 4, col J = idx 9 ──────────
+    # ── Positional anchors (0-based): col E = idx 4, col I = idx 8, col J = idx 9 ──
     COL_E_IDX = 4   # MARKDOWN $ / MARKDOWN PRO USR $  → sales (USD)
+    COL_I_IDX = 8   # TOTAL GMV MD / TOTAL GMV MD PRO  → gmv (col I)
     COL_J_IDX = 9   # ROI / ROI MD PRIME               → roi
 
-    # Normalise headers for name-based lookups (ID, orders, campaigns, gmv)
+    # Normalise headers for name-based lookups (ID, orders, campaigns)
     df.columns = [normalize(c).replace("_", " ").strip() for c in df.columns]
 
     id_col = _first_existing_col(df, ["brand id", "brand_id", "code", "id", "tienda id"])
@@ -1446,21 +1447,22 @@ def load_current_md_data(portfolio_only=False, pro=False):
     col_e_name = df.columns[COL_E_IDX] if COL_E_IDX < len(df.columns) else None
     df["_sales_usd"] = _prepare_numeric_col(df, col_e_name) if col_e_name else pd.Series([0]*len(df), index=df.index)
 
+    # ── GMV total: col I (idx 8) → positional, always correct ───────────────
+    col_i_name = df.columns[COL_I_IDX] if COL_I_IDX < len(df.columns) else None
+    df["_gmv_usd"] = _prepare_numeric_col(df, col_i_name) if col_i_name else pd.Series([0]*len(df), index=df.index)
+
     # ── ROI: col J (idx 9) ────────────────────────────────────────────────────
     col_j_name = df.columns[COL_J_IDX] if COL_J_IDX < len(df.columns) else None
     df["_roi_raw"] = _prepare_numeric_col(df, col_j_name) if col_j_name else pd.Series([0]*len(df), index=df.index)
 
-    # ── GMV, campaigns, orders: name-based (display / filtering use only) ────
+    # ── campaigns, orders: name-based ────────────────────────────────────────
     if pro:
-        gmv_col       = _first_existing_col(df, ["gmv pro usr", "gmv pro", "gmv pro user", "gmv md pro", "gmv", "gmv usd"])
         campaigns_col = _first_existing_col(df, ["campaigns pro #", "campaings pro #", "campaigns pro", "campaigns_pro", "campaigns"])
         orders_col    = _first_existing_col(df, ["orders md pro usr", "orders md pro usr #", "orders md pro", "orders_md_pro", "orders pro", "orders", "ordenes pro"])
     else:
-        gmv_col       = _first_existing_col(df, ["gmv md $", "gmv md", "gmv_md", "gmv total md", "gmv total", "gmv", "gmv usd"])
         campaigns_col = _first_existing_col(df, ["campaings #", "campaigns #", "campaigns", "campaigns md"])
         orders_col    = _first_existing_col(df, ["orders md #", "orders md", "orders_md", "ordenes md", "pedidos md", "orders", "ordenes", "pedidos"])
 
-    df["_gmv_usd"]    = _prepare_numeric_col(df, gmv_col)
     df["_campaigns"]  = _prepare_numeric_col(df, campaigns_col)
     df["_orders"]     = _prepare_numeric_col(df, orders_col)
 
@@ -15346,6 +15348,11 @@ def page_campaign_weekly_tracker():
                 f'⚠️ <b>Caída de ROI moderada:</b> {_warn_items}</div>',
                 unsafe_allow_html=True,
             )
+
+    # Sort by Bookings USD descending so highest-spend brands appear first
+    if not ads_view.empty and "Bookings USD" in ads_view.columns:
+        ads_view = ads_view.sort_values("Bookings USD", ascending=False).reset_index(drop=True)
+        ads_view.index = ads_view.index + 1  # N. starts at 1
 
     _render_html_table(ads_view)
 
