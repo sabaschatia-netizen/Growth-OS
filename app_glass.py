@@ -13833,6 +13833,312 @@ def render_brand_profile(row, brand_id):
     # ── Campaign Designer (after Analytics) ───────────────────────────────────
     st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
 
+    # ── Generar Informe Visual para el Aliado ─────────────────────────────────
+    st.markdown(f"""
+    <div style="margin-top:28px;padding:18px 22px 14px;background:rgba(59,72,131,0.12);
+                border:1.5px solid rgba(59,72,131,0.32);border-radius:14px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;
+                    color:{PALETTE['blue_glow']};letter-spacing:.09em;margin-bottom:5px;">
+            📊 Generar Informe Visual
+        </div>
+        <div style="font-size:12px;color:{PALETTE['cinnamon_ice']};">
+            Seleccioná el tipo de imagen y copiá el prompt en Gemini — te devuelve una gráfica estadística lista para compartir con el restaurante.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _ir_c1, _ir_c2 = st.columns([1, 2])
+    with _ir_c1:
+        _informe_tipo = st.selectbox(
+            "Tipo de informe",
+            [
+                "BvsB · GMV & AOV vs Mes Anterior",
+                "Offer · Conversión & Tráfico vs Benchmark",
+                "Proyecciones · GMV Incremental con Campañas",
+            ],
+            key=f"informe_tipo_{brand_id}",
+        )
+    with _ir_c2:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        _gen_clicked = st.button(
+            "📊 Generar Prompt para Gemini",
+            key=f"gen_informe_{brand_id}",
+            use_container_width=True,
+        )
+
+    if _gen_clicked:
+
+        # ── helpers locales ───────────────────────────────────────────────────
+        def _pct_change(new, old):
+            if old and old > 0 and new is not None:
+                return round((new / old - 1) * 100, 1)
+            return None
+
+        def _arrow(pct):
+            if pct is None: return ""
+            return "↑" if pct >= 0 else "↓"
+
+        def _sign(pct):
+            if pct is None: return "s/d"
+            return f"+{pct}%" if pct >= 0 else f"{pct}%"
+
+        def _ars(v):
+            if not v: return "s/d"
+            if v >= 1_000_000:
+                return f"${v/1_000_000:.1f}M ARS"
+            if v >= 1_000:
+                return f"${v/1_000:.0f}k ARS"
+            return f"${v:.0f} ARS"
+
+        def _num(v):
+            if v is None: return "s/d"
+            return f"{round(v):,}".replace(",", ".")
+
+        # ── pre-calculados comunes ────────────────────────────────────────────
+        _gmv_vs_mayo   = _pct_change(current_gmv_ars, may_gmv_ars)
+        _gmv_vs_abril  = _pct_change(current_gmv_ars, abril_gmv_ars)
+        _aov_vs_mayo   = _pct_change(current_aov_ars, may_aov_ars)
+        _ads_active    = ads_current.get("active", False)
+        _ads_roi_val   = to_number(ads_current.get("roi"), 0)
+        _ads_inv_usd   = to_number(ads_current.get("bookings_usd"), 0)
+        _ads_cons_pct  = round(to_number(ads_current.get("revenue_usd"), 0) / _ads_inv_usd * 100, 1) if _ads_inv_usd else 0
+        _md_active     = md_current.get("active", False)
+        _md_roi_val    = to_number(md_current.get("roi"), 0)
+        _md_discount   = clean(md_current.get("discount") or md_current.get("pct") or md_current.get("discount_pct"), "-")
+        _actions_list  = [clean(a.get("action"), "") for a in (actions or []) if clean(a.get("action"), "")]
+        _booster_name  = clean(booster.get("event"), "-") if isinstance(booster, dict) else "-"
+        _period        = APP_PERIOD
+
+        # ── GMV proyectado con ADS (simple: GMV * ROI ratio heurístico) ───────
+        _gmv_ads_proj  = round(current_gmv_ars * (1 + _ads_roi_val * 0.12)) if _ads_active and _ads_roi_val > 0 and current_gmv_ars else 0
+
+        # ═════════════════════════════════════════════════════════════════════
+        # PROMPT BvsB
+        # ═════════════════════════════════════════════════════════════════════
+        if "BvsB" in _informe_tipo:
+            _prompt = f"""Sos un diseñador gráfico experto en infografías de datos para negocios gastronómicos.
+
+Creá UNA SOLA imagen estadística visual (formato landscape 1200×630px) para el restaurante **{name}** — informe de desempeño mensual comparativo.
+
+══════════════════════════════════════
+DATOS REALES DEL RESTAURANTE
+══════════════════════════════════════
+
+MARCA: {name} · ID: AR-{normalize_brand_id(brand_id)} · CATEGORÍA: {category}
+PERÍODO: {_period}
+
+── GMV (Ventas Totales Plataforma) ──────────
+| Abril      | Mayo       | Actual (Junio)      |
+|------------|------------|---------------------|
+| {_ars(abril_gmv_ars)} | {_ars(may_gmv_ars)} | {_ars(current_gmv_ars)} |
+
+Variación Junio vs Mayo: {_sign(_gmv_vs_mayo)} {_arrow(_gmv_vs_mayo)}
+Variación Junio vs Abril: {_sign(_gmv_vs_abril)} {_arrow(_gmv_vs_abril)}
+
+── AOV (Ticket Promedio por Pedido) ─────────
+| Abril      | Mayo       | Actual (Junio)      |
+|------------|------------|---------------------|
+| {_ars(abril_aov_ars)} | {_ars(may_aov_ars)} | {_ars(current_aov_ars)} |
+
+Variación Junio vs Mayo: {_sign(_aov_vs_mayo)} {_arrow(_aov_vs_mayo)}
+
+Pedidos este mes: {_num(_orders)}
+
+══════════════════════════════════════
+DISEÑO REQUERIDO — seguí EXACTAMENTE
+══════════════════════════════════════
+
+ESTILO: dashboard ejecutivo, fondo oscuro (#1D2659), tipografía blanca y contrastada, minimalista, sin texto corrido.
+
+LAYOUT — dos bloques lado a lado (50% / 50%):
+  BLOQUE IZQUIERDO — GMV:
+  → Gráfico de línea con 3 puntos: Abr → May → Jun
+  → Colorear la línea: verde (#6FF24B) si sube, rojo (#E5332A) si baja vs mayo
+  → Mostrar los 3 valores ARS en cada punto
+  → KPI grande debajo: valor actual + flecha + % cambio vs Mayo en bold
+
+  BLOQUE DERECHO — AOV:
+  → Igual que el bloque de GMV pero con datos de AOV
+  → Línea de tendencia con mismo esquema de color
+
+ELEMENTOS COMUNES:
+  → Header: logo RAPPI (icon naranja) + nombre "{name}" como título centrado + categoría en subtítulo pequeño
+  → Footer: "{_period}" centrado · texto mínimo
+  → Usar SOLO números, flechas (↑↓), porcentajes y keywords — CERO párrafos
+  → Destacar el % de cambio vs Mayo como el dato más visible de cada bloque
+  → Si el cambio es positivo: acento verde · Si es negativo: acento rojo
+
+NO incluyas tablas de texto, no uses bullets largos, no pongas explicaciones. Solo la gráfica con los datos."""
+
+        # ═════════════════════════════════════════════════════════════════════
+        # PROMPT OFFER
+        # ═════════════════════════════════════════════════════════════════════
+        elif "Offer" in _informe_tipo:
+            _tw_label   = _num(_traffic_weekly) + "/sem" if _traffic_weekly and _traffic_weekly > 0 else "s/d"
+            _tb_label   = _num(_t_bench) + "/sem" if _t_bench and _t_bench > 0 else "s/d"
+            _tm_label   = _num(_traffic_monthly) + "/mes" if _traffic_monthly and _traffic_monthly > 0 else "s/d"
+            _cvr_color  = "🟢 SOBRE BENCHMARK" if _cr_above_bench else ("🔴 BAJO BENCHMARK" if _cr_current_norm > 0 else "⚫ SIN DATO")
+            _traf_color = "🟢 OK" if (_traffic_weekly and _t_bench and _traffic_weekly >= _t_bench * 0.85) else ("🔴 BAJO" if _traffic_weekly else "⚫ SIN DATO")
+            _gmv_inc_label = _ars(_gmv_incremental) if _gmv_incremental and _gmv_incremental > 0 else "Ya sobre benchmark ✅" if _cr_above_bench else "s/d"
+
+            _prompt = f"""Sos un diseñador gráfico experto en infografías de rendimiento para negocios gastronómicos.
+
+Creá UNA SOLA imagen estadística visual (formato landscape 1200×630px) para el restaurante **{name}** — análisis de Tráfico & Conversión vs Benchmark de categoría.
+
+══════════════════════════════════════
+DATOS REALES DEL RESTAURANTE
+══════════════════════════════════════
+
+MARCA: {name} · CATEGORÍA: {category} · PERÍODO: {_period}
+
+── CONVERSIÓN (CVR) ──────────────────
+Marca actual:          {_cr_display}
+Benchmark categoría:   {_bench_display}
+Estado:                {_cvr_color}
+Diagnóstico:           {_d4_main}
+
+── TRÁFICO ───────────────────────────
+Tráfico semanal marca: {_tw_label}
+Benchmark categoría:   {_tb_label}
+Tráfico mensual:       {_tm_label}
+Estado:                {_traf_color}
+
+── OPORTUNIDAD ───────────────────────
+GMV incremental si CR llega a benchmark: {_gmv_inc_label}
+Diagnóstico general: {_d4_sub}
+
+══════════════════════════════════════
+DISEÑO REQUERIDO — seguí EXACTAMENTE
+══════════════════════════════════════
+
+ESTILO: dashboard ejecutivo, fondo oscuro (#1D2659), minimalista, cero texto corrido.
+
+LAYOUT — tres bloques en fila:
+
+  BLOQUE 1 — CONVERSIÓN (CVR):
+  → Gauge circular o barra de progreso mostrando CVR actual vs benchmark
+  → El arco de progreso llega hasta el % de la marca, con marca de referencia en el benchmark
+  → Color del arco: verde si sobre benchmark, rojo/naranja si bajo
+  → KPIs bajo el gauge: "{_cr_display} marca" vs "{_bench_display} categoría"
+  → Estado en badge: {"SOBRE BENCHMARK ✅" if _cr_above_bench else "BAJO BENCHMARK ⚠️"}
+
+  BLOQUE 2 — TRÁFICO SEMANAL:
+  → Barra de progreso horizontal: tráfico real vs benchmark
+  → Porcentaje completado sobre el benchmark
+  → KPIs: "{_tw_label} actual" vs "{_tb_label} categoría"
+  → Color según estado: {"verde" if (_traffic_weekly and _t_bench and _traffic_weekly >= _t_bench * 0.85) else "naranja/rojo"}
+
+  BLOQUE 3 — OPORTUNIDAD GMV:
+  → KPI grande centrado: {_gmv_inc_label}
+  → Subtítulo: "GMV incremental estimado"
+  → Contexto en texto pequeño: "si CVR → benchmark de categoría"
+  → Color: verde si hay ganancia, gris si ya sobre benchmark
+
+ELEMENTOS COMUNES:
+  → Header: logo RAPPI (icono naranja) + nombre "{name}" + categoría + período
+  → Footer: diagnóstico en 1 línea: "{_d4_sub}"
+  → Solo números, %, flechas, keywords — CERO párrafos ni bullets largos
+  → Colores semáforo estrictos: verde=#6FF24B · naranja=#FF7124 · rojo=#E5332A
+
+NO pongas explicaciones, tablas de texto ni bloques de párrafos. Solo la gráfica."""
+
+        # ═════════════════════════════════════════════════════════════════════
+        # PROMPT PROYECCIONES
+        # ═════════════════════════════════════════════════════════════════════
+        else:
+            _gmv_ads_label    = _ars(_gmv_ads_proj) if _gmv_ads_proj else "s/d"
+            _gmv_bench_label  = _ars(current_gmv_ars + _gmv_incremental) if _gmv_incremental and current_gmv_ars else "s/d"
+            _gmv_actual_label = _ars(current_gmv_ars)
+            _ads_status       = f"ACTIVO · Inversión USD {round(_ads_inv_usd)} · ROI {round(_ads_roi_val,1)}x · Consumo {_ads_cons_pct}%" if _ads_active else "INACTIVO · SIN CAMPAÑA"
+            _md_status        = f"ACTIVO · {_md_discount} off · ROI {round(_md_roi_val,1)}x" if _md_active else "INACTIVO · SIN DESCUENTO"
+            _be_label         = f"+{_be_orders} órdenes extra ({_be_pct_over_current}% sobre actual)" if _be_orders > 0 else "s/d"
+            _actions_str      = "\n  · ".join(_actions_list[:4]) if _actions_list else "s/d"
+
+            _prompt = f"""Sos un diseñador gráfico experto en infografías de proyecciones comerciales para negocios gastronómicos.
+
+Creá UNA SOLA imagen estadística visual (formato landscape 1200×630px) para el restaurante **{name}** — proyecciones de GMV con campañas activas y potencial de crecimiento.
+
+══════════════════════════════════════
+DATOS REALES DEL RESTAURANTE
+══════════════════════════════════════
+
+MARCA: {name} · CATEGORÍA: {category} · PERÍODO: {_period}
+
+── GMV ACTUAL Y PROYECTADO ───────────
+GMV actual:                          {_gmv_actual_label}
+GMV proyectado con ADS activo:       {_gmv_ads_label}
+GMV si CR llega a benchmark categ.:  {_gmv_bench_label}
+GMV incremental por mejora CVR:      {_ars(_gmv_incremental) if _gmv_incremental else "s/d"}
+
+── PALANCAS COMERCIALES ──────────────
+ADS:        {_ads_status}
+MARKDOWN:   {_md_status}
+Punto de equilibrio MD: {_be_label}
+
+── BOOSTER RECOMENDADO ───────────────
+{_booster_name}
+
+── ACCIONES 360 SUGERIDAS ────────────
+  · {_actions_str}
+
+══════════════════════════════════════
+DISEÑO REQUERIDO — seguí EXACTAMENTE
+══════════════════════════════════════
+
+ESTILO: dashboard ejecutivo, fondo oscuro (#1D2659), minimalista, cero texto corrido.
+
+LAYOUT — dos filas:
+
+  FILA SUPERIOR — Proyección GMV (70% del ancho):
+  → Gráfico de barras horizontal con 3 barras apiladas y etiquetas claras:
+      1. "Actual"      → {_gmv_actual_label}   (barra base gris oscuro)
+      2. "+ ADS"       → {_gmv_ads_label}       (barra adicional naranja #FF7124)
+      3. "+ CVR opt."  → {_gmv_bench_label}     (barra adicional verde #6FF24B)
+  → Mostrar el GMV total de cada escenario a la derecha de cada barra en bold
+  → KPI grande arriba: "Potencial total: {_gmv_bench_label}" en verde
+
+  FILA INFERIOR — Palancas (3 tarjetas en fila):
+  → Tarjeta ADS: ícono 🚀 · estado ON/OFF en badge · ROI {round(_ads_roi_val,1)}x · Inversión USD {round(_ads_inv_usd)}
+  → Tarjeta MD:  ícono 🏷️ · estado ON/OFF en badge · {_md_discount} off · ROI {round(_md_roi_val,1)}x · BE: {_be_label}
+  → Tarjeta Booster: ícono ⚡ · "{_booster_name}" como título · acciones sugeridas en keywords pequeños
+
+  → Badge ON: fondo verde oscuro · texto "#6FF24B" · "● ACTIVO"
+  → Badge OFF: fondo rojo oscuro · texto "#E5332A" · "● INACTIVO"
+
+ELEMENTOS COMUNES:
+  → Header: logo RAPPI (icono naranja) + "{name}" + categoría + período
+  → Solo números, %, flechas, keywords — CERO párrafos
+  → Palette: #1D2659 fondo · #FF7124 naranja · #6FF24B verde · #E8DFD5 texto
+
+NO pongas explicaciones ni bullets largos. Solo la infografía con los datos."""
+
+        st.session_state[f"informe_prompt_{brand_id}"] = _prompt
+
+    # ── Display del prompt generado ───────────────────────────────────────────
+    _stored_prompt = st.session_state.get(f"informe_prompt_{brand_id}", "")
+    if _stored_prompt:
+        _tipo_label = _informe_tipo.split("·")[0].strip() if "_informe_tipo" in dir() else "Informe"
+        st.markdown(f"""
+        <div style="margin-top:16px;padding:12px 16px 8px;background:rgba(111,242,75,0.07);
+                    border:1.5px solid rgba(111,242,75,0.28);border-radius:12px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;
+                        color:{PALETTE['laser_green']};letter-spacing:.09em;margin-bottom:6px;">
+                ✅ Prompt listo — copiá y pegá en Gemini
+            </div>
+            <div style="font-size:11px;color:{PALETTE['cinnamon_ice']};">
+                Tipo: <strong style="color:{PALETTE['pale_cashmere']};">{_tipo_label}</strong>
+                · Marca: <strong style="color:{PALETTE['pale_cashmere']};">{name}</strong>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.text_area(
+            label="Prompt para Gemini",
+            value=_stored_prompt,
+            height=420,
+            key=f"informe_display_{brand_id}",
+            label_visibility="collapsed",
+        )
+
     return name
 
 
