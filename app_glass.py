@@ -13169,7 +13169,7 @@ def render_brand_profile(row, brand_id):
             <div class="hero-info-value">{_saved_link_sticker}</div>
         </div>
     </div>
-    {f'<div style="margin-top:14px;">{multibrand_html}</div>' if multibrand_html else ''}
+    {f'<div style="margin-top:14px;"></div>' if multibrand_html else ''}
 </div>
 """, unsafe_allow_html=True)
 
@@ -13210,6 +13210,37 @@ def render_brand_profile(row, brand_id):
 }})();
 </script>
 """, height=0, scrolling=False)
+
+    # ── Multibrand: chips interactivos → navegan al Brand Finder de esa marca ──
+    _mb_matches = get_multibrand_matches(row, brand_id)
+    if _mb_matches:
+        _mb_total      = len(_mb_matches)
+        _mb_high_count = sum(1 for m in _mb_matches if m["confidence"] == "High")
+        _mb_title      = "🏢 Multibrand detected" if _mb_high_count else "🏢 Possible multibrand"
+        _mb_summary    = f"{_mb_total} linked account{'s' if _mb_total != 1 else ''} · {_mb_high_count} high confidence"
+
+        st.markdown(
+            f"<div class='multibrand-box'>"
+            f"<div class='info-mini-label'>{_mb_title}</div>",
+            unsafe_allow_html=True,
+        )
+        _mb_cols = st.columns(min(_mb_total, 3))
+        for _mb_i, _mb_match in enumerate(_mb_matches):
+            _mb_conf_icon = "✅" if _mb_match["confidence"] == "High" else "⚠️"
+            _mb_reason    = "/".join(_mb_match["reasons"])
+            _mb_label     = (
+                f"{_mb_conf_icon} AR-{_mb_match['id']} · "
+                f"{clean(_mb_match['name'], '-')} · {_mb_reason}"
+            )
+            with _mb_cols[_mb_i % len(_mb_cols)]:
+                if st.button(_mb_label, key=f"mb_goto_{brand_id}_{_mb_match['id']}"):
+                    st.session_state["bf_brand_id_input"] = str(_mb_match["id"])
+                    st.session_state["active_page"] = "Brand Finder"
+                    st.rerun()
+        st.markdown(
+            f"<div class='multibrand-summary'>{_mb_summary}</div></div>",
+            unsafe_allow_html=True,
+        )
 
     # ── Historia del aliado (changelog) ──────────────────────────────────────
     try:
