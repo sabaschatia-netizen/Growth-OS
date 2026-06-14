@@ -8305,6 +8305,177 @@ def get_productivity_last_contact_map(excel_path):
     return result
 
 
+def get_productivity_levers_for_brand(excel_path, brand_name, month=None):
+    """
+    Reads the Productivity sheet and returns a summary of levers worked
+    for the given brand in the current month (or specified month).
+
+    Columns used:
+      K (idx 10) = Date  |  Q (idx 16) = Brand name
+      Lever cols (binary SI/NO): Markdown, Ads, Conectividad, Catálogo,
+          Cancelaciones, DR, Tiempos, Pains del aliado, Churn, On Hold
+      Multi-value: Ajustes Catálogo
+      Extra: Tipo Ads, ¿Se aceptó lo ofrecido?, Fase
+
+    Priority logic (caller side):
+      1. [Auto] transcript comment → always wins, don't call this
+      2. This function → if productivity rows exist for the brand this month
+      3. Regular CSV / Excel / meta → fallback
+
+    Returns dict or None if brand not found / sheet unavailable.
+    """
+    if not os.path.exists(excel_path):
+        return None
+    try:
+        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
+    except Exception:
+        return None
+
+    raw.columns = [str(c).strip() for c in raw.columns]
+    cols = list(raw.columns)
+    if len(cols) < 17:
+        return None
+
+    date_col  = cols[10]   # K = Date
+    brand_col = cols[16]   # Q = Brand name
+
+    brand_key = str(brand_name).strip().lower() if brand_name else ""
+    if not brand_key:
+        return None
+
+    raw["_brand_norm"] = raw[brand_col].apply(
+        lambda x: str(x).strip().lower() if pd.notna(x) else ""
+    )
+    brand_rows = raw[raw["_brand_norm"] == brand_key].copy()
+    if brand_rows.empty:
+        return None
+
+    # Filter to current month (fallback: all rows for this brand)
+    if month is None:
+        today = date.today()
+        month = (today.year, today.month)
+
+    brand_rows["_date"] = pd.to_datetime(brand_rows[date_col], errors="coerce")
+    month_rows = brand_rows[
+        (brand_rows["_date"].dt.year == month[0]) &
+        (brand_rows["_date"].dt.month == month[1])
+    ].copy()
+
+    if month_rows.empty:
+        return None  # Nothing logged this month for this brand
+
+    # ── Helpers ────────────────────────────────────────────────────────────────
+    def col_si(col_name):
+        if col_name not in month_rows.columns:
+            return False
+        return (month_rows[col_name].astype(str).str.upper() == "SI").any()
+
+    def col_multi_has(col_name, value):
+        if col_name not in month_rows.columns:
+            return False
+        return month_rows[col_name].fillna("").apply(
+            lambda x: value.lower() in str(x).lower()
+        ).any()
+
+    # ── Detect active levers ───────────────────────────────────────────────────
+    levers = []
+    for lv in ["Markdown", "Ads", "Conectividad", "Catálogo",
+               "Cancelaciones", "DR", "Tiempos", "Pains del aliado",
+               "Churn", "On Hold"]:
+        if col_si(lv):
+            levers.append(lv)
+
+    ajustes = []
+    for aj in ["Catálogo al 100%", "Igualdad en precios", "Fotos",
+               "Disponibilidad del producto", "Catálogo PDF",
+               "Generación de combos", "Purchasing Experience"]:
+        if col_multi_has("Ajustes Catálogo", aj):
+            ajustes.append(aj)
+    if ajustes and "Ajustes Catálogo" not in levers:
+        levers.append("Ajustes Catálogo")
+
+    # Extra detail
+    ads_tipo = ""
+    if col_si("Ads") and "Tipo Ads" in month_rows.columns:
+        _tipos = (
+            month_rows[month_rows["Ads"].astype(str).str.upper() == "SI"]["Tipo Ads"]
+            .dropna().astype(str).str.strip()
+        )
+        ads_tipo = ", ".join(sorted({t for t in _tipos if t.lower() not in ["nan", ""]}))
+
+    accepted_md = False
+    if col_si("Markdown") and "¿Se aceptó lo ofrecido?" in month_rows.columns:
+        accepted_md = (
+            month_rows["¿Se aceptó lo ofrecido?"]
+            .astype(str).str.strip().str.lower() == "si"
+        ).any()
+
+    churn   = col_si("Churn")
+    on_hold = col_si("On Hold")
+    row_count = len(month_rows)
+
+    # Most recent date this month
+    latest_dt = month_rows["_date"].max()
+    latest_str = latest_dt.strftime("%-d/%b") if pd.notna(latest_dt) else ""
+
+    # Fase info (most recent non-null)
+    fase_str = ""
+    fase_col_name = next((c for c in month_rows.columns if c.lower() == "fase"), None)
+    if fase_col_name:
+        fases = month_rows[fase_col_name].dropna().astype(str).str.strip()
+        fases = fases[~fases.str.lower().isin(["nan", ""])]
+        if not fases.empty:
+            fase_str = fases.iloc[-1]
+
+    # ── Generate human-readable nota ──────────────────────────────────────────
+    month_name = date(month[0], month[1], 1).strftime("%B")
+
+    if not levers:
+        nota = (
+            f"{month_name}: {row_count} contacto(s) registrado(s) sin palancas "
+            f"específicas. Última entrada: {latest_str}."
+        )
+    else:
+        comercial_lvs = [l for l in levers if l in ["Markdown", "Ads", "Conectividad", "Ajustes Catálogo"]]
+        operativo_lvs = [l for l in levers if l in ["Catálogo", "Cancelaciones", "DR", "Tiempos"]]
+        incendio_lvs  = [l for l in levers if l in ["Pains del aliado", "Churn", "On Hold"]]
+
+        partes = []
+        if comercial_lvs:
+            partes.append(f"Comercial → {', '.join(comercial_lvs)}")
+        if operativo_lvs:
+            partes.append(f"Operativo → {', '.join(operativo_lvs)}")
+        if incendio_lvs:
+            partes.append(f"⚠️ {', '.join(incendio_lvs)}")
+
+        extras = []
+        if accepted_md:
+            extras.append("MD aceptado ✓")
+        if ads_tipo:
+            extras.append(f"Ads: {ads_tipo}")
+        if ajustes:
+            extras.append(f"Catálogo: {', '.join(ajustes)}")
+        if fase_str and fase_str.lower() not in ["nan", ""]:
+            extras.append(f"Fase: {fase_str}")
+
+        nota = f"{month_name} ({row_count} contacto{'s' if row_count != 1 else ''} · último {latest_str}) — {' | '.join(partes)}."
+        if extras:
+            nota += f" [{'; '.join(extras)}]"
+
+    return {
+        "levers":       levers,
+        "ajustes":      ajustes,
+        "ads_tipo":     ads_tipo,
+        "churn":        churn,
+        "on_hold":      on_hold,
+        "accepted_md":  accepted_md,
+        "row_count":    row_count,
+        "latest_str":   latest_str,
+        "fase":         fase_str,
+        "nota_generada": nota,
+    }
+
+
 def get_last_contact_dt(brand_id, name, prod_map=None, meta_map=None):
     """
     Unified last-contact resolver. Always returns the most recent date
@@ -13170,15 +13341,123 @@ def render_brand_profile(row, brand_id):
             _most_recent = _brand_rows_bf.iloc[0]
             _last_saved_comment = clean(_most_recent.get("comment", ""), "")
 
-    # Prioridad: último comment CSV → Excel comments → meta notes
-    if _last_saved_comment.strip():
-        _display_last_note = _last_saved_comment.strip()
-    elif _excel_comments_bf not in ["", "-"]:
-        _display_last_note = _excel_comments_bf.strip()
-    else:
-        _display_last_note = _bf_last_note
+    # ── Priority logic ────────────────────────────────────────────────────────
+    # 1. [Auto] transcript summary   → always wins (most informative)
+    # 2. Productivity sheet levers   → if no transcript comment this month
+    # 3. Regular CSV comment         → next fallback
+    # 4. Excel comments / meta notes → last resort
+    #
+    # _nota_source tracks where we got the note from, for the badge label.
+    _nota_source = "meta"
+    _prod_levers = None  # populated if we fall into branch 2
 
-    # ── Retomar llamada: análisis local de la última nota ─────────────────────
+    _is_transcript_comment = (
+        _last_saved_comment.strip().startswith("[Auto]")
+        if _last_saved_comment else False
+    )
+
+    if _is_transcript_comment:
+        # Branch 1: transcript-based comment from Brand Update — highest fidelity
+        _display_last_note = _last_saved_comment.strip()
+        _nota_source = "transcript"
+    else:
+        # Branch 2: try Productivity sheet for current month
+        _brand_name_for_prod = clean(get_from_row(row, ["brand", "name", "brand name", "nombre"], ""))
+        _prod_levers = get_productivity_levers_for_brand(EXCEL_FILE, _brand_name_for_prod)
+        if _prod_levers and _prod_levers.get("levers"):
+            _display_last_note = "[Productivity] " + _prod_levers["nota_generada"]
+            _nota_source = "productivity"
+        elif _last_saved_comment.strip():
+            # Branch 3: regular (non-transcript) CSV comment
+            _display_last_note = _last_saved_comment.strip()
+            _nota_source = "csv"
+        elif _excel_comments_bf not in ["", "-"]:
+            # Branch 4a: Excel comment column
+            _display_last_note = _excel_comments_bf.strip()
+            _nota_source = "excel"
+        else:
+            # Branch 4b: meta notes
+            _display_last_note = _bf_last_note
+            _nota_source = "meta"
+
+    # ── Retomar desde Productivity (palancas reales) ──────────────────────────
+    def _build_retomar_from_levers(levers_data):
+        """
+        Generates a call re-entry suggestion based on real levers logged
+        in the Productivity sheet for this brand this month.
+        Much more specific than text-analysis because we have exact lever names.
+        """
+        levers  = levers_data.get("levers", [])
+        churn   = levers_data.get("churn", False)
+        on_hold = levers_data.get("on_hold", False)
+        ads_ok  = "Ads" in levers
+        md_ok   = "Markdown" in levers
+        accepted_md = levers_data.get("accepted_md", False)
+        ads_tipo    = levers_data.get("ads_tipo", "")
+        ajustes     = levers_data.get("ajustes", [])
+        fase        = levers_data.get("fase", "")
+        rc          = levers_data.get("row_count", 0)
+        latest      = levers_data.get("latest_str", "")
+
+        # Determine priority lever for the opener
+        if churn:
+            opener = "⚠️ Retomá priorizando retención — Churn registrado este mes. Abrí con el valor generado vs. costo de baja y una propuesta concreta."
+            color  = PALETTE["burning_orange"]
+        elif on_hold:
+            opener = "🔴 Aliado en On Hold — necesitás destrabar el bloqueo antes de cualquier pitch. Abrí preguntando qué cambió y qué necesita para reactivar."
+            color  = PALETTE["burning_orange"]
+        elif ads_ok and md_ok:
+            md_note = " (MD aceptado ✓)" if accepted_md else " (MD ofrecido, sin cierre)"
+            ads_note = f" — tipo: {ads_tipo}" if ads_tipo else ""
+            opener = f"Retomá combinando ADS{ads_note} + Markdown{md_note}. Presentá el paquete integrado: visibilidad + conversión en la misma propuesta."
+            color  = PALETTE["blue_estate"]
+        elif ads_ok:
+            ads_note = f" ({ads_tipo})" if ads_tipo else ""
+            opener = f"Retomá desde ADS{ads_note} — fue la palanca del mes. Abrí con el benchmark de la categoría y un budget concreto propuesto."
+            color  = PALETTE["blue_estate"]
+        elif md_ok:
+            if accepted_md:
+                opener = "MD aceptado este mes ✓ — retomá verificando la activación y proponiendo la siguiente promo con fecha. El momentum está."
+                color  = PALETTE["laser_green"]
+            else:
+                opener = "MD ofrecido pero sin cierre — retomá con el descuento pendiente, la fecha de activación y una comparación de GMV con/sin promo."
+                color  = PALETTE["laser_green"]
+        elif ajustes:
+            opener = f"Retomá desde catálogo — se trabajó: {', '.join(ajustes[:3])}. Mostrá el impacto en conversión de los cambios hechos."
+            color  = PALETTE["cinnamon_ice"]
+        elif "Conectividad" in levers:
+            opener = "Retomá desde conectividad — verificá que el issue esté resuelto antes de cualquier pitch comercial. Luego aprovechá para anclar una propuesta."
+            color  = PALETTE["blue_glow"]
+        elif levers:
+            opener = f"Retomá desde {levers[0]} — la palanca trabajada este mes. Abrí con el estado actual y el próximo paso concreto."
+            color  = PALETTE["cinnamon_ice"]
+        else:
+            opener = "Sin palancas específicas registradas este mes — abrí con contexto de rendimiento general."
+            color  = PALETTE["cinnamon_ice"]
+
+        # Sidebar: fase + contacts
+        context_parts = []
+        if fase and fase.lower() not in ["nan", ""]:
+            context_parts.append(f"Fase: {fase}")
+        if rc:
+            context_parts.append(f"{rc} contacto{'s' if rc != 1 else ''} este mes")
+        if latest:
+            context_parts.append(f"último: {latest}")
+
+        context_html = ""
+        if context_parts:
+            context_html = (
+                f'<div style="margin-top:7px;font-size:10px;color:rgba(219,187,167,.6);">'
+                + " · ".join(context_parts)
+                + "</div>"
+            )
+
+        return (
+            f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
+            + context_html
+        )
+
+    # ── Retomar desde texto (fallback cuando no hay datos de Productivity) ────
     def _build_retomar_html(note_text):
         """Pure-Python analysis of last note to suggest call re-entry point."""
         if not note_text or note_text.strip() in ["-", ""]:
@@ -13186,18 +13465,16 @@ def render_brand_profile(row, brand_id):
 
         low = note_text.lower()
 
-        # Detect dominant lever from note
         lever_scores = {
-            "ADS":            sum(1 for k in ["ads", "publicidad", "banner", "campaña", "sponsored", "visibilidad paga", "investment"] if k in low),
-            "Markdown":       sum(1 for k in ["descuento", "promo", "markdown", "porcentaje", "%", "oferta"] if k in low),
-            "Top Restaurant": sum(1 for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "orgánica"] if k in low),
+            "ADS":               sum(1 for k in ["ads", "publicidad", "banner", "campaña", "sponsored", "visibilidad paga", "investment"] if k in low),
+            "Markdown":          sum(1 for k in ["descuento", "promo", "markdown", "porcentaje", "%", "oferta"] if k in low),
+            "Top Restaurant":    sum(1 for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "orgánica"] if k in low),
             "Menú / Assortment": sum(1 for k in ["menú", "menu", "catálogo", "fotos", "productos", "carta", "assortment"] if k in low),
-            "Churn":          sum(1 for k in ["cancelar", "baja", "churn", "retiro", "no quiero seguir", "cerrar cuenta"] if k in low),
+            "Churn":             sum(1 for k in ["cancelar", "baja", "churn", "retiro", "no quiero seguir", "cerrar cuenta"] if k in low),
         }
         top_lever = max(lever_scores, key=lever_scores.get)
         top_score = lever_scores[top_lever]
 
-        # Detect pending situation
         pending_signals = []
         if any(k in low for k in ["lo pienso", "lo consulto", "voy a ver", "te llamo", "la próxima"]):
             pending_signals.append("el aliado quedó en pensar")
@@ -13208,7 +13485,6 @@ def render_brand_profile(row, brand_id):
         if any(k in low for k in ["rechazó", "no le interesa", "rejected", "no quiere"]):
             pending_signals.append("la última interacción fue un rechazo")
 
-        # Build opener suggestion
         if top_score == 0:
             opener = "Arrancá con una apertura de contexto general — no hay palanca clara en la nota anterior."
             color = PALETTE["cinnamon_ice"]
@@ -13216,7 +13492,7 @@ def render_brand_profile(row, brand_id):
             opener = "⚠️ Retomá priorizando retención — hay señales de riesgo de baja. Abrí con datos de valor y propuesta concreta."
             color = PALETTE["burning_orange"]
         elif top_lever == "ADS":
-            opener = f"Retomá desde ADS — fue la palanca dominante. Abrí con el ROI de la categoría y un budget concreto."
+            opener = "Retomá desde ADS — fue la palanca dominante. Abrí con el ROI de la categoría y un budget concreto."
             color = PALETTE["blue_estate"]
         elif top_lever == "Markdown":
             opener = "Retomá desde la promo — fue lo que se estaba trabajando. Abrí con el descuento pendiente y la fecha de activación."
@@ -13238,16 +13514,38 @@ def render_brand_profile(row, brand_id):
             + pending_html
         )
 
-    _retomar_html = _build_retomar_html(_display_last_note)
+    # ── Choose retomar renderer based on source ───────────────────────────────
+    if _nota_source == "productivity" and _prod_levers:
+        _retomar_html = _build_retomar_from_levers(_prod_levers)
+    else:
+        _retomar_html = _build_retomar_html(_display_last_note)
 
-    # ── Render: último note display ───────────────────────────────────────────
-    # If it's an [Auto] summary, strip the prefix for cleaner display
+    # ── Render: última nota display ───────────────────────────────────────────
     _note_display_clean = _display_last_note
-    if _note_display_clean.startswith("[Auto]"):
-        _note_display_clean = _note_display_clean.replace("[Auto]", "").strip(" ·")
+    # Strip well-known prefixes for cleaner display
+    for _pfx in ["[Auto] ·", "[Auto]", "[Productivity]"]:
+        if _note_display_clean.startswith(_pfx):
+            _note_display_clean = _note_display_clean[len(_pfx):].strip()
+
+    # Source badge (tiny label below the note)
+    _source_badge_map = {
+        "transcript":  ("#6FF24B", "📋 Transcripción"),
+        "productivity": (PALETTE["blue_glow"], "📊 Productivity mes"),
+        "csv":         (PALETTE["cinnamon_ice"], "💬 Último contacto"),
+        "excel":       ("#aaa", "📄 Excel"),
+        "meta":        ("#aaa", "📝 Meta"),
+    }
+    _src_color, _src_label = _source_badge_map.get(_nota_source, ("#aaa", ""))
+    _source_badge_html = (
+        f'<div style="margin-top:5px;font-size:9px;font-weight:700;'
+        f'color:{_src_color};text-transform:uppercase;letter-spacing:.5px;">'
+        f'{_src_label}</div>'
+    )
 
     _bf_last_note_html = (
-        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;white-space:pre-wrap;line-height:1.5;">{html.escape(_note_display_clean)}</span>'
+        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;white-space:pre-wrap;line-height:1.5;">'
+        f'{html.escape(_note_display_clean)}</span>'
+        f'{_source_badge_html}'
         if _display_last_note and _display_last_note.strip() not in ["-", ""] else
         '<span style="font-size:11px;color:#aaa;">Sin nota reciente</span>'
     )
