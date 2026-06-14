@@ -12597,9 +12597,20 @@ def render_brand_profile(row, brand_id):
     )
 
     _bf_last_note = _bf_meta.get("notes", "-")
+    # Build full history for "Última nota": Excel comments + CSV saved comments
+    _excel_comments_bf = clean(get_from_row(row, ["comments", "comment"], ""))
+    _saved_comments_bf = get_saved_comments(brand_id)
+    _full_history_bf = ""
+    if _excel_comments_bf not in ["", "-"]:
+        _full_history_bf += _excel_comments_bf
+    if _saved_comments_bf:
+        _full_history_bf += ("\n\n" if _full_history_bf else "") + _saved_comments_bf
+    if not _full_history_bf.strip():
+        _full_history_bf = _bf_last_note  # fallback to meta
+
     _bf_last_note_html = (
-        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;">{_bf_last_note[:120]}{"…" if len(_bf_last_note) > 120 else ""}</span>'
-        if _bf_last_note and _bf_last_note != "-" else
+        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;white-space:pre-wrap;line-height:1.5;">{html.escape(_full_history_bf.strip())}</span>'
+        if _full_history_bf and _full_history_bf.strip() not in ["-", ""] else
         '<span style="font-size:11px;color:#aaa;">Sin nota reciente</span>'
     )
 
@@ -12614,7 +12625,7 @@ def render_brand_profile(row, brand_id):
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Opportunity Score</div>
         <div style="margin-top:2px;">{_bf_score_html}</div>
       </div>
-      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
         <div style="margin-top:2px;">{_bf_last_note_html}</div>
       </div>
@@ -14438,16 +14449,6 @@ def page_brand_finder():
     st.markdown("<div class='wide-info-card'>", unsafe_allow_html=True)
     st.markdown("<div class='wide-info-title'>Comments History</div>", unsafe_allow_html=True)
 
-    excel_comments = clean(get_from_row(row, ["comments", "comment"], ""))
-    saved_comments = get_saved_comments(brand_id)
-
-    full_history = ""
-    if excel_comments not in ["", "-"]:
-        full_history += excel_comments
-    if saved_comments:
-        full_history += "\n\n" + saved_comments
-
-    st.text_area("Previous comments", value=full_history.strip() if full_history else "No comments", height=180, disabled=True)
     new_comment = st.text_area("New comment", placeholder="Write your new follow-up comment here...", height=120)
 
     st.markdown("<div class='wide-info-title' style='margin-top:20px;'>Follow-up Update</div>", unsafe_allow_html=True)
