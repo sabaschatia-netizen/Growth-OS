@@ -114,6 +114,7 @@ GROWTH_SHEET = "Growth OS"
 EARNINGS_SHEET = "Earnings"
 AGENDA_SHEET = "Agenda"
 CURRENT_GMV_SHEET = "Current GMV"
+MAY_GMV_SHEET = "MAY GMV"
 CURRENT_ADS_SHEET = "Current ADS"
 CURRENT_MD_SHEET = "Current MD"
 CURRENT_MD_PRO_SHEET = "Current MD pro"
@@ -663,12 +664,17 @@ def extract_brand_id_from_current(value):
     return normalize_brand_id(value)
 
 @st.cache_data(ttl=120)
-def load_current_gmv_data():
+def _load_gmv_sheet_data(sheet_name):
+    """
+    Generic loader for GMV-style sheets with columns:
+    Brand, GMV, GMV USD, Ordenes, AOV, AOV USD.
+    Used for both 'Current GMV' and 'MAY GMV'.
+    """
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
 
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_GMV_SHEET)
+        df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
     except Exception:
         return pd.DataFrame()
 
@@ -713,6 +719,47 @@ def load_current_gmv_data():
     df["_caba_rank"] = df.index + 1
 
     return df
+
+
+def load_current_gmv_data():
+    return _load_gmv_sheet_data(CURRENT_GMV_SHEET)
+
+
+def load_may_gmv_data():
+    return _load_gmv_sheet_data(MAY_GMV_SHEET)
+
+
+@st.cache_data(ttl=120)
+def get_may_brand_metrics(brand_id):
+    df = load_may_gmv_data()
+
+    if df.empty:
+        return None
+
+    target = normalize_brand_id(brand_id)
+    result = df[df["_id"] == target]
+
+    if result.empty:
+        return None
+
+    row = result.iloc[0]
+    gmv_ars = to_number(row.get("gmv ars"), 0)
+    gmv_usd = to_number(row.get("gmv usd"), 0) or (gmv_ars / ARS_PER_USD if gmv_ars else 0)
+    orders = to_number(row.get("ordenes"), 0)
+    aov_ars = to_number(row.get("aov ars"), 0) or ((gmv_ars / orders) if gmv_ars and orders else 0)
+    aov_usd = to_number(row.get("aov usd"), 0) or (aov_ars / ARS_PER_USD if aov_ars else 0)
+
+    return {
+        "gmv_ars": gmv_ars,
+        "gmv_usd": gmv_usd,
+        "gmv_cop": gmv_usd * COP_PER_USD,
+        "orders": orders,
+        "aov_ars": aov_ars,
+        "aov_usd": aov_usd,
+        "aov_cop": aov_usd * COP_PER_USD,
+    }
+
+
 
 
 @st.cache_data(ttl=120)
@@ -12372,65 +12419,83 @@ def render_brand_profile(row, brand_id):
     pro_users_raw = _normalize_rate_value(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"], 0))
     conversion_raw = _normalize_rate_value(get_from_row(row, ["cr %", "conversion rate", "conversion"], 0))
     commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
-    def _bar_chart_card(label, val_current, val_last, fmt_fn, sub_current, sub_last, change_pct):
+    def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current):
+        """
+        Gráfico de línea con puntos mostrando hasta 3 meses:
+          Abril (Growth OS) → Mayo (MAY GMV) → Actual (Current GMV)
+        Si no hay valor de Abril (Growth OS), se muestran solo Mayo → Actual.
+        Cada punto muestra el % de cambio respecto al punto anterior
+        (excepto el primero, que no tiene comparación previa).
+        """
+        points_raw = []
+        if val_abril and val_abril > 0:
+            points_raw.append(("Abr", val_abril))
+        if val_may and val_may > 0:
+            points_raw.append(("May", val_may))
+        points_raw.append(("Actual", val_current or 0))
+
+        # Si solo queda 1 punto, no hay nada que graficar
+        if len(points_raw) < 2:
+            points_raw = [("May", val_may or 0), ("Actual", val_current or 0)]
+
+        n = len(points_raw)
+        vals = [p[1] for p in points_raw]
+        v_max = max(vals + [1])
+        v_min = min(vals + [0])
+        v_range = (v_max - v_min) or 1
+
+        W, H = 150, 72
+        ML, MR, MT, MB = 10, 10, 20, 18
+        PW = W - ML - MR
+        PH = H - MT - MB
+
+        xs = [ML + (i / (n - 1)) * PW if n > 1 else ML + PW / 2 for i in range(n)]
+        ys = [MT + PH - ((v - v_min) / v_range) * PH for v in vals]
+
+        # Línea conectando los puntos
+        line_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+
+        svg_parts = [
+            f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">',
+            # Línea base (eje X)
+            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>',
+            # Línea de tendencia
+            f'<polyline points="{line_pts}" fill="none" stroke="#FF7124" stroke-width="1.8"/>',
+        ]
+
+        last_val = None
+        for i, ((lbl, v), x, y) in enumerate(zip(points_raw, xs, ys)):
+            # % de cambio vs punto anterior
+            if last_val is not None and last_val != 0:
+                pct = (v / last_val - 1) * 100
+                pct_txt = f"{pct:+.1f}%"
+            else:
+                pct_txt = ""
+            last_val = v
+
+            svg_parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#FF7124"/>')
+            if pct_txt:
+                svg_parts.append(
+                    f'<text x="{x:.1f}" y="{y-7:.1f}" text-anchor="middle" '
+                    f'font-size="7" font-weight="800" fill="#FF7124">{pct_txt}</text>'
+                )
+            # Etiqueta del mes en el eje X
+            svg_parts.append(
+                f'<text x="{x:.1f}" y="{MT+PH+11}" text-anchor="middle" '
+                f'font-size="6.5" fill="rgba(219,187,167,0.6)" font-weight="700">{lbl}</text>'
+            )
+
+        svg_parts.append('</svg>')
+        svg = "".join(svg_parts)
+
+        # Cambio total mostrado en el header (último vs anterior inmediato)
+        if len(points_raw) >= 2 and points_raw[-2][1] != 0:
+            change_pct = points_raw[-1][1] / points_raw[-2][1] - 1
+        else:
+            change_pct = None
         _change_color = "#6FF24B" if (change_pct or 0) >= 0 else "#E5332A"
         _change_sign  = "+" if (change_pct or 0) >= 0 else ""
         _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
-
-        v_last = max(float(val_last or 0), 0)
-        v_cur  = max(float(val_current or 0), 0)
-        v_max  = max(v_last, v_cur, 1)
-
-        def _fmt_compact(v):
-            if v >= 1_000_000: return f"{v/1_000_000:.1f}M"
-            if v >= 1_000:     return f"{v/1_000:.0f}k"
-            return str(int(v))
-
-        # Chart dimensions
-        W, H = 150, 72
-        ML, MR, MT, MB = 26, 6, 6, 18   # margins for axes
-        PW = W - ML - MR   # 118
-        PH = H - MT - MB   # 48
-
-        bar_h   = 16
-        gap     = PH - bar_h * 2        # space between bars
-        y_ant   = MT                    # top of ANT bar
-        y_act   = MT + bar_h + max(gap, 6)  # top of ACT bar
-
-        w_ant = max(round(v_last / v_max * PW), 4)
-        w_act = max(round(v_cur  / v_max * PW), 4)
-
-        grow_color = "#6FF24B" if v_cur >= v_last else "#E5332A"
-
-        lbl_ant = _fmt_compact(v_last)
-        lbl_act = _fmt_compact(v_cur)
-
-        # Y-axis label positions (centered on each bar)
-        cy_ant = y_ant + bar_h // 2
-        cy_act = y_act + bar_h // 2
-
-        svg = (
-            f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">'
-            # Y axis
-            f'<line x1="{ML}" y1="{MT}" x2="{ML}" y2="{MT+PH}" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>'
-            # X axis
-            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>'
-            # ANT bar (grey)
-            f'<rect x="{ML}" y="{y_ant}" width="{w_ant}" height="{bar_h}" rx="4" fill="rgba(255,255,255,0.15)"/>'
-            # ANT label inside bar
-            f'<text x="{ML + 5}" y="{cy_ant + 4}" font-size="7" font-weight="900" fill="#DBBBA7">{lbl_ant}</text>'
-            # ACT bar (colored)
-            f'<rect x="{ML}" y="{y_act}" width="{w_act}" height="{bar_h}" rx="4" fill="{grow_color}"/>'
-            # ACT label inside bar
-            f'<text x="{ML + 5}" y="{cy_act + 4}" font-size="7" font-weight="900" fill="#272D4E">{lbl_act}</text>'
-            # Y-axis labels
-            f'<text x="{ML - 3}" y="{cy_ant + 3}" text-anchor="end" font-size="6.5" fill="rgba(219,187,167,0.5)" font-weight="700">ANT</text>'
-            f'<text x="{ML - 3}" y="{cy_act + 3}" text-anchor="end" font-size="6.5" fill="{grow_color}" font-weight="700">ACT</text>'
-            # X-axis tick at max value
-            f'<text x="{ML + PW}" y="{MT + PH + 11}" text-anchor="middle" font-size="6" fill="rgba(219,187,167,0.5)">{_fmt_compact(v_max)}</text>'
-            f'<text x="{ML}" y="{MT + PH + 11}" text-anchor="middle" font-size="6" fill="rgba(219,187,167,0.5)">0</text>'
-            '</svg>'
-        )
 
         return (
             '<div class="stack-card" style="position:relative;overflow:hidden;min-height:130px;">'
@@ -12442,23 +12507,28 @@ def render_brand_profile(row, brand_id):
             '</div>'
         )
 
+    # ── Datos de mayo (MAY GMV) y abril (Growth OS) para el gráfico de 3 meses ──
+    may_metrics = get_may_brand_metrics(brand_id)
+    may_gmv_ars = may_metrics["gmv_ars"] if may_metrics else 0
+    may_aov_ars = may_metrics["aov_ars"] if may_metrics else 0
+
+    # Abril viene de Growth OS (Last GMV/AOV) — puede no existir
+    abril_gmv_ars = growth_gmv_ars
+    abril_aov_ars = growth_aov_ars
+
     gmv_col, aov_col = st.columns(2)
     with gmv_col:
-        _gmv_card = _bar_chart_card(
+        _gmv_card = _dot_line_chart_card(
             "📈 GMV · Este mes vs Anterior",
-            current_gmv_ars, growth_gmv_ars, fmt_ars,
+            current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars,
             f"{fmt_usd(current_gmv_usd)} · {fmt_cop(current_gmv_usd * COP_PER_USD)}",
-            f"{fmt_usd(growth_gmv_usd)} · {fmt_cop(growth_gmv_usd * COP_PER_USD)}",
-            gmv_progress_ars - 1 if gmv_progress_ars is not None else None,
         )
         st.markdown(_gmv_card, unsafe_allow_html=True)
     with aov_col:
-        _aov_card = _bar_chart_card(
+        _aov_card = _dot_line_chart_card(
             "🛒 AOV · Este mes vs Anterior",
-            current_aov_ars, growth_aov_ars, fmt_ars,
+            current_aov_ars, may_aov_ars, abril_aov_ars, fmt_ars,
             f"{fmt_usd(current_aov_usd)} · {fmt_cop(current_aov_usd * COP_PER_USD)}",
-            f"{fmt_usd(growth_aov_usd)} · {fmt_cop(growth_aov_usd * COP_PER_USD)}",
-            aov_change_ars,
         )
         st.markdown(_aov_card, unsafe_allow_html=True)
 
