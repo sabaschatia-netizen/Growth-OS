@@ -737,7 +737,24 @@ def get_may_brand_metrics(brand_id):
         return None
 
     target = normalize_brand_id(brand_id)
+
+    # Intento 1: match exacto por _id (brand ID numérico extraído)
     result = df[df["_id"] == target]
+
+    # Intento 2: si no matcheó, intentar con normalize_brand_id directo sobre la columna brand_col raw
+    if result.empty:
+        raw_may = pd.DataFrame()
+        try:
+            raw_may = pd.read_excel(EXCEL_FILE, sheet_name=MAY_GMV_SHEET)
+            raw_may.columns = [normalize(c).replace("_", " ") for c in raw_may.columns]
+            brand_col = _first_existing_col(raw_may, ["brand", "brand name", "tienda", "nombre tienda", "code", "id"])
+            if brand_col:
+                raw_may["_norm_id"] = raw_may[brand_col].apply(normalize_brand_id)
+                match2 = raw_may[raw_may["_norm_id"] == target]
+                if not match2.empty:
+                    result = df.iloc[match2.index[:1]] if match2.index[0] < len(df) else result
+        except Exception:
+            pass
 
     if result.empty:
         return None
@@ -12423,18 +12440,29 @@ def render_brand_profile(row, brand_id):
         """
         Gráfico de línea con puntos mostrando hasta 3 meses:
           Abril (Growth OS) → Mayo (MAY GMV) → Actual (Current GMV)
-        Si no hay valor de Abril (Growth OS), se muestran solo Mayo → Actual.
+        - Si los 3 tienen valor > 0, se muestran los 3.
+        - Si falta Abril pero hay Mayo y Actual, se muestran 2.
+        - Si falta Mayo pero hay Abril y Actual, se muestran los 3 igualmente
+          con Mayo en 0 (para que el gráfico refleje la caída/suba).
+        - Si solo hay Actual, se muestra solo el punto.
         Cada punto muestra el % de cambio respecto al punto anterior
         (excepto el primero, que no tiene comparación previa).
         """
         points_raw = []
-        if val_abril and val_abril > 0:
+        has_abril = val_abril and val_abril > 0
+        has_may   = val_may   and val_may   > 0
+
+        if has_abril:
             points_raw.append(("Abr", val_abril))
-        if val_may and val_may > 0:
+        if has_may:
             points_raw.append(("May", val_may))
+        elif has_abril:
+            # Mayo no tiene dato pero sí hay Abril: incluir Mayo con 0
+            # para que el eje X muestre los 3 meses correctamente
+            points_raw.append(("May", 0))
         points_raw.append(("Actual", val_current or 0))
 
-        # Si solo queda 1 punto, no hay nada que graficar
+        # Si solo queda 1 punto, agregar un punto ficticio para dibujar la línea
         if len(points_raw) < 2:
             points_raw = [("May", val_may or 0), ("Actual", val_current or 0)]
 
