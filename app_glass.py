@@ -5214,6 +5214,20 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     padding: 28px 28px !important;
     margin-bottom: 24px !important;
 }}
+/* Wrapper para formularios interactivos largos (ej. Follow-up form).
+   Mismo look visual que wide-info-card, pero SIN scale-on-hover:
+   ese transform corre los elementos (incl. botones) bajo el cursor
+   durante la transición y hace que los clicks no registren. */
+.form-card-static {{
+    background: rgba(255,255,255,0.06) !important;
+    backdrop-filter: blur(24px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 20px !important;
+    box-shadow: none !important;
+    padding: 28px 28px !important;
+    margin-bottom: 24px !important;
+}}
 .stack-card {{
     padding: 22px 24px !important;
 }}
@@ -15690,7 +15704,7 @@ def page_brand_finder():
 
 @st.fragment
 def _render_followup_form(row, brand_id, name):
-    st.markdown("<div class='wide-info-card'>", unsafe_allow_html=True)
+    st.markdown("<div class='form-card-static'>", unsafe_allow_html=True)
     st.markdown("<div class='wide-info-title'>Comments History</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='wide-info-title' style='margin-top:20px;'>Follow-up Update</div>", unsafe_allow_html=True)
