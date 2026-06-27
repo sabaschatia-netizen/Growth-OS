@@ -3996,7 +3996,7 @@ def _collect_priority_topics(brand_id, name, ads_current, md_current, ads_roi):
     # Upselling: Ads activo con buen retorno -> hay espacio para escalar inversión.
     ads_active = bool(ads_current.get("active", False))
     if ads_active and to_number(ads_roi, 0) >= 3:
-        topics.append("upselling de campaña de Ads (escalar presupuesto por buen retorno)")
+        topics.append("visibilidad pagada con buen retorno — hay espacio para aumentar la inversión")
 
     # Señales de Smart Priorities (Fotos, Chasing Experience, PDF, Cancelaciones, Reclamaciones)
     sp_signals = get_priority_signals_for_brand(brand_id, name)
@@ -4007,22 +4007,22 @@ def _collect_priority_topics(brand_id, name, ads_current, md_current, ads_roi):
             if kind in seen_kinds:
                 continue
             if kind == "ops_claims":
-                topics.append("reclamaciones / reclamos abiertos")
+                topics.append("reclamos de clientes que están abiertos")
                 seen_kinds.add(kind)
             elif kind == "ops_cancellations":
-                topics.append("cancelaciones por encima de lo esperado")
+                topics.append("pedidos cancelados por encima del promedio")
                 seen_kinds.add(kind)
             elif kind == "menu_photos":
                 topics.append("fotos del menú por debajo del 90%")
                 seen_kinds.add(kind)
             elif kind == "menu_purchase_experience":
-                topics.append("chasing experience por debajo del 90%")
+                topics.append("experiencia de compra por debajo del umbral esperado")
                 seen_kinds.add(kind)
             elif kind == "menu_pdf":
-                topics.append("solicitud de catálogo en PDF pendiente")
+                topics.append("catálogo en PDF pendiente de enviar")
                 seen_kinds.add(kind)
             elif kind == "ops_availability":
-                topics.append("disponibilidad del local por debajo de lo esperado")
+                topics.append("tienda con horario o disponibilidad reducida")
                 seen_kinds.add(kind)
 
     # Chequeo directo de métricas de menú por si Smart Priorities no las trae.
@@ -4037,7 +4037,7 @@ def _collect_priority_topics(brand_id, name, ads_current, md_current, ads_roi):
             topics.append("fotos del menú por debajo del 90%")
             seen_kinds.add("menu_photos")
         if _purch_val and _purch_val < 0.90 and "menu_purchase_experience" not in seen_kinds:
-            topics.append("chasing experience por debajo del 90%")
+            topics.append("experiencia de compra por debajo del umbral esperado")
             seen_kinds.add("menu_purchase_experience")
 
     return topics
@@ -4077,29 +4077,27 @@ def _churn_risk_reading(churn_status):
 
 def _build_churn_day_queue_message(name, category, churn_status, priority_topics=None):
     """
-    Mensaje pre-llamada específico para marcas que aparecen en Priority Data
-    y/o en Current Churn con un estado de riesgo (W1/W2/W3/Off).
-    Si el estado es 'Off', el mensaje es urgente: la marca está desconectada
-    y la prioridad es retomar el contacto ya.
+    Mensaje pre-llamada específico para marcas con deterioro de ventas.
+    Vocabulario coloquial: sin "churn", "W1/W2/W3", ni tecnicismos de plataforma.
     Returns (subject, whatsapp_body, email_body) — sin API, fully offline.
     """
     risk, action, urgent = _churn_risk_reading(churn_status)
-    churn_label = clean(churn_status, "✅ On")
 
     if urgent:
-        subject = f"🚨 URGENTE — Reconexión Churn — {name} ({churn_label})"
-        pain_wa = (f"⚠️ Urgente: {name} aparece con estado Churn {churn_label} ({risk}) en {category}. "
-                   f"Esto significa que la marca está desconectada / fuera de operación en Rappi ahora mismo. "
-                   f"Necesito retomar contacto hoy mismo para entender qué pasó y reactivarla cuanto antes.")
-        pain_email = (f"Te escribo con carácter urgente: {name} aparece con estado Churn {churn_label} ({risk}) "
-                       f"en el portafolio de {category}. La marca está desconectada / fuera de operación en este momento.\n\n"
-                       f"Necesitamos {action}. Te pido coordinar una llamada hoy mismo, es prioritario antes de que se pierda más venta.")
+        subject = f"🚨 URGENTE — {name} — recuperemos las ventas"
+        pain_wa = (f"⚠️ Urgente: {name} tiene una caída importante en ventas dentro de tu categoría {category}. "
+                   f"La tienda está desconectada o con actividad muy baja en este momento. "
+                   f"Quiero llamarte hoy para entender qué pasó y ver cómo lo resolvemos juntos cuanto antes.")
+        pain_email = (f"Te escribo con carácter urgente: {name} está mostrando una caída importante en ventas "
+                       f"dentro de {category}. En este momento la tienda no está generando pedidos con normalidad.\n\n"
+                       f"Necesito entender qué está pasando de tu lado para ayudarte a recuperar esa actividad. "
+                       f"¿Podemos hablar hoy? Es prioritario antes de que se pierda más venta.")
     else:
-        subject = f"Revisión Churn — {name} ({churn_label})"
-        pain_wa = (f"Vi que {name} está en {category} con estado Churn {churn_label} ({risk}). "
-                   f"Te llamo hoy para revisarlo juntos y {action}.")
-        pain_email = (f"Revisando el portafolio de {category}, {name} aparece con estado Churn {churn_label} ({risk}). "
-                       f"Te llamo hoy para revisarlo juntos. La idea es {action} antes de que siga avanzando.")
+        subject = f"Revisemos las ventas de {name} — {category}"
+        pain_wa = (f"Vi que {name} tuvo una baja en ventas últimamente en {category}. "
+                   f"Te llamo hoy para revisarlo juntos y ver cómo lo corregimos.")
+        pain_email = (f"Revisando el desempeño de {category}, noté que {name} tuvo una baja en ventas reciente. "
+                       f"Te llamo hoy para revisarlo juntos y definir qué palanca activamos para recuperarlo.")
 
     topics_line = _format_priority_topics_line(priority_topics or [])
 
@@ -4121,7 +4119,14 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
     """
     Rule-based pre-call message generator.
     Returns (subject, whatsapp_body, email_body) — no API, fully offline.
-    Vocabulario: venta total (no GMV), ticket promedio (no AOV), promo (no markdown/MD).
+    Vocabulario coloquial:
+      - GMV          → venta total / facturación
+      - AOV          → ticket promedio
+      - Markdown/MD  → promoción / promo / descuento activo
+      - Ads          → visibilidad pagada / publicidad / tienda pagada
+      - CR           → de cada 100 visitas cuántos compran / conversión
+      - ROI/Retorno  → por cada peso invertido ganás X / retorno
+      - Bookings     → inversión en pauta
     """
     lever = lever or "Ads"
     ads_active = bool(ads_current.get("active", False))
@@ -4134,52 +4139,53 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
     cr_val     = _normalize_rate_value(cr) or 0
 
     if lever == "MD" and not md_active:
-        pain_wa    = (f"Vi que {name} aún no tiene una promo activa en Rappi. En {category}, "
-                      f"las marcas con promo activa están creciendo hasta un {impact_high}% más en ventas. "
+        pain_wa    = (f"Vi que {name} aún no tiene una promoción activa en Rappi. En {category}, "
+                      f"las marcas con descuento activo están creciendo hasta un {impact_high}% más en ventas. "
                       f"Te llamo hoy para mostrarte cómo activarla con {discount}% en {hero} — sin complicaciones.")
-        pain_email = (f"Analizando el portafolio de {category}, noté que {name} todavía no tiene promo activa. "
+        pain_email = (f"Analizando el portafolio de {category}, noté que {name} todavía no tiene una promoción activa. "
                       f"Eso significa tráfico orgánico que hoy va a la competencia.\n\n"
-                      f"Te propongo activar una campaña con {discount}% OFF en {hero}, "
-                      f"con impacto proyectado de +{impact_low}%–+{impact_high}% en ventas. "
+                      f"Te propongo activar una campaña con {discount}% de descuento en {hero}, "
+                      f"con impacto proyectado de +{impact_low}%–+{impact_high}% en ventas totales. "
                       f"Te llamo hoy para revisarlo juntos.")
-        subject = f"Oportunidad de promo para {name} — {discount}% en {hero}"
+        subject = f"Activemos una promoción para {name} — {discount}% en {hero}"
 
     elif lever == "Ads" and not ads_active:
-        pain_wa    = (f"Vi que {name} no tiene publicidad paga activa en Rappi. En {category}, "
-                      f"el tráfico pago va a quienes tienen campaña activa — hoy ese tráfico va a tu competencia. "
-                      f"Te llamo hoy para mostrarte el presupuesto de entrada y el impacto esperado.")
-        pain_email = (f"Revisando el rendimiento de marcas en {category}, noté que {name} no tiene publicidad paga activa en Rappi. "
-                      f"Eso representa visibilidad que hoy está capturando la competencia.\n\n"
-                      f"El modelo de publicidad tiene un retorno promedio sano en tu categoría. "
+        pain_wa    = (f"Vi que {name} no tiene visibilidad pagada activa en Rappi. En {category}, "
+                      f"el tráfico va a quienes tienen pauta activa — hoy ese tráfico va a tu competencia. "
+                      f"Te llamo hoy para mostrarte el presupuesto de entrada y el impacto esperado en tu venta.")
+        pain_email = (f"Revisando el desempeño de marcas en {category}, noté que {name} no tiene visibilidad pagada activa. "
+                      f"Eso representa visitas que hoy está capturando la competencia.\n\n"
+                      f"En tu categoría, la inversión en pauta tiene un retorno promedio muy sano. "
                       f"Te llamo hoy para mostrarte los números concretos y un presupuesto de entrada.")
-        subject = f"Oportunidad de publicidad para {name} — empezamos esta semana"
+        subject = f"Sumemos visibilidad pagada para {name} — arrancamos esta semana"
 
     elif lever == "Ads" and ads_active and ads_roi >= 3:
-        pain_wa    = (f"Vi que la publicidad de {name} está corriendo con un retorno de {ads_roi:.1f}x — eso está muy bien. "
-                      f"Lo que significa es que hay espacio real para escalar el presupuesto y multiplicar ese resultado. "
+        pain_wa    = (f"Vi que la tienda pagada de {name} está generando un retorno de {ads_roi:.1f}x sobre lo que invertís — eso está muy bien. "
+                      f"Lo que significa es que hay espacio real para escalar la inversión y multiplicar ese resultado. "
                       f"Te llamo hoy para mostrarte los números.")
-        pain_email = (f"Revisando el rendimiento de {name}, la publicidad está generando un retorno de {ads_roi:.1f}x. "
-                      f"Eso es una señal clara de que el canal funciona.\n\n"
-                      f"El paso lógico es escalar el presupuesto, no mantenerlo. "
+        pain_email = (f"Revisando el rendimiento de {name}, la inversión en pauta está generando un retorno de {ads_roi:.1f}x. "
+                      f"Por cada peso que invertís, estás recuperando {ads_roi:.1f}. Eso es una señal clara de que el canal funciona.\n\n"
+                      f"El paso lógico es escalar la inversión, no mantenerla. "
                       f"Te llamo hoy para mostrarte la proyección concreta.")
-        subject = f"Escalar publicidad de {name} — retorno actual {ads_roi:.1f}x"
+        subject = f"Escalemos la inversión de {name} — retorno actual {ads_roi:.1f}x"
 
     elif cr_val and cr_val < 0.12:
-        pain_wa    = (f"Revisando los datos de {name}, vi que la tasa de conversión está por debajo del promedio de {category}. "
-                      f"Una promo puede ser la palanca más directa para moverla. "
+        pain_wa    = (f"Revisando los datos de {name}, vi que de cada 100 personas que ven tu tienda, "
+                      f"menos de las esperadas terminan comprando — está por debajo del promedio de {category}. "
+                      f"Una promoción puede ser la palanca más directa para mover eso. "
                       f"Te llamo hoy con una propuesta concreta.")
-        pain_email = (f"Analizando el rendimiento de {name} en {category}, la tasa de conversión está por debajo del promedio de la categoría. "
-                      f"Eso frena el impacto de cualquier tráfico que estén generando.\n\n"
-                      f"Una promo con {discount}% en {hero} es la palanca más directa para mover esa conversión. "
+        pain_email = (f"Analizando el rendimiento de {name} en {category}, vi que la conversión está por debajo del promedio. "
+                      f"Dicho de otra forma: el tráfico llega, pero no termina comprando tanto como debería.\n\n"
+                      f"Una promoción con {discount}% de descuento en {hero} es la palanca más directa para mover eso. "
                       f"Te llamo hoy para revisarlo.")
-        subject = f"Propuesta de conversión para {name} — {category}"
+        subject = f"Mejoremos la conversión de {name} — {category}"
 
     else:
         pain_wa    = (f"Te llamo hoy para revisar una oportunidad concreta de crecimiento para {name} en Rappi. "
                       f"Tengo los datos de {category} y una propuesta lista.")
         pain_email = (f"Tengo una propuesta de crecimiento para {name} basada en el análisis actual de {category} en Rappi. "
                       f"Te llamo hoy para revisarla juntos.")
-        subject = f"Propuesta comercial para {name} — Rappi"
+        subject = f"Oportunidad de crecimiento para {name} — Rappi"
 
     topics_line = _format_priority_topics_line(priority_topics or [])
 
@@ -4271,6 +4277,11 @@ def page_day_queue():
             f"<div style='font-size:15px;font-weight:700;color:{color_val};'>{value}</div>"
             f"</div>"
         )
+
+    # ── Accordion state: only one card open at a time ────────────────────────
+    _dq_open_key = "dq_open_card_idx"
+    if _dq_open_key not in st.session_state:
+        st.session_state[_dq_open_key] = None  # None = all closed by default
 
     # ── Render each brand card ────────────────────────────────────────────────
     for idx, (_, row) in enumerate(queue_slice.iterrows()):
@@ -4375,12 +4386,23 @@ def page_day_queue():
                 cr_raw, gmv_ars, aov_ars, campaign_design, priority_topics
             )
 
-        # ── Card ──────────────────────────────────────────────────────────────
+        # ── Card — accordion: clicking a card closes all others ─────────────
         card_key = f"dq_{brand_id}_{idx}"
-        with st.expander(
-            f"#{start_idx + idx + 1} · {name} · {category} · Score {opp_score}",
-            expanded=False
-        ):
+        _is_open = (st.session_state[_dq_open_key] == idx)
+        _expander_label = f"#{start_idx + idx + 1} · {name} · {category} · Score {opp_score}"
+        # Toggle button that acts as the accordion header
+        _toggle_col, _ = st.columns([1, 0.001])
+        with _toggle_col:
+            if st.button(
+                ("▼ " if _is_open else "▶ ") + _expander_label,
+                key=f"toggle_{card_key}",
+                use_container_width=True,
+            ):
+                st.session_state[_dq_open_key] = None if _is_open else idx
+                st.rerun()
+        if not _is_open:
+            continue
+        with st.container():
             # Top row: badges + mark position button
             top_l, top_r = st.columns([3, 1])
             with top_l:
@@ -7718,7 +7740,13 @@ def page_opportunity_list():
         lambda r: 0 if not r["_ads_current_active"] else 1, axis=1
     )
     ads_df["Opp"] = ads_df["_opp_group"].map({0: "🏆 Acquire", 1: "⚡ Upselling"})
-    ads_df["Status"] = ads_df["_commercial_status_raw"].apply(_normalize_commercial_status)
+    # Status = cadencia de contacto (🟢/🟡/🟠/🔴) — mismo lenguaje que Salud de Cartera
+    _opp_prod_map  = get_productivity_last_contact_map(EXCEL_FILE)
+    _opp_meta_map  = get_last_comment_meta_map(limit=1)
+    ads_df["_last_contact_dt"] = ads_df.apply(
+        lambda r: get_last_contact_dt(r.get("_id", ""), r.get("_name", ""), _opp_prod_map, _opp_meta_map), axis=1
+    )
+    ads_df["Status"] = ads_df["_last_contact_dt"].apply(_cadencia_status)
 
     def _ads_suggested_booking(row):
         """
@@ -7977,7 +8005,11 @@ def page_opportunity_list():
         1: "⚡ Upselling",
         2: "🏆 Acquire",
     })
-    md_df["Status"] = md_df["_commercial_status_raw"].apply(_normalize_commercial_status)
+    # Status = cadencia de contacto (🟢/🟡/🟠/🔴) — mismo lenguaje que Salud de Cartera
+    md_df["_last_contact_dt"] = md_df.apply(
+        lambda r: get_last_contact_dt(r.get("_id", ""), r.get("_name", ""), _opp_prod_map, _opp_meta_map), axis=1
+    )
+    md_df["Status"] = md_df["_last_contact_dt"].apply(_cadencia_status)
 
     def _md_opp_type(row):
         if row["_opp_group"] == 0:
@@ -8204,7 +8236,9 @@ def page_opportunity_list():
             "Churn Status":  churn_df["_churn_raw"].apply(_churn_label_with_emoji),
             "ID":            churn_df["_bid"].apply(_format_id),
             "Name":          churn_df["_name"],
-            "Status":        churn_df["_status_raw"].apply(_normalize_commercial_status),
+            "Status":        churn_df["_bid"].apply(
+                lambda bid: _cadencia_status(get_last_contact_dt(bid, _name_map.get(bid, ""), _opp_prod_map, _opp_meta_map))
+            ),
             "GMV at Risk":   churn_df["_gmv_usd"].apply(lambda x: fmt_usd(x) if x > 0 else "-"),
         })
         total_gmv_at_risk = churn_df["_gmv_usd"].sum()
@@ -8221,7 +8255,9 @@ def page_opportunity_list():
             "Churn Status":  churn_df["_churn"].apply(_churn_label_with_emoji),
             "ID":            churn_df["_id"].apply(_format_id),
             "Name":          churn_df["_name"],
-            "Status":        churn_df["_commercial_status_raw"].apply(_normalize_commercial_status),
+            "Status":        churn_df["_id"].apply(
+                lambda bid: _cadencia_status(get_last_contact_dt(bid, _name_map.get(normalize_brand_id(bid), ""), _opp_prod_map, _opp_meta_map))
+            ),
             "GMV at Risk":   churn_df["_gmv_at_risk_usd"].apply(lambda x: fmt_usd(x) if x > 0 else "-"),
         })
         total_gmv_at_risk = churn_df["_gmv_at_risk_usd"].sum()
@@ -8284,6 +8320,28 @@ def _followup_visual_status(manual_status, last_comment_dt):
     return _status_label_from_value(manual_status, default="OFF 😴")
 
 
+def _cadencia_status(last_contact_dt):
+    """
+    Returns cadence-based status matching the Salud de Cartera / 21-day heat map.
+    Used as the universal Status column in Opportunity List and Follow-Up List.
+    Source: last contact date (from Productivity sheet or comments CSV).
+      🟢 Activo    → 0–10 days
+      🟡 Cadencia  → 11–15 days
+      🟠 Alerta    → 16–21 days
+      🔴 Fría      → > 21 days or never contacted
+    """
+    days = _days_since_timestamp(last_contact_dt)
+    if days is None:
+        return "🔴 Sin contacto"
+    if days <= 10:
+        return "🟢 Activo"
+    if days <= 15:
+        return "🟡 Cadencia"
+    if days <= 21:
+        return "🟠 Alerta"
+    return "🔴 Fría"
+
+
 def _format_followup_last_update(value):
     parsed = pd.to_datetime(value, errors="coerce")
     if pd.isna(parsed):
@@ -8302,24 +8360,42 @@ def get_last_comment_meta_map(limit=2):
         last_dt = group["_dt"].dropna().iloc[-1] if not group["_dt"].dropna().empty else pd.NaT
         statuses = [clean(x, "").strip() for x in group.get("opportunity_status", pd.Series([], dtype=str)).tolist() if clean(x, "").strip()]
 
-        # Notes: prefer real (non-ghost) comments; fall back to all comments if only ghosts exist
+        # Notes: include ALL non-ghost comments including [Auto] AI-generated ones.
+        # Ghost = opportunity_status contains "ghost" OR comment starts with 👻 emoji.
+        # [Auto] AI-generated notes are real notes and must always be included.
         def _is_ghost_comment(row):
             txt = clean(row.get("comment", ""), "").strip().lower()
             st_val = clean(row.get("opportunity_status", ""), "").strip().lower()
             return "ghost" in st_val or txt.startswith("👻")
 
         all_comments = [clean(r.get("comment", ""), "").strip() for _, r in group.iterrows() if clean(r.get("comment", ""), "").strip()]
+        # Include [Auto] comments — they are AI-generated transcription notes, not ghosts.
         real_comments = [clean(r.get("comment", ""), "").strip() for _, r in group.iterrows()
                          if clean(r.get("comment", ""), "").strip() and not _is_ghost_comment(r)]
 
         notes_source = real_comments if real_comments else all_comments
 
-        result[normalize_brand_id(bid)] = {
+        # Store brand_name for cross-reference by name (avoids brand_id normalization mismatches)
+        brand_name_raw = ""
+        if not group.empty and "brand_name" in group.columns:
+            _bnames = group["brand_name"].dropna().astype(str).str.strip()
+            _bnames = _bnames[_bnames != ""]
+            if not _bnames.empty:
+                brand_name_raw = _bnames.iloc[-1]
+
+        _meta_entry = {
             "last_dt": last_dt,
             "last_update": _format_followup_last_update(last_dt),
             "notes": " | ".join(notes_source[-limit:]) if notes_source else "-",
             "status": statuses[-1] if statuses else "OFF 😴",
+            "brand_name": brand_name_raw,
         }
+        result[normalize_brand_id(bid)] = _meta_entry
+        # Also index by normalized brand name for fallback resolution
+        if brand_name_raw:
+            _bname_key = norm_text(brand_name_raw)
+            if _bname_key and _bname_key not in result:
+                result[_bname_key] = _meta_entry
     return result
 
 
@@ -8652,9 +8728,24 @@ def page_follow_up_list():
         return ts.strftime("%Y-%m-%d %H:%M")
 
     follow_df["Last Update"]    = follow_df["_last_comment_dt"].apply(_fmt_last_update)
-    follow_df["Last Notes"] = follow_df["_id"].apply(lambda x: meta_value(x, "notes", "-"))
+    def _resolve_last_notes(row):
+        """Resolves Last Notes by brand_id first, then by normalized brand name as fallback."""
+        bid = normalize_brand_id(row.get("_id", ""))
+        # Primary: by brand_id
+        entry = meta_map.get(bid, {})
+        notes = entry.get("notes", "-")
+        if notes and notes != "-":
+            return notes
+        # Fallback: by normalized brand name (catches brand_id normalization mismatches)
+        bname_key = norm_text(str(row.get("_name", "")))
+        entry_by_name = meta_map.get(bname_key, {})
+        return entry_by_name.get("notes", "-")
+
+    follow_df["Last Notes"] = follow_df.apply(_resolve_last_notes, axis=1)
     follow_df["_manual_status"] = follow_df["_id"].apply(lambda x: meta_value(x, "status", "OFF 😴"))
-    follow_df["Status"] = follow_df.apply(lambda r: _followup_visual_status(r["_manual_status"], r["_last_comment_dt"]), axis=1)
+    # Status = cadencia de contacto (mismo lenguaje que Salud de Cartera)
+    # 🟢 Activo (0-10d) · 🟡 Cadencia (11-15d) · 🟠 Alerta (16-21d) · 🔴 Fría (>21d)
+    follow_df["Status"] = follow_df["_last_comment_dt"].apply(_cadencia_status)
 
     follow_df["_has_comment"] = follow_df["_last_comment_dt"].apply(lambda x: not pd.isna(pd.to_datetime(x, errors="coerce")))
     follow_df["_sort_dt"] = pd.to_datetime(follow_df["_last_comment_dt"], errors="coerce")
@@ -13684,15 +13775,11 @@ def render_brand_profile(row, brand_id):
     )
 
     st.markdown(f"""
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
       <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Último contacto</div>
         <div style="font-size:13px;font-weight:800;color:{_bf_days_color};">{_bf_days_label}</div>
         <div style="margin-top:6px;">{_bf_temp_badge}</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Opportunity Score</div>
-        <div style="margin-top:2px;">{_bf_score_html}</div>
       </div>
       <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
@@ -15828,11 +15915,23 @@ def _render_followup_form(row, brand_id, name):
     with fu2:
         opportunity_status = st.selectbox(
             "Status",
-            ["📅 Campaign Follow Up", "📅 Campaign Negotiation", "📅 Contractual Changes"],
+            [
+                "📅 Campaign Follow Up",
+                "📅 Campaign Negotiation",
+                "📅 Contractual Changes",
+                "── No Answer ──",
+                "📵 No Answer / Bad Number",
+                "⏰ No Answer / No time — Call me later",
+                "🙅 No Answer / Not interested in meeting",
+            ],
             index=0,
             key=f"comment_status_{brand_id}"
         )
     template_type = "None"
+
+    # ── Detectar si es un No Answer para simplificar el formulario ────────────
+    _is_no_answer = opportunity_status.startswith("📵") or opportunity_status.startswith("⏰") or opportunity_status.startswith("🙅")
+    _is_separator  = opportunity_status == "── No Answer ──"
 
     # ── Transcripción / nota de contacto ─────────────────────────────────────
     transcript_label = "📋 Transcripción de la llamada" if contact_channel == "Call" else "📝 Nota del contacto (WhatsApp / Email / Meet)"
@@ -15902,6 +16001,37 @@ def _render_followup_form(row, brand_id, name):
     md_discount_input = ""
     event_required = False
     event_data = None
+
+    # ── Agendamiento automático ────────────────────────────────────────────────
+    # No Answer → próximo contacto en 7 días
+    # Contestó (cualquier otro status) → en 14 días
+    # El usuario puede cambiar la fecha manualmente en el campo que aparece abajo.
+    _auto_days = 7 if _is_no_answer else 14
+    _auto_next_date = date.today() + timedelta(days=_auto_days)
+    _auto_label = (
+        f"📵 No contestó — próximo intento en 7 días ({_auto_next_date.strftime('%d/%m/%Y')})"
+        if _is_no_answer else
+        f"✅ Contacto registrado — próximo seguimiento en 14 días ({_auto_next_date.strftime('%d/%m/%Y')})"
+    )
+    st.markdown(
+        f"<div style='background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 14px;"
+        f"margin:10px 0 6px 0;font-size:12px;color:#DBBBA7;'>📅 {_auto_label}</div>",
+        unsafe_allow_html=True
+    )
+    # Manual override: allow changing the scheduled date
+    _override_key = f"_override_date_{brand_id}"
+    if _override_key not in st.session_state:
+        st.session_state[_override_key] = False
+    if st.checkbox("Cambiar fecha de seguimiento", key=f"override_chk_{brand_id}", value=st.session_state[_override_key]):
+        st.session_state[_override_key] = True
+        _auto_next_date = st.date_input(
+            "Próximo contacto",
+            value=_auto_next_date,
+            min_value=date.today(),
+            key=f"manual_next_date_{brand_id}"
+        )
+    else:
+        st.session_state[_override_key] = False
 
     def _render_calendar_fields(suffix, default_task="Follow-up", default_notes=""):
         # ── Color por tipo de task ────────────────────────────────────────────
@@ -16033,7 +16163,11 @@ def _render_followup_form(row, brand_id, name):
         st.caption(f"Promo name: {promo_name}")
         return promo_name
 
-    if opportunity_status == "📅 Campaign Follow Up":
+    if _is_no_answer or _is_separator:
+        # No Answer: skip calendar, skip commercial fields, skip validations
+        # The auto-schedule logic above already handled date calculation.
+        comment_auto = opportunity_status  # save the exact No Answer label as the note
+    elif opportunity_status == "📅 Campaign Follow Up":
         event_required = True
         _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
         event_data = _render_calendar_fields("camp_followup", default_task="Campaign Follow Up", default_notes=_calendar_notes)
@@ -16067,20 +16201,25 @@ def _render_followup_form(row, brand_id, name):
 
     if st.button("Save Follow-up"):
         # Build final comment from transcript analysis or comment_auto
-        if transcript_analysis and transcript_analysis.get("summary"):
+        if _is_no_answer or _is_separator:
+            # No Answer: comment is the status label itself — no transcript needed
+            final_comment = opportunity_status
+        elif transcript_analysis and transcript_analysis.get("summary"):
             final_comment = transcript_analysis["summary"]
         else:
             final_comment = comment_auto.strip()
 
-        if opportunity_status in ["Negotiation ⏳", "Deal Closed 🏆"] and not final_comment:
-            st.warning("Pegá la transcripción o escribí una nota antes de guardar este status.")
-            st.stop()
-        if opportunity_status == "Follow-up ✅" and followup_type in ["Cambios contractuales", "Revisiones específicas"] and not call_transcript.strip():
-            st.warning("Pegá la transcripción antes de guardar este tipo de follow-up.")
-            st.stop()
-        if event_required and (not event_data or not event_data.get("task")):
-            st.warning("Write a task before saving the Weekly Calendar event.")
-            st.stop()
+        # Skip validations for No Answer statuses
+        if not (_is_no_answer or _is_separator):
+            if opportunity_status in ["Negotiation ⏳", "Deal Closed 🏆"] and not final_comment:
+                st.warning("Pegá la transcripción o escribí una nota antes de guardar este status.")
+                st.stop()
+            if opportunity_status == "Follow-up ✅" and followup_type in ["Cambios contractuales", "Revisiones específicas"] and not call_transcript.strip():
+                st.warning("Pegá la transcripción antes de guardar este tipo de follow-up.")
+                st.stop()
+            if event_required and (not event_data or not event_data.get("task")):
+                st.warning("Write a task before saving the Weekly Calendar event.")
+                st.stop()
 
         comment_commercial_action = commercial_action
         if commercial_action == "No commercial change" and opportunity_status == "Negotiation ⏳":
@@ -16173,10 +16312,29 @@ def _render_followup_form(row, brand_id, name):
                 rejection_reason=rejection_reason,
             )
 
+        # ── Auto-calendar: schedule next contact based on 14d / 7d rule ─────────
+        _auto_event_data = {
+            "date":     _auto_next_date,
+            "time":     "09:00 AM",
+            "id":       brand_id,
+            "name":     name,
+            "task":     "No Answer — Retry" if (_is_no_answer or _is_separator) else "Follow-up",
+            "channel":  contact_channel,
+            "priority": "High" if (_is_no_answer or _is_separator) else "Mid",
+            "status":   "Campaign Follow Up",
+            "notes":    f"Auto-agendado desde Brand Finder · {final_comment[:80] if final_comment else opportunity_status}",
+        }
+        # Only auto-schedule if no manual calendar event was already added
+        auto_event_ok = True
+        auto_event_msg = ""
+        if not event_required:
+            auto_event_ok, auto_event_msg = add_event_to_agenda(EXCEL_FILE, _auto_event_data)
+
         if ok and follow_ok and event_ok and commercial_ok and tracker_ok:
-            success_msg = "Follow-up saved, Agenda notes updated, follow-up fields refreshed, and tracker updated."
+            _days_label = "7 días (No Answer)" if (_is_no_answer or _is_separator) else "14 días"
+            success_msg = f"Follow-up guardado · próximo contacto agendado en {_days_label} ({_auto_next_date.strftime('%d/%m/%Y')})."
             if event_required:
-                success_msg += " Weekly Calendar event added."
+                success_msg += " Evento de calendario manual también añadido."
             st.success(success_msg)
             st.rerun()
         else:
