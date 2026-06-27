@@ -906,6 +906,74 @@ def load_cvr_data():
         return {}
 
 
+def get_portfolio_gmv_aov_from_detalle_caba():
+    """
+    Calcula GMV total, Ordenes totales y AOV del portafolio
+    filtrando Detalle CABA por las marcas de Asignacion Junio (cruce por Brand Name).
+    AOV del portafolio = promedio de los AOVs individuales por marca.
+    """
+    try:
+        aj_df     = load_asignacion_junio()
+        detalle   = load_detalle_caba()
+        if aj_df.empty or detalle.empty:
+            return None
+
+        aj_names = set(aj_df["brand_name"].apply(lambda x: normalize(str(x))))
+
+        # Columna de nombre en Detalle CABA
+        name_col = _first_existing_col(detalle, ["brand name", "brand", "nombre", "tienda"])
+        if not name_col:
+            return None
+
+        detalle["_norm_name"] = detalle[name_col].apply(lambda x: normalize(str(x).split(" - ")[-1].strip()) if " - " in str(x) else normalize(str(x)))
+
+        # Filtrar solo marcas de Asignacion Junio
+        filtered = detalle[detalle["_norm_name"].isin(aj_names)].copy()
+        if filtered.empty:
+            # Fallback: intentar con la columna brand_id
+            if "brand_id" in detalle.columns:
+                aj_ids = set(aj_df["brand_id"].tolist())
+                filtered = detalle[detalle["brand_id"].isin(aj_ids)].copy()
+            if filtered.empty:
+                return None
+
+        # Agrupar por marca y calcular GMV, Ordenes y AOV por marca
+        gmv_col = "_gmv"    if "_gmv"     in filtered.columns else None
+        ord_col = "_ordenes" if "_ordenes" in filtered.columns else None
+
+        if not gmv_col or not ord_col:
+            return None
+
+        brand_group = filtered.groupby("_norm_name").agg(
+            gmv_total  =(gmv_col, "sum"),
+            ord_total  =(ord_col, "sum"),
+        ).reset_index()
+
+        brand_group["aov"] = brand_group.apply(
+            lambda r: r["gmv_total"] / r["ord_total"] if r["ord_total"] > 0 else 0, axis=1
+        )
+
+        total_gmv_ars = brand_group["gmv_total"].sum()
+        total_orders  = brand_group["ord_total"].sum()
+        # AOV portafolio = promedio de AOVs individuales
+        aov_vals = brand_group[brand_group["aov"] > 0]["aov"].tolist()
+        aov_ars  = sum(aov_vals) / len(aov_vals) if aov_vals else (total_gmv_ars / total_orders if total_orders else 0)
+        gmv_usd  = total_gmv_ars / ARS_PER_USD
+        aov_usd  = aov_ars / ARS_PER_USD
+
+        return {
+            "gmv_ars": total_gmv_ars,
+            "gmv_usd": gmv_usd,
+            "gmv_cop": gmv_usd * COP_PER_USD,
+            "orders":  total_orders,
+            "aov_ars": aov_ars,
+            "aov_usd": aov_usd,
+            "aov_cop": aov_usd * COP_PER_USD,
+        }
+    except Exception:
+        return None
+
+
 def get_cvr_for_brand(brand_name, cr_fallback=None):
     """Devuelve (cvr_avg, source). Fallback: cr% - 6pp."""
     cvr_map = load_cvr_data()
@@ -3546,7 +3614,7 @@ def _brand_template_context(row, brand_id, opportunity_status=""):
         "booster": booster,
         "actions": actions,
         "action_map": action_map,
-        "churn": get_churn_status(ctx["brand_id"]) if "brand_id" in ctx else clean(get_from_row(row, ["churn", "churn status"], "-")),
+        "churn": get_churn_status(normalize_brand_id(brand_id)) if brand_id else clean(get_from_row(row, ["churn", "churn status"], "-")),
         "status": opportunity_status,
         "tone": _template_status_tone(opportunity_status),
     }
@@ -5743,56 +5811,64 @@ def _status_col_active_ids(sheet_df, status_candidates):
 @st.cache_data(ttl=3000, show_spinner=False)
 def get_live_campaign_coverage_counts():
     """Unified calculator for Management Dashboard and Campaign Weekly Tracker.
-    Counts active campaigns from Current exports plus manual dashboard activations in Growth OS.
+    Base total = Asignacion Junio (fuente de verdad del portafolio).
+    Counts active campaigns from Current exports filtered by Asignacion Junio brands.
     """
-    portfolio_ids = get_portfolio_ids()
-    total = len(portfolio_ids) if portfolio_ids else 0
+    # Total desde Asignacion Junio (fuente de verdad)
+    try:
+        _aj_df = load_asignacion_junio()
+        aj_ids = set(_aj_df["brand_id"].tolist()) if not _aj_df.empty else set()
+        total  = len(_aj_df) if not _aj_df.empty else 0
+    except Exception:
+        aj_ids = set()
+        total  = 0
 
+    portfolio_ids = aj_ids if aj_ids else get_portfolio_ids()
+
+    # ADS activas: Current ADS, BOOKINGS NET > 0, filtradas por Asignacion Junio
     ads_ids = set()
-    # Load raw Current ADS sheet directly to apply the BOOKINGS NET >= 1 USD rule
     try:
         _raw_ads = _read_current_sheet(CURRENT_ADS_SHEET)
         if not _raw_ads.empty:
-            # Normalise column names
             _raw_ads.columns = [normalize(c) for c in _raw_ads.columns]
-            _bid_col = _first_existing_col(_raw_ads, ["code", "brand id", "brand_id", "id"])
+            _bid_col  = _first_existing_col(_raw_ads, ["code", "brand id", "brand_id", "id"])
             _book_col = _first_existing_col(_raw_ads, ["bookings net", "bookings_net"])
             if _bid_col and _book_col:
                 _raw_ads["_book_num"] = pd.to_numeric(_raw_ads[_book_col], errors="coerce").fillna(0)
                 _raw_ads["_bid_norm"] = _raw_ads[_bid_col].apply(normalize_brand_id)
-                for _, r in _raw_ads[_raw_ads["_book_num"] >= 1].iterrows():
+                for _, r in _raw_ads[_raw_ads["_book_num"] > 0].iterrows():
                     bid = r["_bid_norm"]
-                    if bid:
+                    if bid and (bid in portfolio_ids):
                         ads_ids.add(bid)
     except Exception:
-        # Fallback to cached data
         ads_df = load_current_ads_data(portfolio_only=True)
         if not ads_df.empty:
             for _, r in ads_df.iterrows():
-                if to_number(r.get("bookings net"), 0) >= 1:
+                if to_number(r.get("bookings net"), 0) > 0:
                     bid = normalize_brand_id(r.get("_id"))
-                    if bid:
+                    if bid and (bid in portfolio_ids):
                         ads_ids.add(bid)
 
+    # MD activas: Current MD, BRANDS MD # > 0, filtradas por Asignacion Junio
     md_ids = set()
-    # MD active = BRANDS MD # == 1 in Current MD sheet
-    # MD PRO active = BRANDS MD # PRO == 1 in Current MD pro sheet
-    # Count union (brand counted once even if it has both)
     try:
         _raw_md = _read_current_sheet(CURRENT_MD_SHEET)
         if not _raw_md.empty:
             _raw_md.columns = [normalize(c) for c in _raw_md.columns]
-            _md_bid_col   = _first_existing_col(_raw_md, ["brand id", "brand_id", "id"])
-            _md_flag_col  = _first_existing_col(_raw_md, ["brands md #", "brands md#", "brands md"])
+            _md_bid_col  = _first_existing_col(_raw_md, ["brand id", "brand_id", "id"])
+            _md_flag_col = _first_existing_col(_raw_md, ["brands md #", "brands md#", "brands md"])
             if _md_bid_col and _md_flag_col:
                 _raw_md["_flag_num"] = pd.to_numeric(_raw_md[_md_flag_col], errors="coerce").fillna(0)
                 _raw_md["_bid_norm"] = _raw_md[_md_bid_col].apply(normalize_brand_id)
-                for _, r in _raw_md[_raw_md["_flag_num"] == 1].iterrows():
+                for _, r in _raw_md[_raw_md["_flag_num"] > 0].iterrows():
                     bid = r["_bid_norm"]
-                    if bid:
+                    if bid and (bid in portfolio_ids):
                         md_ids.add(bid)
     except Exception:
         pass
+
+    # MD Pro activas: Current MD pro, BRANDS MD # PRO > 0, filtradas por Asignacion Junio
+    md_pro_ids = set()
     try:
         _raw_mdp = _read_current_sheet(CURRENT_MD_PRO_SHEET)
         if not _raw_mdp.empty:
@@ -5802,28 +5878,23 @@ def get_live_campaign_coverage_counts():
             if _mdp_bid_col and _mdp_flag_col:
                 _raw_mdp["_flag_num"] = pd.to_numeric(_raw_mdp[_mdp_flag_col], errors="coerce").fillna(0)
                 _raw_mdp["_bid_norm"] = _raw_mdp[_mdp_bid_col].apply(normalize_brand_id)
-                for _, r in _raw_mdp[_raw_mdp["_flag_num"] == 1].iterrows():
+                for _, r in _raw_mdp[_raw_mdp["_flag_num"] > 0].iterrows():
                     bid = r["_bid_norm"]
-                    if bid:
-                        md_ids.add(bid)
+                    if bid and (bid in portfolio_ids):
+                        md_pro_ids.add(bid)
     except Exception:
         pass
 
-    growth_df = load_growth_data()
-    ads_ids.update(_status_col_active_ids(growth_df, ["ads", "ads status"]))
-    md_ids.update(_status_col_active_ids(growth_df, ["md", "md status", "markdown", "markdown status"]))
-
-    if portfolio_ids:
-        ads_ids = {x for x in ads_ids if x in portfolio_ids}
-        md_ids = {x for x in md_ids if x in portfolio_ids}
-
     return {
-        "total": total,
-        "ads": len(ads_ids),
-        "md": len(md_ids),
-        "pct_ads": (len(ads_ids) / total) if total else 0,
-        "pct_md": (len(md_ids) / total) if total else 0,
+        "total":       total,
+        "ads":         len(ads_ids),
+        "md":          len(md_ids),
+        "md_pro":      len(md_pro_ids),
+        "pct_ads":     (len(ads_ids)    / total) if total else 0,
+        "pct_md":      (len(md_ids)     / total) if total else 0,
+        "pct_md_pro":  (len(md_pro_ids) / total) if total else 0,
     }
+
 
 
 def fmt_roi2(value):
@@ -5937,7 +6008,9 @@ def page_management_dashboard():
             st.caption(f"First attempt error: {e}")
             return
 
-    current_vals = get_current_gmv_totals() or {}
+    # GMV y AOV desde Detalle CABA filtrado por Asignacion Junio (fuente de verdad)
+    detalle_vals = get_portfolio_gmv_aov_from_detalle_caba()
+    current_vals = detalle_vals or get_current_gmv_totals() or {}
     vals = baseline_vals.copy()
     if current_vals:
         for key in ["gmv_ars", "gmv_usd", "gmv_cop", "aov_ars", "aov_usd", "aov_cop"]:
@@ -6070,12 +6143,25 @@ def page_management_dashboard():
 """, unsafe_allow_html=True)
 
    # ── ROW 2: COVERAGE + PRO/CR ───────────────────────────────────────────────
-    live_coverage = get_live_campaign_coverage_counts()
-    total_brands  = max(live_coverage["total"], 1)
-    ads_pct_bar   = round(live_coverage["pct_ads"] * 100)
-    md_pct_bar    = round(live_coverage["pct_md"]  * 100)
-    pro_pct_bar   = round(min(to_number(baseline_vals.get("total_pro", 0), 0) * 100, 100))
-    cr_pct_bar    = round(min(to_number(baseline_vals.get("total_cr",  0), 0) * 100, 100))
+    live_coverage  = get_live_campaign_coverage_counts()
+    total_brands   = max(live_coverage["total"], 1)
+    ads_pct_bar    = round(live_coverage["pct_ads"]    * 100)
+    md_pct_bar     = round(live_coverage["pct_md"]     * 100)
+    md_pro_pct_bar = round(live_coverage["pct_md_pro"] * 100)
+    pro_pct_bar    = round(min(to_number(baseline_vals.get("total_pro", 0), 0) * 100, 100))
+
+    # CR desde CVR% sheet — promedio del portafolio (Asignacion Junio)
+    try:
+        _cvr_map = load_cvr_data()
+        _aj_cvr  = load_asignacion_junio()
+        _cvr_vals = []
+        for _, _aj_row in _aj_cvr.iterrows():
+            _bname = normalize(str(_aj_row.get("brand_name", "")))
+            if _bname in _cvr_map and _cvr_map[_bname] > 0:
+                _cvr_vals.append(_cvr_map[_bname])
+        cr_pct_bar = round(min((sum(_cvr_vals) / len(_cvr_vals)) * 100, 100)) if _cvr_vals else round(min(to_number(baseline_vals.get("total_cr", 0), 0) * 100, 100))
+    except Exception:
+        cr_pct_bar = round(min(to_number(baseline_vals.get("total_cr", 0), 0) * 100, 100))
 
     def _svg_donut(pct, color, size=110, stroke=14):
         r = (size - stroke) / 2
@@ -6091,37 +6177,49 @@ def page_management_dashboard():
             f'</svg>'
         )
 
-    ads_donut_color = "#FF7124" if ads_pct_bar < 60 else ("#6FF24B" if ads_pct_bar >= 80 else "#FF7124")
-    md_donut_color  = "#8B9ED4" if md_pct_bar  < 60 else ("#6FF24B" if md_pct_bar  >= 80 else "#8B9ED4")
+    ads_donut_color    = "#FF7124" if ads_pct_bar    < 60 else ("#6FF24B" if ads_pct_bar    >= 80 else "#FF7124")
+    md_donut_color     = "#8B9ED4" if md_pct_bar     < 60 else ("#6FF24B" if md_pct_bar     >= 80 else "#8B9ED4")
+    md_pro_donut_color = "#C084FC" if md_pro_pct_bar < 60 else ("#6FF24B" if md_pro_pct_bar >= 80 else "#C084FC")
 
     coverage_html = (
         '<div class="stack-card mgmt-stack-card" style="padding:26px 28px;">'
         '<div class="stack-label">BRAND COVERAGE &middot; LIVE</div>'
-        '<div style="margin-top:18px;display:flex;justify-content:space-around;align-items:center;gap:18px;">'
+        '<div style="margin-top:18px;display:flex;justify-content:space-around;align-items:center;gap:10px;">'
         # ADS donut
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
-        f'<div style="position:relative;width:110px;height:110px;">'
-        f'{_svg_donut(ads_pct_bar, "#FF7124")}'
+        f'<div style="position:relative;width:90px;height:90px;">'
+        f'{_svg_donut(ads_pct_bar, "#FF7124", size=90, stroke=12)}'
         f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-        f'<div style="font-size:20px;font-weight:900;color:#FF7124;line-height:1;">{ads_pct_bar}%</div>'
+        f'<div style="font-size:17px;font-weight:900;color:#FF7124;line-height:1;">{ads_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#FF7124;">ADS</div>'
-        f'<div style="font-size:11px;color:#DBBBA7;font-weight:700;">{live_coverage["ads"]} brands</div>'
+        f'<div style="font-size:11px;font-weight:900;color:#FF7124;">ADS</div>'
+        f'<div style="font-size:10px;color:#DBBBA7;font-weight:700;">{live_coverage["ads"]} marcas</div>'
         f'</div></div>'
         # MD donut
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
-        f'<div style="position:relative;width:110px;height:110px;">'
-        f'{_svg_donut(md_pct_bar, "#8B9ED4")}'
+        f'<div style="position:relative;width:90px;height:90px;">'
+        f'{_svg_donut(md_pct_bar, "#8B9ED4", size=90, stroke=12)}'
         f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-        f'<div style="font-size:20px;font-weight:900;color:#8B9ED4;line-height:1;">{md_pct_bar}%</div>'
+        f'<div style="font-size:17px;font-weight:900;color:#8B9ED4;line-height:1;">{md_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:12px;font-weight:900;color:#8B9ED4;">MD</div>'
-        f'<div style="font-size:11px;color:#DBBBA7;font-weight:700;">{live_coverage["md"]} brands</div>'
+        f'<div style="font-size:11px;font-weight:900;color:#8B9ED4;">MD</div>'
+        f'<div style="font-size:10px;color:#DBBBA7;font-weight:700;">{live_coverage["md"]} marcas</div>'
+        f'</div></div>'
+        # MD PRO donut (nuevo)
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
+        f'<div style="position:relative;width:90px;height:90px;">'
+        f'{_svg_donut(md_pro_pct_bar, "#C084FC", size=90, stroke=12)}'
+        f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
+        f'<div style="font-size:17px;font-weight:900;color:#C084FC;line-height:1;">{md_pro_pct_bar}%</div>'
+        f'</div></div>'
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:11px;font-weight:900;color:#C084FC;">MD PRO</div>'
+        f'<div style="font-size:10px;color:#DBBBA7;font-weight:700;">{live_coverage["md_pro"]} marcas</div>'
         f'</div></div>'
         '</div>'
-        f'<div style="font-size:11px;color:#DBBBA7;margin-top:14px;text-align:center;">Portfolio: {total_brands} brands &middot; live tracker</div>'
+        f'<div style="font-size:11px;color:#DBBBA7;margin-top:14px;text-align:center;">Portfolio: {total_brands} marcas &middot; live tracker</div>'
         '</div>'
     )
 
