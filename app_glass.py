@@ -667,6 +667,11 @@ def norm_text(value):
     return strip_accents(value).lower().strip()
 
 
+def normalize_text(value):
+    """Alias unificado. Usar esta función en todo código nuevo en lugar de norm_text o strip_accents directo."""
+    return norm_text(value)
+
+
 def extract_brand_id_from_current(value):
     if value is None:
         return ""
@@ -1203,7 +1208,6 @@ def money_from_usd(usd_value):
     }
 
 
-@st.cache_data(ttl=3000, show_spinner=False)
 @st.cache_data(ttl=3000, show_spinner=False)
 def _read_current_sheet(sheet_name):
     if not os.path.exists(EXCEL_FILE):
@@ -5868,7 +5872,13 @@ def page_management_dashboard():
     def compute_summary_fallback():
         raw = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=None)
         portfolio = raw.iloc[3:253].copy()
-        total_brands = 250
+
+        # Total de marcas desde Asignacion Junio (fuente de verdad del portafolio)
+        try:
+            _aj_df = load_asignacion_junio()
+            total_brands = len(_aj_df) if not _aj_df.empty else 250
+        except Exception:
+            total_brands = 250
 
         def col_sum(idx):
             if idx >= portfolio.shape[1]:
