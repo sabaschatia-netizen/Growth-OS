@@ -5177,6 +5177,16 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease !important;
 }}
 
+/* ── WIDE INFO CARD: padding para contenedores de sección ── */
+.wide-info-card {{
+    padding: 24px 26px 22px !important;
+    margin-bottom: 20px;
+}}
+.wide-info-card:hover {{
+    transform: none !important;
+    box-shadow: 0 4px 20px rgba(27,63,139,0.08), 0 1px 4px rgba(0,0,0,0.05) !important;
+}}
+
 .glass-card:hover,
 .metric-card:hover,
 .mgmt-card:hover,
@@ -5189,13 +5199,110 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 .status-card:hover,
 .hero-card:hover,
 .stack-card:hover,
-.wide-info-card:hover,
 .info-card:hover,
 .comments-card:hover,
 .salary-card:hover,
 .bucket-card:hover {{
     transform: translateY(-3px) scale(1.01) !important;
     box-shadow: 0 12px 36px rgba(27,63,139,0.14), 0 3px 10px rgba(0,0,0,0.07) !important;
+}}
+
+/* ── BUSINESS INFORMATION CARDS (Brand Finder) ── */
+.business-card-grid {{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+}}
+@media (max-width: 1100px) {{
+    .business-card-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+}}
+
+.business-mini-card {{
+    background: #FFFFFF !important;
+    border: 1px solid rgba(27,63,139,0.09) !important;
+    border-radius: 16px !important;
+    padding: 16px 18px 14px !important;
+    box-shadow: 0 2px 10px rgba(27,63,139,0.07), 0 1px 3px rgba(0,0,0,0.04) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 80px;
+    position: relative;
+    transition: transform .2s, box-shadow .2s;
+}}
+.business-mini-card:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(27,63,139,0.12), 0 2px 6px rgba(0,0,0,0.06) !important;
+}}
+
+/* Lever accent lines */
+.business-mini-card.lever-ads   {{ border-left: 3px solid #FF7124 !important; }}
+.business-mini-card.lever-md    {{ border-left: 3px solid #1B3F8B !important; }}
+.business-mini-card.lever-pro   {{ border-left: 3px solid #7ED321 !important; }}
+.business-mini-card.lever-menu  {{ border-left: 3px solid rgba(107,114,128,0.3) !important; }}
+
+.card-label {{
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    color: rgba(107,114,128,0.6) !important;
+    margin-bottom: 2px;
+}}
+.card-value {{
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #1A1A2E !important;
+    line-height: 1.15;
+    margin-bottom: 2px;
+}}
+.card-copy {{
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: rgba(107,114,128,0.65) !important;
+    line-height: 1.4;
+}}
+.card-chip {{
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(27,63,139,0.07);
+    color: #1B3F8B;
+    margin-top: 4px;
+}}
+.card-chipline {{ margin-top: 6px; }}
+
+/* ── 360° ACTION PRIORITY HEADER GRID ── */
+.priority-top-grid {{
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px 16px;
+    background: rgba(27,63,139,0.03);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+}}
+@media (max-width: 1100px) {{
+    .priority-top-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+}}
+.priority-levers {{
+    padding-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}}
+.priority-chip {{
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(27,63,139,0.08);
+    color: #1B3F8B;
+    border: 1px solid rgba(27,63,139,0.15);
 }}
 
 /* ── TEXT COLORS INSIDE CARDS ── */
@@ -5433,6 +5540,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 }}
 
 /* ── HERO CARD (Brand Finder) ── */
+.hero-card {{ padding: 28px 30px 24px !important; margin-bottom: 20px; }}
 .hero-grid {{ display: grid; grid-template-columns: 1.25fr 1.05fr 1.25fr; gap: 28px; align-items: center; }}
 .hero-name {{ font-size: clamp(28px, 3vw, 46px); font-weight: 900; line-height: 1.02; color: #1A1A2E; letter-spacing: -0.04em; }}
 .hero-name-row {{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }}
