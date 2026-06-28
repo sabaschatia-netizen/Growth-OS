@@ -1133,13 +1133,14 @@ def get_market_context(categoria, lever, brand_gmv=None, brand_orders=None):
     }
 
 
-@st.cache_data(ttl=3000, show_spinner=False)
 def get_orders_from_detalle_caba(brand_id, brand_name=""):
     """
     Suma las Ordenes de una marca específica desde Detalle CABA (puede haber
     múltiples filas por marca — distintas tiendas/stores, se suman todas).
     Cruce por Brand Name (misma lógica acordada para el portafolio), con
     fallback a Brand ID si el nombre no matchea.
+    No cacheada directamente: depende de load_detalle_caba(), que ya está
+    cacheada — evita doble nivel de caché para una función liviana.
     """
     try:
         detalle = load_detalle_caba()
@@ -1170,6 +1171,7 @@ def get_orders_from_detalle_caba(brand_id, brand_name=""):
         return 0
 
 
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_brand_metrics(brand_id):
     df = load_current_gmv_data()
 
@@ -16493,7 +16495,11 @@ def _render_followup_form(row, brand_id, name):
         if not event_required:
             auto_event_ok, auto_event_msg = _add_event_to_agenda_inner(_wb_save, _auto_event_data)
 
-        # ── Guardado único + cierre + invalidación de caché una sola vez ────────
+        # ── Guardado único + cierre + invalidación selectiva de caché ───────────
+        # Solo Growth OS y Agenda se modificaron en este flujo — invalidamos
+        # exclusivamente esas dos funciones cacheadas en vez de st.cache_data.clear()
+        # completo, que forzaba releer las 39 funciones cacheadas (incluye Detalle CABA,
+        # Asignación Junio, CVR%, Current GMV/Ads/MD/Churn, etc. que NO cambiaron aquí).
         try:
             _wb_save.calculation.fullCalcOnLoad = True
             _wb_save.calculation.forceFullCalc = True
@@ -16502,7 +16508,8 @@ def _render_followup_form(row, brand_id, name):
         try:
             _wb_save.save(EXCEL_FILE)
             _wb_save.close()
-            st.cache_data.clear()
+            load_growth_data.clear()
+            load_agenda_data.clear()
         except PermissionError:
             _wb_save.close()
             ok = False
