@@ -906,49 +906,6 @@ def load_cvr_data():
         return {}
 
 
-def get_portfolio_gmv_aov_from_current_gmv():
-    """
-    Calcula GMV total, Ordenes totales y AOV del portafolio
-    filtrando la hoja Current GMV por las marcas de Asignacion Junio (cruce por Brand Name).
-    AOV del portafolio = GMV total / Ordenes totales (NO promedio de AOVs individuales).
-    """
-    try:
-        aj_df   = load_asignacion_junio()
-        current = load_current_gmv_data()
-        if aj_df.empty or current.empty:
-            return None
-
-        aj_names = set(aj_df["brand_name"].apply(lambda x: normalize(str(x))))
-
-        # _brand_name_norm ya viene calculado por _load_gmv_sheet_data (sin el ID al inicio)
-        filtered = current[current["_brand_name_norm"].isin(aj_names)].copy()
-        if filtered.empty:
-            # Fallback: intentar cruzar por brand_id
-            aj_ids = set(aj_df["brand_id"].tolist())
-            filtered = current[current["_id"].isin(aj_ids)].copy()
-            if filtered.empty:
-                return None
-
-        total_gmv_ars = pd.to_numeric(filtered["gmv ars"], errors="coerce").fillna(0).sum()
-        total_orders  = pd.to_numeric(filtered["ordenes"], errors="coerce").fillna(0).sum()
-
-        aov_ars = total_gmv_ars / total_orders if total_orders else 0
-        gmv_usd = total_gmv_ars / ARS_PER_USD
-        aov_usd = aov_ars / ARS_PER_USD
-
-        return {
-            "gmv_ars": total_gmv_ars,
-            "gmv_usd": gmv_usd,
-            "gmv_cop": gmv_usd * COP_PER_USD,
-            "orders":  total_orders,
-            "aov_ars": aov_ars,
-            "aov_usd": aov_usd,
-            "aov_cop": aov_usd * COP_PER_USD,
-        }
-    except Exception:
-        return None
-
-
 def get_portfolio_gmv_aov_from_detalle_caba():
     """
     Calcula GMV total, Ordenes totales y AOV del portafolio
@@ -6158,10 +6115,8 @@ def page_management_dashboard():
             st.caption(f"First attempt error: {e}")
             return
 
-    # GMV y AOV desde Current GMV filtrado por Asignacion Junio (fuente de verdad)
-    # AOV = GMV total del portafolio / Ordenes totales del portafolio
-    current_gmv_vals = get_portfolio_gmv_aov_from_current_gmv()
-    detalle_vals = current_gmv_vals or get_portfolio_gmv_aov_from_detalle_caba()
+    # GMV y AOV desde Detalle CABA filtrado por Asignacion Junio (fuente de verdad)
+    detalle_vals = get_portfolio_gmv_aov_from_detalle_caba()
     current_vals = detalle_vals or get_current_gmv_totals() or {}
     vals = baseline_vals.copy()
     if current_vals:
