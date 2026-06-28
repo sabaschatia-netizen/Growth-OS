@@ -1134,6 +1134,42 @@ def get_market_context(categoria, lever, brand_gmv=None, brand_orders=None):
 
 
 @st.cache_data(ttl=3000, show_spinner=False)
+def get_orders_from_detalle_caba(brand_id, brand_name=""):
+    """
+    Suma las Ordenes de una marca específica desde Detalle CABA (puede haber
+    múltiples filas por marca — distintas tiendas/stores, se suman todas).
+    Cruce por Brand Name (misma lógica acordada para el portafolio), con
+    fallback a Brand ID si el nombre no matchea.
+    """
+    try:
+        detalle = load_detalle_caba()
+        if detalle.empty or "_ordenes" not in detalle.columns:
+            return 0
+
+        target_name = normalize(str(brand_name)) if brand_name else ""
+        if target_name and "brand" in detalle.columns:
+            name_col = next((c for c in detalle.columns if c == "brand"), None)
+            if name_col:
+                # El campo Brand viene como "72087 - Ayguacamolee" → extraer la parte del nombre
+                mask = detalle[name_col].astype(str).apply(
+                    lambda x: normalize(re.sub(r"^\d+\s*-\s*", "", str(x).strip())) == target_name
+                )
+                filtered = detalle[mask]
+                if not filtered.empty:
+                    return float(filtered["_ordenes"].sum())
+
+        # Fallback: cruce por brand_id
+        if "brand_id" in detalle.columns:
+            target_id = normalize_brand_id(brand_id)
+            filtered = detalle[detalle["brand_id"] == target_id]
+            if not filtered.empty:
+                return float(filtered["_ordenes"].sum())
+
+        return 0
+    except Exception:
+        return 0
+
+
 def get_current_brand_metrics(brand_id):
     df = load_current_gmv_data()
 
@@ -14020,6 +14056,15 @@ def render_brand_profile(row, brand_id):
             f"{fmt_usd(current_gmv_usd)} · {fmt_cop(current_gmv_usd * COP_PER_USD)}",
         )
         st.markdown(_gmv_card, unsafe_allow_html=True)
+        _orders_from_caba = get_orders_from_detalle_caba(brand_id, brand_name=name)
+        st.markdown(
+            f"""<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+            border-radius:10px;padding:8px 14px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:11px;color:rgba(232,223,213,.6);font-weight:700;letter-spacing:.04em;">📦 ÓRDENES · DETALLE CABA</span>
+                <span style="font-size:16px;font-weight:800;color:#E8DFD5;">{int(_orders_from_caba):,}</span>
+            </div>""".replace(",", "."),
+            unsafe_allow_html=True
+        )
     with aov_col:
         _aov_card = _dot_line_chart_card(
             "🛒 AOV · Este mes vs Anterior",
@@ -16004,6 +16049,7 @@ def _render_followup_form(row, brand_id, name):
                 "📅 Campaign Follow Up",
                 "📅 Campaign Negotiation",
                 "📅 Contractual Changes",
+                "Deal Closed 🏆",
                 "── No Answer ──",
                 "📵 No Answer / Bad Number",
                 "⏰ No Answer / No time — Call me later",
@@ -16269,6 +16315,33 @@ def _render_followup_form(row, brand_id, name):
         _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
         event_data = _render_calendar_fields("contractual", default_task="Contractual Changes", default_notes=_calendar_notes)
         comment_auto = "📅 Contractual Changes"
+
+    elif opportunity_status == "Deal Closed 🏆":
+        st.markdown(
+            "<div class='wide-info-title' style='margin-top:14px;'>🏆 Negociación cerrada — ¿qué palanca se activó?</div>",
+            unsafe_allow_html=True
+        )
+        commercial_action_type = st.radio(
+            "Tipo de cierre",
+            ["Ads", "Markdown"],
+            index=0,
+            horizontal=True,
+            key=f"deal_closed_type_{brand_id}"
+        )
+        if commercial_action_type == "Ads":
+            ad_budget_input = st.number_input(
+                "Valor de campaña semanal cerrado (ARS)",
+                min_value=0.0,
+                value=0.0,
+                step=1000.0,
+                format="%.0f",
+                key=f"deal_closed_ads_ars_{brand_id}"
+            )
+            commercial_action = f"Ads · {fmt_ars(ad_budget_input)}/semana"
+        else:
+            md_discount_input = _render_markdown_activation_fields("deal_closed_md")
+            commercial_action = f"Markdown · {md_discount_input}"
+        comment_auto = f"🏆 Deal Closed — {commercial_action}"
 
     # ── Auto-router desde transcripción ──────────────────────────────────────
     if transcript_analysis:
