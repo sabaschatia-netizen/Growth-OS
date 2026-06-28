@@ -5032,6 +5032,16 @@ section[data-testid="stSidebar"] .stRadio input:checked + label {{
     padding-bottom: 5rem;
 }}
 
+/* ── VERTICAL SPACING between Streamlit elements ── */
+div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="stVerticalBlock"] > div.element-container {{
+    margin-bottom: 8px !important;
+}}
+div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"]:has(.stack-card),
+div[data-testid="stVerticalBlock"] > div.element-container:has(.stack-card) {{
+    margin-bottom: 16px !important;
+}}
+
 /* ── TEXT GLOBAL ── */
 [data-testid="stMarkdownContainer"] h1,
 [data-testid="stMarkdownContainer"] h2,
@@ -5078,6 +5088,7 @@ div[data-testid="stTextArea"] label {{
 }}
 
 div[data-testid="column"] {{ padding: 0 10px !important; }}
+div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 
 /* ── FLAG ── */
 .flag-img {{
@@ -5200,6 +5211,35 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     color: #1A1A2E !important;
 }}
 
+/* ── MANAGEMENT DASHBOARD TYPOGRAPHY HIERARCHY ── */
+.mgmt-ars {{
+    font-size: 32px !important;
+    font-weight: 900 !important;
+    color: #1A1A2E !important;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}}
+.mgmt-conv {{
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: #6B7280 !important;
+    margin-top: 4px !important;
+    line-height: 1.4;
+}}
+.mgmt-section-title-card {{
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin-bottom: 8px !important;
+}}
+.mgmt-section-title-copy {{
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: rgba(107,114,128,0.55);
+}}
+
 .metric-foot, .mgmt-foot, .stack-foot, .stack-sub,
 .hero-id, .hero-info-value, .info-mini-value {{
     color: rgba(107,114,128,0.7) !important;
@@ -5299,7 +5339,7 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 .sticker-value {{ font-size: 16px; font-weight: 800; margin-top: 6px; color: #1A1A2E !important; }}
 
 /* ── ACTION CARDS ── */
-.action-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }}
+.action-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }}
 .action-card {{
     background: #FFFFFF !important;
     border: none !important;
@@ -5374,11 +5414,11 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 }}
 
 /* ── MGMT LAYOUT GRIDS ── */
-.mgmt-row {{ display: grid; gap: 14px; margin-bottom: 16px; align-items: stretch; }}
+.mgmt-row {{ display: grid; gap: 24px; margin-bottom: 24px; align-items: stretch; }}
 .mgmt-row.three {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
 .mgmt-row.two   {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
 .mgmt-row.line4 {{ grid-template-columns: 1fr 1fr 2.35fr; }}
-.mgmt-subgrid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
+.mgmt-subgrid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }}
 .mgmt-subgrid.three {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
 .mgmt-icon {{
     width: 44px; height: 44px; border-radius: 50%;
@@ -5393,7 +5433,7 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 }}
 
 /* ── HERO CARD (Brand Finder) ── */
-.hero-grid {{ display: grid; grid-template-columns: 1.25fr 1.05fr 1.25fr; gap: 20px; align-items: center; }}
+.hero-grid {{ display: grid; grid-template-columns: 1.25fr 1.05fr 1.25fr; gap: 28px; align-items: center; }}
 .hero-name {{ font-size: clamp(28px, 3vw, 46px); font-weight: 900; line-height: 1.02; color: #1A1A2E; letter-spacing: -0.04em; }}
 .hero-name-row {{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }}
 .hero-mundialista-badge {{
@@ -5404,7 +5444,7 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 }}
 .hero-id {{ color: rgba(107,114,128,0.6); font-size: 18px; font-weight: 800; margin-top: 10px; }}
 .hero-divider {{ border: none; border-top: 1px solid rgba(0,0,0,0.07); margin: 18px 0 14px; }}
-.hero-info-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px 18px; }}
+.hero-info-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 20px 24px; }}
 .hero-info-item {{ display: flex; flex-direction: column; gap: 4px; }}
 .hero-info-label {{ font-size: 10px; text-transform: uppercase; font-weight: 800; color: rgba(107,114,128,0.5); }}
 
@@ -5465,6 +5505,68 @@ details summary {{
 ::-webkit-scrollbar-track {{ background: rgba(0,0,0,0.04); border-radius: 999px; }}
 ::-webkit-scrollbar-thumb {{ background: rgba(27,63,139,0.2); border-radius: 999px; }}
 ::-webkit-scrollbar-thumb:hover {{ background: rgba(27,63,139,0.35); }}
+
+/* ── CALENDAR (Agenda) ── */
+.cal-grid {{ background: #FFFFFF; border-radius: 16px; box-shadow: 0 4px 20px rgba(27,63,139,0.08); overflow: hidden; }}
+.cal-header-cell {{
+    background: rgba(27,63,139,0.04);
+    color: #6B7280 !important;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}}
+.cal-day-today {{
+    background: #1B3F8B !important;
+    color: #FFFFFF !important;
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}}
+.cal-time-label {{
+    color: #6B7280 !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    padding: 4px 8px;
+    white-space: nowrap;
+}}
+.cal-cell {{
+    border: 0.5px solid rgba(0,0,0,0.05);
+    min-height: 80px;
+    padding: 4px;
+    background: #FFFFFF;
+    color: #1A1A2E !important;
+    font-size: 12px;
+}}
+.cal-cell:hover {{ background: rgba(27,63,139,0.03); }}
+.cal-event {{
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}}
+/* Fix Streamlit calendar/agenda table text */
+[data-testid="stMarkdownContainer"] table td,
+[data-testid="stMarkdownContainer"] table th {{
+    color: #1A1A2E !important;
+    border-color: rgba(0,0,0,0.06) !important;
+}}
+/* Generic fix for any white/near-white text on light bg */
+span[style*="color: white"],
+span[style*="color:#FFFFFF"],
+span[style*="color: #FFFFFF"] {{
+    color: #1A1A2E !important;
+}}
 
 /* ── MGMT STACK CARDS ── */
 .mgmt-stack-card {{
@@ -5856,9 +5958,11 @@ def page_management_dashboard():
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:26px 28px;">
     <div class="stack-label">{label}</div>
-    <div class="stack-main mgmt-ars">{fmt_ars(ars)}</div>
-    <div class="stack-sub mgmt-conv">{fmt_usd(usd)} · {fmt_cop(cop)}</div>
-    <div class="stack-foot">{foot if foot else '&nbsp;'}</div>
+    <div style="margin-top:10px;">
+        <div style="font-size:36px;font-weight:900;color:#1A1A2E;letter-spacing:-0.02em;line-height:1.1;">{fmt_usd(usd)}</div>
+        <div style="font-size:13px;font-weight:500;color:#6B7280;margin-top:6px;">{fmt_ars(ars)} &middot; {fmt_cop(cop)}</div>
+    </div>
+    <div class="stack-foot" style="margin-top:12px;">{foot if foot else '&nbsp;'}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -5925,8 +6029,10 @@ def page_management_dashboard():
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:26px 28px;">
   <div class="stack-label">CURRENT GMV &middot; MTD</div>
-  <div class="stack-main mgmt-ars" style="margin-top:10px;">{_v_gmv_usd}</div>
-  <div class="stack-sub mgmt-conv">{_v_gmv_ars} &middot; {_v_gmv_cop}</div>
+  <div style="margin-top:10px;">
+    <div style="font-size:36px;font-weight:900;color:#1A1A2E;letter-spacing:-0.02em;line-height:1.1;">{_v_gmv_usd}</div>
+    <div style="font-size:13px;font-weight:500;color:#6B7280;margin-top:6px;">{_v_gmv_ars} &middot; {_v_gmv_cop}</div>
+  </div>
   <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
     <div style="font-size:38px;font-weight:900;color:{gmv_color_ch};line-height:1;">{gmv_arrow_ch}</div>
     <div>
@@ -5941,8 +6047,10 @@ def page_management_dashboard():
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:26px 28px;">
   <div class="stack-label">CURRENT AOV</div>
-  <div class="stack-main mgmt-ars" style="margin-top:10px;">{_v_aov_usd}</div>
-  <div class="stack-sub mgmt-conv">{_v_aov_ars} &middot; {_v_aov_cop}</div>
+  <div style="margin-top:10px;">
+    <div style="font-size:36px;font-weight:900;color:#1A1A2E;letter-spacing:-0.02em;line-height:1.1;">{_v_aov_usd}</div>
+    <div style="font-size:13px;font-weight:500;color:#6B7280;margin-top:6px;">{_v_aov_ars} &middot; {_v_aov_cop}</div>
+  </div>
   <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
     <div style="font-size:38px;font-weight:900;color:{aov_color};line-height:1;">{'&#9650;' if aov_change >= 0 else '&#9660;'}</div>
     <div>
