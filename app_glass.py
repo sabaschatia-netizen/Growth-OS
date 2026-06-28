@@ -48,68 +48,69 @@ CONTACTS_START_DATE = date(2026, 6, 1)
 
 # Main visual identity requested by Sabas
 # Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
-# Core: Space Indigo #1D2659 · Slate Indigo #4E63D9 · Neon Tangerine #FF8A3D · Laser Green #6FF24B · Soft Mint #DDFBCF
+# Core: Space Indigo #1D2659 · Slate Indigo #4E63D9 · Neon Tangerine #FF8A3D · Laser Green #7ED321 · Soft Mint #DDFBCF
 PALETTE = {
-    # ── 6 tokens de identidad ────────────────────────────────
-    "noble_black":    "#202124",   # fondo base dark
-    "wahoo":          "#272D4E",   # fondo dark profundo / sidebar
-    "blue_estate":    "#3B4883",   # azul primario / intel
-    "burning_orange": "#FF7124",   # acento comercial / ADS
-    "laser_green":    "#6FF24B",   # acento éxito / highlight — intacto
-    "cinnamon_ice":   "#DBBBA7",   # texto secundario / superficies cálidas
-    "pale_cashmere":  "#E8DFD5",   # texto principal sobre dark
+    # ── Tokens de identidad (light mode) ─────────────────────
+    "noble_black":    "#EDEDEB",   # fondo base light (gris PDF)
+    "wahoo":          "#FFFFFF",   # cards / superficies blancas
+    "blue_estate":    "#1B3F8B",   # azul oscuro primario
+    "burning_orange": "#FF7124",   # naranja tangerine — identidad dashboard
+    "laser_green":    "#7ED321",   # verde lima — datos positivos
+    "cinnamon_ice":   "#6B7280",   # texto secundario sobre fondo claro
+    "pale_cashmere":  "#1A1A2E",   # texto principal sobre fondo claro
 
     # ── Scales derivadas ─────────────────────────────────────
-    "wahoo_dark":     "#1C2140",   # dark más profundo (hover sidebar)
-    "blue_soft":      "#5B6FA8",   # blue_estate atenuado
-    "blue_glow":      "#8B9ED4",   # intel highlight
-    "laser_soft":     "#B9FF9C",   # laser_green atenuado
-    "laser_dim":      "rgba(111,242,75,0.15)",   # laser bg subtle
+    "wahoo_dark":     "#F5F5F3",   # hover cards (un pelo más oscuro que el fondo)
+    "blue_soft":      "#3D64B8",   # blue_estate atenuado
+    "blue_glow":      "#1B3F8B",   # intel highlight
+    "laser_soft":     "#A8E05F",   # laser_green atenuado
+    "laser_dim":      "rgba(126,211,33,0.12)",   # laser bg subtle
     "orange_dark":    "#D95A10",   # burning_orange oscuro
-    "orange_soft":    "rgba(255,113,36,0.15)",   # burning_orange bg subtle
-    "cashmere_dim":   "rgba(232,223,213,0.45)",  # texto muted
+    "orange_soft":    "rgba(255,113,36,0.12)",   # burning_orange bg subtle
+    "cashmere_dim":   "rgba(107,114,128,0.5)",   # texto muted
+    "negative":       "#FF4D2E",   # rojo-naranja — datos negativos / alertas
+    "negative_soft":  "rgba(255,77,46,0.12)",    # fondo alerta negativa
 
-    # ── Glass tokens ─────────────────────────────────────────
-    "glass_bg":       "rgba(255,255,255,0.06)",
-    "glass_bg_hover": "rgba(255,255,255,0.09)",
-    "glass_border":   "rgba(255,255,255,0.12)",
-    "glass_border_hover": "rgba(255,255,255,0.22)",
+    # ── Sticker tokens (reemplaza glass) ─────────────────────
+    "glass_bg":       "#FFFFFF",
+    "glass_bg_hover": "#F5F5F3",
+    "glass_border":   "rgba(0,0,0,0.08)",
+    "glass_border_hover": "rgba(27,63,139,0.25)",
 
     # ── Alias backward-compat — no eliminar ──────────────────
-    # El código existente sigue funcionando sin tocar nada.
-    "space_indigo":   "#272D4E",   # → wahoo
-    "slate_indigo":   "#3B4883",   # → blue_estate
-    "navy":           "#272D4E",   # → wahoo
-    "navy_dark":      "#1C2140",
-    "navy_soft":      "#2D3560",
-    "blue":           "#3B4883",   # → blue_estate
-    "blue_mist":      "rgba(59,72,131,0.25)",
-    "laser":          "#6FF24B",   # → laser_green
-    "mint":           "#E8DFD5",   # → pale_cashmere
-    "mint_soft":      "#E8DFD5",
-    "mint_muted":     "#DBBBA7",   # → cinnamon_ice
-    "soft_mint":      "#E8DFD5",
-    "white":          "#E8DFD5",
-    "cream":          "#E8DFD5",
-    "cream_soft":     "#E8DFD5",
-    "cream_muted":    "#DBBBA7",
-    "coral":          "#FF7124",   # → burning_orange
-    "coral_soft":     "rgba(255,113,36,0.15)",
+    "space_indigo":   "#FFFFFF",
+    "slate_indigo":   "#1B3F8B",
+    "navy":           "#FFFFFF",
+    "navy_dark":      "#F5F5F3",
+    "navy_soft":      "#EEF2FF",
+    "blue":           "#1B3F8B",
+    "blue_mist":      "rgba(27,63,139,0.12)",
+    "laser":          "#7ED321",
+    "mint":           "#1A1A2E",
+    "mint_soft":      "#1A1A2E",
+    "mint_muted":     "#6B7280",
+    "soft_mint":      "#1A1A2E",
+    "white":          "#1A1A2E",
+    "cream":          "#1A1A2E",
+    "cream_soft":     "#1A1A2E",
+    "cream_muted":    "#6B7280",
+    "coral":          "#FF7124",
+    "coral_soft":     "rgba(255,113,36,0.12)",
     "gold":           "#FF7124",
-    "gold_soft":      "rgba(255,113,36,0.15)",
+    "gold_soft":      "rgba(255,113,36,0.12)",
     "neon_tangerine": "#FF7124",
     "tangerine_dark": "#D95A10",
-    "tangerine_soft": "rgba(255,113,36,0.15)",
+    "tangerine_soft": "rgba(255,113,36,0.12)",
     "orange":         "#FF7124",
-    "red":            "#D95A10",
-    "red_soft":       "rgba(255,113,36,0.12)",
-    "sky":            "#3B4883",
-    "sky_soft":       "#5B6FA8",
-    "emerald_dark":   "#009175",
-    "world_red":      "#E5332A",
-    "world_cyan":     "#55C8FF",
-    "world_yellow":   "#FFF100",
-    "world_green":    "#00A86B",
+    "red":            "#FF4D2E",
+    "red_soft":       "rgba(255,77,46,0.12)",
+    "sky":            "#1B3F8B",
+    "sky_soft":       "#3D64B8",
+    "emerald_dark":   "#5A9E00",
+    "world_red":      "#FF4D2E",
+    "world_cyan":     "#1B3F8B",
+    "world_yellow":   "#FF7124",
+    "world_green":    "#7ED321",
 }
 
 
@@ -4391,7 +4392,7 @@ def page_day_queue():
     st.markdown(f"### {len(queue_slice)} marcas · hoy")
 
     # ── Helper: sticker badge ─────────────────────────────────────────────────
-    def _sticker(label, value, color_val="#E8DFD5", bg="rgba(255,255,255,0.06)", border="rgba(255,255,255,0.10)"):
+    def _sticker(label, value, color_val="#1A1A2E", bg="rgba(255,255,255,0.92)", border="rgba(0,0,0,0.07)"):
         return (
             f"<div style='background:{bg};border:1px solid {border};border-radius:10px;"
             f"padding:8px 14px;display:inline-block;margin-right:8px;margin-bottom:6px;'>"
@@ -4438,7 +4439,7 @@ def page_day_queue():
             days_ago      = None
             contact_badge = "🔴 Sin contacto"
             badge_bg      = "rgba(229,51,42,0.12)"
-            badge_txt     = "#E5332A"
+            badge_txt     = "#FF4D2E"
         else:
             days_ago = (datetime.now() - pd.to_datetime(last_dt)).days
             contact_badge = (
@@ -4451,9 +4452,9 @@ def page_day_queue():
             badge_bg  = ("rgba(111,242,75,0.08)" if (days_ago or 99) <= 7
                          else "rgba(255,113,36,0.10)" if (days_ago or 99) <= 21
                          else "rgba(229,51,42,0.10)")
-            badge_txt = ("#6FF24B" if (days_ago or 99) <= 7
+            badge_txt = ("#7ED321" if (days_ago or 99) <= 7
                          else "#D95A10" if (days_ago or 99) <= 21
-                         else "#E5332A")
+                         else "#FF4D2E")
 
         # Lever status
         ads_current_raw   = get_current_ads_metrics(brand_id)
@@ -4529,17 +4530,17 @@ def page_day_queue():
             # Top row: badges + mark position button
             top_l, top_r = st.columns([3, 1])
             with top_l:
-                ads_badge_bg  = "rgba(59,72,131,0.20)" if ads_active else "rgba(255,255,255,0.05)"
-                ads_badge_txt = "#8B9ED4" if ads_active else "rgba(232,223,213,.35)"
-                md_badge_bg   = "rgba(111,242,75,0.10)" if md_active else "rgba(255,255,255,0.05)"
-                md_badge_txt  = "#6FF24B" if md_active else "rgba(232,223,213,.35)"
+                ads_badge_bg  = "rgba(59,72,131,0.20)" if ads_active else "rgba(255,255,255,0.90)"
+                ads_badge_txt = "#1B3F8B" if ads_active else "rgba(232,223,213,.35)"
+                md_badge_bg   = "rgba(111,242,75,0.10)" if md_active else "rgba(255,255,255,0.90)"
+                md_badge_txt  = "#7ED321" if md_active else "rgba(232,223,213,.35)"
                 churn_badge_html = ""
                 if show_churn_sticker:
                     _is_urgent_churn = any(c in str(churn_status) for c in ["🆘", "🚨", "☠", "😴"])
                     _churn_bg = ("rgba(229,51,42,0.15)" if _is_urgent_churn
-                                  else "rgba(255,113,36,0.15)" if "⚠" in str(churn_status)
-                                  else "rgba(255,255,255,0.06)")
-                    _churn_txt = ("#E5332A" if _is_urgent_churn
+                                  else "rgba(255,113,36,0.10)" if "⚠" in str(churn_status)
+                                  else "rgba(255,255,255,0.92)")
+                    _churn_txt = ("#FF4D2E" if _is_urgent_churn
                                    else "#FF7124" if "⚠" in str(churn_status)
                                    else "rgba(232,223,213,.7)")
                     churn_badge_html = (
@@ -4549,7 +4550,7 @@ def page_day_queue():
                     )
                     if _is_urgent_churn:
                         churn_badge_html += (
-                            f"<span style='background:rgba(229,51,42,0.20);color:#E5332A;font-size:12px;font-weight:700;"
+                            f"<span style='background:rgba(229,51,42,0.20);color:#FF4D2E;font-size:12px;font-weight:700;"
                             f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
                             f"🚨 Urgente — reconectar</span>"
                         )
@@ -4588,26 +4589,26 @@ def page_day_queue():
             # Venta total (GMV)
             if gmv_ars and gmv_ars > 0:
                 gmv_fmt = f"ARS {fmt_money(gmv_ars)}" if gmv_ars < 1_000_000 else f"ARS {gmv_ars/1_000_000:.1f}M"
-                stickers_html += _sticker("Venta total", gmv_fmt, "#E8DFD5")
+                stickers_html += _sticker("Venta total", gmv_fmt, "#1A1A2E")
             # Ticket promedio (AOV)
             if aov_ars and aov_ars > 0:
-                stickers_html += _sticker("Ticket promedio", f"ARS {fmt_money(aov_ars)}", "#E8DFD5")
+                stickers_html += _sticker("Ticket promedio", f"ARS {fmt_money(aov_ars)}", "#1A1A2E")
             # Tasa de conversión
             if cr_raw and to_number(cr_raw, 0) > 0:
-                stickers_html += _sticker("Conversión", fmt_percent0(cr_raw), "#DBBBA7")
+                stickers_html += _sticker("Conversión", fmt_percent0(cr_raw), "#6B7280")
             # Budget de publicidad (si tiene)
             if ads_active and ads_budget > 0:
-                stickers_html += _sticker("Budget publicidad", f"ARS {fmt_money(ads_budget)}", "#8B9ED4",
-                                           "rgba(59,72,131,0.15)", "rgba(59,72,131,0.35)")
+                stickers_html += _sticker("Budget publicidad", f"ARS {fmt_money(ads_budget)}", "#1B3F8B",
+                                           "rgba(59,72,131,0.15)", "rgba(27,63,139,0.12)")
             # Retorno publicidad (si tiene)
             if ads_active and ads_roi and ads_roi > 0:
-                roi_color = "#6FF24B" if ads_roi >= 3 else ("#FF7124" if ads_roi >= 1.5 else "#E5332A")
+                roi_color = "#7ED321" if ads_roi >= 3 else ("#FF7124" if ads_roi >= 1.5 else "#FF4D2E")
                 stickers_html += _sticker("Retorno ads", f"{ads_roi:.1f}x", roi_color,
                                            "rgba(111,242,75,0.08)", "rgba(111,242,75,0.20)")
             # Nombre campaña promo (si tiene)
             if md_active and md_campaign_name and md_campaign_name not in ["-", ""]:
                 short_camp = md_campaign_name[:28] + "…" if len(md_campaign_name) > 28 else md_campaign_name
-                stickers_html += _sticker("Campaña promo", short_camp, "#6FF24B",
+                stickers_html += _sticker("Campaña promo", short_camp, "#7ED321",
                                            "rgba(111,242,75,0.08)", "rgba(111,242,75,0.20)")
 
             if stickers_html:
@@ -4625,31 +4626,31 @@ def page_day_queue():
                     metric_label = clean(lv.get("metric"), "")
                     if kind == "ops_claims":
                         sp_alerts_html += (
-                            f"<span style='background:rgba(229,51,42,0.15);color:#E5332A;font-size:12px;"
+                            f"<span style='background:rgba(229,51,42,0.15);color:#FF4D2E;font-size:12px;"
                             f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                             f"⚠️ Reclamaciones — {html.escape(metric_label)}</span>"
                         )
                     elif kind == "ops_cancellations":
                         sp_alerts_html += (
-                            f"<span style='background:rgba(229,51,42,0.15);color:#E5332A;font-size:12px;"
+                            f"<span style='background:rgba(229,51,42,0.15);color:#FF4D2E;font-size:12px;"
                             f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                             f"⚠️ Cancelaciones — {html.escape(metric_label)}</span>"
                         )
                     elif kind == "menu_photos":
                         sp_alerts_html += (
-                            f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                            f"<span style='background:rgba(255,113,36,0.10);color:#FF7124;font-size:12px;"
                             f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                             f"📸 Fotos — {html.escape(metric_label)}</span>"
                         )
                     elif kind == "ops_availability":
                         sp_alerts_html += (
-                            f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                            f"<span style='background:rgba(255,113,36,0.10);color:#FF7124;font-size:12px;"
                             f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                             f"🔌 Availability — {html.escape(metric_label)}</span>"
                         )
                     elif kind == "menu_purchase_experience":
                         sp_alerts_html += (
-                            f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                            f"<span style='background:rgba(255,113,36,0.10);color:#FF7124;font-size:12px;"
                             f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                             f"🛒 Chasing Experience — {html.escape(metric_label)}</span>"
                         )
@@ -4660,13 +4661,13 @@ def page_day_queue():
                 _purch_val  = to_number(_menu_for_alert.get("purchasing_experience"), 0)
                 if _photos_val and _photos_val < 0.90 and "📸 Fotos" not in sp_alerts_html:
                     sp_alerts_html += (
-                        f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                        f"<span style='background:rgba(255,113,36,0.10);color:#FF7124;font-size:12px;"
                         f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                         f"📸 Fotos {fmt_percent0(_photos_val)} — por debajo del 90%</span>"
                     )
                 if _purch_val and _purch_val < 0.90 and "🛒 Chasing Experience" not in sp_alerts_html:
                     sp_alerts_html += (
-                        f"<span style='background:rgba(255,113,36,0.15);color:#FF7124;font-size:12px;"
+                        f"<span style='background:rgba(255,113,36,0.10);color:#FF7124;font-size:12px;"
                         f"font-weight:600;padding:3px 10px;border-radius:20px;margin-right:6px;margin-bottom:4px;display:inline-block;'>"
                         f"🛒 Chasing Experience {fmt_percent0(_purch_val)} — por debajo del 90%</span>"
                     )
@@ -4687,9 +4688,9 @@ def page_day_queue():
                 _lever_label = f"💸 Promo — activar {_disc}% en {_hero}"
 
             st.markdown(
-                f"<div style='font-size:12px;font-weight:700;color:#DBBBA7;text-transform:uppercase;"
+                f"<div style='font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;"
                 f"margin:12px 0 4px;'>Palanca recomendada</div>"
-                f"<div style='font-size:14px;font-weight:600;color:#E8DFD5;margin-bottom:12px;'>"
+                f"<div style='font-size:14px;font-weight:600;color:#1A1A2E;margin-bottom:12px;'>"
                 f"{_lever_label}</div>",
                 unsafe_allow_html=True
             )
@@ -4766,10 +4767,10 @@ section[data-testid="stSidebar"] > div:first-child {
 }
 
 .nav-toggle-btn {
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.95);
+    border: 1px solid rgba(0,0,0,0.08);
     border-radius: 10px;
-    color: #E8DFD5;
+    color: #1A1A2E;
     cursor: pointer;
     font-size: 16px;
     padding: 7px 10px;
@@ -4779,8 +4780,8 @@ section[data-testid="stSidebar"] > div:first-child {
     margin-bottom: 4px;
 }
 .nav-toggle-btn:hover {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.22);
+    background: rgba(0,0,0,0.08);
+    border-color: rgba(27,63,139,0.20);
 }
 
 .nav-section-label {
@@ -4788,7 +4789,7 @@ section[data-testid="stSidebar"] > div:first-child {
     font-weight: 800;
     letter-spacing: .12em;
     text-transform: uppercase;
-    color: rgba(219,187,167,0.4);
+    color: rgba(107,114,128,0.45);
     padding: 10px 4px 4px 4px;
 }
 
@@ -4812,13 +4813,13 @@ section[data-testid="stSidebar"] > div:first-child {
     background: transparent;
 }
 .nav-item:hover {
-    background: rgba(255,255,255,0.07);
-    color: #E8DFD5;
+    background: rgba(255,255,255,0.95);
+    color: #1A1A2E;
 }
 .nav-item.active {
-    background: rgba(59,72,131,0.35);
-    color: #E8DFD5;
-    border-color: rgba(111,242,75,0.22);
+    background: rgba(27,63,139,0.12);
+    color: #1A1A2E;
+    border-color: rgba(126,211,33,0.22);
 }
 .nav-item .nav-icon {
     font-size: 16px;
@@ -4836,7 +4837,7 @@ section[data-testid="stSidebar"] > div:first-child {
     align-items: center;
     gap: 10px;
     padding: 4px 2px 12px 2px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.95);
     margin-bottom: 8px;
 }
 .nav-logo-icon {
@@ -4846,18 +4847,18 @@ section[data-testid="stSidebar"] > div:first-child {
 .nav-logo-text {
     font-size: 15px;
     font-weight: 800;
-    color: #E8DFD5;
+    color: #1A1A2E;
     letter-spacing: -.01em;
     line-height: 1.2;
 }
 .nav-logo-sub {
     font-size: 10px;
-    color: rgba(219,187,167,0.5);
+    color: rgba(107,114,128,0.60);
     font-weight: 600;
 }
 .nav-divider {
     height: 1px;
-    background: rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.95);
     margin: 6px 0;
 }
 </style>
@@ -4886,7 +4887,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">🇦🇷</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.95);margin-bottom:8px;">🇦🇷</div>', unsafe_allow_html=True)
 
     # Nav groups
     current_page = st.session_state["active_page"]
@@ -4920,40 +4921,42 @@ LIGHT = False   # dark-only, no toggle
 
 COLORS = {
     # Backgrounds
-    "bg":              "#202124",
-    "card":            "rgba(255,255,255,0.06)",
-    "card2":           "rgba(255,255,255,0.09)",
-    "sidebar":         "rgba(255,255,255,0.055)",
+    "bg":              "#EDEDEB",
+    "card":            "#FFFFFF",
+    "card2":           "#F5F5F3",
+    "sidebar":         "#FFFFFF",
 
     # Text
-    "text":            "#E8DFD5",
-    "muted":           "#DBBBA7",
-    "label":           "#E8DFD5",
-    "sidebar_text":    "#E8DFD5",
+    "text":            "#1A1A2E",
+    "muted":           "#6B7280",
+    "label":           "#1A1A2E",
+    "sidebar_text":    "#1A1A2E",
 
     # Borders
-    "border":          "rgba(255,255,255,0.12)",
-    "border_hover":    "rgba(255,255,255,0.22)",
+    "border":          "rgba(0,0,0,0.08)",
+    "border_hover":    "rgba(27,63,139,0.25)",
 
     # Accents
-    "active":          "#6FF24B",
-    "active_text":     "#1C2140",
-    "blue":            "#3B4883",
-    "blue_text":       "#E8DFD5",
+    "active":          "#7ED321",
+    "active_text":     "#FFFFFF",
+    "blue":            "#1B3F8B",
+    "blue_text":       "#FFFFFF",
     "accent":          "#FF7124",
     "accent_dark":     "#D95A10",
-    "accent_soft":     "rgba(255,113,36,0.15)",
+    "accent_soft":     "rgba(255,113,36,0.12)",
     "commercial":      "#FF7124",
     "commercial_dark": "#D95A10",
-    "commercial_soft": "rgba(255,113,36,0.15)",
-    "intel":           "#8B9ED4",
-    "intel_soft":      "#6FF24B",
-    "success":         "#6FF24B",
+    "commercial_soft": "rgba(255,113,36,0.12)",
+    "intel":           "#1B3F8B",
+    "intel_soft":      "#7ED321",
+    "success":         "#7ED321",
     "warning":         "#FF7124",
-    "danger":          "#FF6B6B",
-    "input_bg":        "rgba(255,255,255,0.07)",
-    "info_bg":         "rgba(59,72,131,0.3)",
-    "info_text":       "#E8DFD5",
+    "danger":          "#FF4D2E",
+    "negative":        "#FF4D2E",
+    "negative_soft":   "rgba(255,77,46,0.12)",
+    "input_bg":        "#F5F5F3",
+    "info_bg":         "rgba(27,63,139,0.08)",
+    "info_text":       "#1A1A2E",
 }
 
 flag_html = '<img class="flag-img" src="https://flagcdn.com/w80/ar.png">'
@@ -4965,55 +4968,61 @@ flag_html = '<img class="flag-img" src="https://flagcdn.com/w80/ar.png">'
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-* {{ font-family: 'Inter', sans-serif; }}
+* {{ font-family: 'DM Sans', sans-serif; }}
 
-/* ── APP BACKGROUND ── */
+/* ── APP BACKGROUND — glassmorphism light ── */
 .stApp {{
-    background: #202124 !important;
+    background: #EDEDEB !important;
     background-image:
-        radial-gradient(ellipse 60% 50% at 20% 30%, rgba(59,72,131,0.45) 0%, transparent 70%),
-        radial-gradient(ellipse 50% 40% at 80% 70%, rgba(39,45,78,0.55) 0%, transparent 65%),
-        radial-gradient(ellipse 30% 30% at 60% 10%, rgba(255,113,36,0.06) 0%, transparent 60%) !important;
+        radial-gradient(ellipse 70% 60% at 15% 20%, rgba(27,63,139,0.18) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 50% at 85% 75%, rgba(255,113,36,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(126,211,33,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 35% at 70% 10%, rgba(27,63,139,0.10) 0%, transparent 50%) !important;
     color: {COLORS["text"]};
+}}
+
+/* Glass overlay on main content area */
+.stApp > div:first-child {{
+    backdrop-filter: blur(0px);
 }}
 
 /* ── SIDEBAR ── */
 section[data-testid="stSidebar"] {{
-    background: rgba(255,255,255,0.055) !important;
-    backdrop-filter: blur(28px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
-    border-right: 1px solid rgba(255,255,255,0.10) !important;
-    box-shadow: none !important;
+    background: rgba(255,255,255,0.55) !important;
+    backdrop-filter: blur(32px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+    border-right: 1px solid rgba(255,255,255,0.7) !important;
+    box-shadow: 4px 0 24px rgba(27,63,139,0.06) !important;
 }}
 
 section[data-testid="stSidebar"] * {{
     color: {COLORS["sidebar_text"]} !important;
 }}
 
-/* sidebar nav items */
 section[data-testid="stSidebar"] .stRadio label {{
     display: flex;
     align-items: center;
     padding: 8px 10px;
-    border-radius: 10px;
+    border-radius: 12px;
     font-size: 13px;
     font-weight: 600;
-    color: rgba(219,187,167,0.6) !important;
+    color: rgba(107,114,128,0.8) !important;
     transition: background 0.18s, color 0.18s;
     cursor: pointer;
 }}
 section[data-testid="stSidebar"] .stRadio label:hover {{
-    background: rgba(255,255,255,0.06);
-    color: #E8DFD5 !important;
+    background: rgba(27,63,139,0.08);
+    color: #1A1A2E !important;
 }}
 section[data-testid="stSidebar"] .stRadio [data-checked="true"] label,
 section[data-testid="stSidebar"] .stRadio input:checked + label {{
-    background: rgba(59,72,131,0.35);
-    color: #E8DFD5 !important;
-    border: 1px solid rgba(111,242,75,0.2);
-    border-radius: 10px;
+    background: rgba(27,63,139,0.12);
+    color: #1B3F8B !important;
+    border: 1px solid rgba(27,63,139,0.25);
+    border-radius: 12px;
+    font-weight: 700;
 }}
 
 /* ── BLOCK CONTAINER ── */
@@ -5048,20 +5057,20 @@ section[data-testid="stSidebar"] .stRadio input:checked + label {{
 
 /* ── INPUTS ── */
 input, textarea, select {{
-    background: rgba(255,255,255,0.07) !important;
-    color: #E8DFD5 !important;
+    background: rgba(255,255,255,0.85) !important;
+    color: #1A1A2E !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(0,0,0,0.10) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
 }}
 input::placeholder, textarea::placeholder {{
-    color: rgba(219,187,167,0.4) !important;
+    color: rgba(107,114,128,0.5) !important;
 }}
 div[data-testid="stTextInput"] label,
 div[data-testid="stSelectbox"] label,
 div[data-testid="stNumberInput"] label,
 div[data-testid="stTextArea"] label {{
-    color: #DBBBA7 !important;
+    color: #6B7280 !important;
     font-weight: 700 !important;
     font-size: 12px !important;
     text-transform: uppercase;
@@ -5076,29 +5085,28 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     object-fit: cover; margin-right: 12px; vertical-align: middle;
 }}
 
-/* ── APP HEADER ── */
+/* ── APP HEADER — sticker style ── */
 .app-header {{
-    background: rgba(255,255,255,0.055);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px;
+    background: #FFFFFF;
+    border: none;
+    border-radius: 24px;
     padding: 24px 32px;
     margin-bottom: 28px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: border-color .2s, background .2s;
+    box-shadow: 0 4px 24px rgba(27,63,139,0.10), 0 1px 4px rgba(0,0,0,0.06);
+    transition: box-shadow .2s, transform .2s;
 }}
 .app-header:hover {{
-    border-color: rgba(255,255,255,0.22);
-    background: rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(27,63,139,0.15), 0 2px 8px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
 }}
 
 .header-title {{
     font-size: 36px;
     font-weight: 800;
-    color: #E8DFD5;
+    color: #1A1A2E;
     display: flex;
     align-items: center;
     line-height: 1;
@@ -5108,15 +5116,15 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     margin-top: 8px;
     font-size: 14px;
     font-weight: 600;
-    color: #DBBBA7;
+    color: #6B7280;
 }}
 
 .period-pill {{
     font-size: 12px;
     font-weight: 700;
-    color: #6FF24B;
-    background: rgba(111,242,75,0.1);
-    border: 1px solid rgba(111,242,75,0.22);
+    color: #7ED321;
+    background: rgba(126,211,33,0.10);
+    border: 1px solid rgba(126,211,33,0.30);
     border-radius: 20px;
     padding: 5px 14px;
     letter-spacing: .06em;
@@ -5127,11 +5135,11 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .1em;
-    color: rgba(219,187,167,0.45);
+    color: rgba(107,114,128,0.6);
     margin: 28px 0 14px;
 }}
 
-/* ── GLASS CARD (base — todas las cards heredan de aquí) ── */
+/* ── STICKER CARD BASE (reemplaza glassmorphism) ── */
 .glass-card,
 .metric-card,
 .mgmt-card,
@@ -5149,13 +5157,13 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 .comments-card,
 .salary-card,
 .bucket-card {{
-    background: rgba(255,255,255,0.06) !important;
-    backdrop-filter: blur(24px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
+    background: #FFFFFF !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
     border-radius: 20px !important;
-    box-shadow: none !important;
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
+    box-shadow: 0 4px 20px rgba(27,63,139,0.08), 0 1px 4px rgba(0,0,0,0.05) !important;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease !important;
 }}
 
 .glass-card:hover,
@@ -5175,40 +5183,40 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 .comments-card:hover,
 .salary-card:hover,
 .bucket-card:hover {{
-    transform: scale(1.04) !important;
-    border-color: rgba(255,255,255,0.22) !important;
-    background: rgba(255,255,255,0.09) !important;
+    transform: translateY(-3px) scale(1.01) !important;
+    box-shadow: 0 12px 36px rgba(27,63,139,0.14), 0 3px 10px rgba(0,0,0,0.07) !important;
 }}
 
 /* ── TEXT COLORS INSIDE CARDS ── */
 .metric-label, .mgmt-label, .kpi-label, .salary-label,
 .stack-label, .sticker-label, .hero-info-label, .info-mini-label,
 .update-title, .small-muted, .wide-info-title, .bucket-title {{
-    color: rgba(219,187,167,0.5) !important;
+    color: rgba(107,114,128,0.7) !important;
 }}
 
 .metric-value, .mgmt-value, .kpi-value, .salary-value,
 .stack-main, .brand-name, .hero-name, .status-value,
 .metric-title, .mgmt-section-title {{
-    color: #E8DFD5 !important;
+    color: #1A1A2E !important;
 }}
 
 .metric-foot, .mgmt-foot, .stack-foot, .stack-sub,
 .hero-id, .hero-info-value, .info-mini-value {{
-    color: rgba(219,187,167,0.6) !important;
+    color: rgba(107,114,128,0.7) !important;
 }}
 
-/* ── COLOR ACCENT OVERRIDES (semánticos) ── */
-.up, .usd {{ color: #6FF24B !important; }}
+/* ── COLOR ACCENT OVERRIDES ── */
+.up, .usd {{ color: #7ED321 !important; }}
 .ars       {{ color: #FF7124 !important; }}
-.cop       {{ color: #8B9ED4 !important; }}
-.blue-val  {{ color: #8B9ED4 !important; }}
+.cop       {{ color: #1B3F8B !important; }}
+.blue-val  {{ color: #1B3F8B !important; }}
+.negative  {{ color: #FF4D2E !important; }}
 
 /* ── BADGES / PILLS ── */
 .brand-badge {{
     color: #FF7124 !important;
-    background: rgba(255,113,36,0.1) !important;
-    border: 1px solid rgba(255,113,36,0.3) !important;
+    background: rgba(255,113,36,0.08) !important;
+    border: 1.5px solid rgba(255,113,36,0.3) !important;
     border-radius: 999px;
     padding: 6px 12px;
     font-size: 12px;
@@ -5218,31 +5226,31 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 }}
 .brand-badge:hover {{
     background: #FF7124 !important;
-    color: #202124 !important;
+    color: #FFFFFF !important;
 }}
 
 .category-chip {{
-    background: rgba(255,113,36,0.08) !important;
-    border: 1px solid rgba(255,113,36,0.3) !important;
-    color: #E8DFD5 !important;
+    background: rgba(255,113,36,0.07) !important;
+    border: 1.5px solid rgba(255,113,36,0.25) !important;
+    color: #1A1A2E !important;
     border-radius: 999px; padding: 5px 10px;
     font-weight: 800; font-size: 12px;
 }}
-.category-chip:hover {{ background: #FF7124 !important; color: #202124 !important; }}
+.category-chip:hover {{ background: #FF7124 !important; color: #FFFFFF !important; }}
 
 .priority-chip {{
-    background: rgba(59,72,131,0.25) !important;
-    border: 1px solid rgba(59,72,131,0.5) !important;
+    background: rgba(27,63,139,0.08) !important;
+    border: 1.5px solid rgba(27,63,139,0.25) !important;
     border-radius: 999px; padding: 7px 11px;
     font-weight: 800; font-size: 12px; line-height: 1.15;
-    color: #E8DFD5 !important;
+    color: #1B3F8B !important;
 }}
-.priority-chip:hover {{ background: #3B4883 !important; }}
+.priority-chip:hover {{ background: #1B3F8B !important; color: #FFFFFF !important; }}
 
 .signal-pill {{
-    background: rgba(255,113,36,0.08) !important;
-    border: 1px solid rgba(255,113,36,0.35) !important;
-    color: #E8DFD5 !important;
+    background: rgba(255,113,36,0.07) !important;
+    border: 1.5px solid rgba(255,113,36,0.25) !important;
+    color: #1A1A2E !important;
     border-radius: 999px; padding: 9px 13px;
     font-size: 13px; font-weight: 800;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -5250,118 +5258,119 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 
 /* ── PRIORITY PILLS ── */
 .priority-pill {{ padding: 6px 13px; border-radius: 999px; font-weight: 800; display: inline-block; }}
-.high {{ color: #FF7124; border: 1px solid #FF7124; }}
-.mid  {{ color: #8B9ED4; border: 1px solid #8B9ED4; }}
-.low  {{ color: rgba(139,158,212,0.6); border: 1px solid rgba(139,158,212,0.4); background: rgba(59,72,131,0.15); }}
-.done {{ color: rgba(219,187,167,0.35); border: 1px solid rgba(219,187,167,0.2); }}
+.high {{ color: #FF4D2E; border: 1.5px solid #FF4D2E; }}
+.mid  {{ color: #FF7124; border: 1.5px solid #FF7124; }}
+.low  {{ color: rgba(27,63,139,0.6); border: 1.5px solid rgba(27,63,139,0.4); background: rgba(27,63,139,0.06); }}
+.done {{ color: rgba(107,114,128,0.4); border: 1.5px solid rgba(107,114,128,0.2); }}
 
-/* ── BOXES (target, result, variable, zero) ── */
+/* ── BOXES ── */
 .target-box, .result-box, .variable-box, .zero-box, .lime-box,
 .success-box, .legend-box, .net-card {{
-    background: rgba(255,255,255,0.05) !important;
+    background: #FFFFFF !important;
     border-radius: 18px;
     padding: 16px 12px;
     text-align: center;
-    color: #E8DFD5;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    color: #1A1A2E;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }}
-.target-box {{ border: 1px solid rgba(111,242,75,0.3) !important; color: #6FF24B !important; }}
-.result-box {{ border: 1px solid rgba(59,72,131,0.5) !important; color: #8B9ED4 !important; }}
-.variable-box {{ border: 1px solid rgba(59,72,131,0.5) !important; color: #8B9ED4 !important;
+.target-box  {{ border: 1.5px solid rgba(126,211,33,0.4) !important; color: #7ED321 !important; }}
+.result-box  {{ border: 1.5px solid rgba(27,63,139,0.3) !important;  color: #1B3F8B !important; }}
+.variable-box {{ border: 1.5px solid rgba(27,63,139,0.3) !important; color: #1B3F8B !important;
     min-height: 150px; display: flex; flex-direction: column; justify-content: center; }}
-.zero-box {{ border: 1px solid rgba(255,107,107,0.5) !important; color: #FF6B6B !important; }}
-.lime-box {{ border: 1px solid rgba(111,242,75,0.3) !important; color: #8B9ED4 !important; font-size: 24px; font-weight: 800; }}
-.success-box {{ border: 2px solid #6FF24B !important; color: #6FF24B !important; font-size: 18px; font-weight: 800; margin: 16px 0; }}
-.net-card {{ border: 2px solid rgba(111,242,75,0.4) !important; }}
-.net-card .salary-label, .net-card .salary-value {{ color: #6FF24B !important; }}
-.legend-box {{ border: 1px solid rgba(59,72,131,0.4) !important; color: #8B9ED4 !important; font-size: 16px; font-weight: 700; margin-top: 18px; }}
+.zero-box    {{ border: 1.5px solid rgba(255,77,46,0.4) !important;  color: #FF4D2E !important; }}
+.lime-box    {{ border: 1.5px solid rgba(126,211,33,0.4) !important; color: #1B3F8B !important; font-size: 24px; font-weight: 800; }}
+.success-box {{ border: 2px solid #7ED321 !important; color: #7ED321 !important; font-size: 18px; font-weight: 800; margin: 16px 0; }}
+.net-card    {{ border: 2px solid rgba(126,211,33,0.4) !important; }}
+.net-card .salary-label, .net-card .salary-value {{ color: #7ED321 !important; }}
+.legend-box  {{ border: 1.5px solid rgba(27,63,139,0.3) !important; color: #1B3F8B !important; font-size: 16px; font-weight: 700; margin-top: 18px; }}
 
-/* ── STICKERS ── */
+/* ── STICKERS (mini) ── */
 .sticker {{
-    background: rgba(255,255,255,0.05) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: #FFFFFF !important;
+    border: none !important;
     border-radius: 16px; padding: 12px 14px; min-height: 70px;
-    transition: border-color .2s, background .2s;
+    box-shadow: 0 2px 12px rgba(27,63,139,0.08), 0 1px 3px rgba(0,0,0,0.04);
+    transition: box-shadow .2s, transform .2s;
 }}
-.sticker:hover {{ border-color: rgba(59,72,131,0.6) !important; background: rgba(59,72,131,0.2) !important; transform: none; }}
-.sticker-value {{ font-size: 16px; font-weight: 800; margin-top: 6px; color: #E8DFD5 !important; }}
+.sticker:hover {{
+    box-shadow: 0 8px 24px rgba(27,63,139,0.14) !important;
+    transform: translateY(-2px);
+}}
+.sticker-value {{ font-size: 16px; font-weight: 800; margin-top: 6px; color: #1A1A2E !important; }}
 
 /* ── ACTION CARDS ── */
 .action-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }}
 .action-card {{
-    background: rgba(255,255,255,0.05) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: #FFFFFF !important;
+    border: none !important;
     border-radius: 18px; padding: 20px 18px; min-height: 180px;
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    transition: border-color .2s, background .2s, transform .25s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 4px 16px rgba(27,63,139,0.08), 0 1px 4px rgba(0,0,0,0.05);
+    transition: box-shadow .2s, transform .25s cubic-bezier(.34,1.56,.64,1);
     display: flex; flex-direction: column;
 }}
 .action-card:hover {{
-    transform: scale(1.04) !important;
-    border-color: rgba(255,255,255,0.22) !important;
-    background: rgba(255,255,255,0.08) !important;
+    transform: translateY(-3px) scale(1.01) !important;
+    box-shadow: 0 12px 32px rgba(27,63,139,0.14), 0 3px 8px rgba(0,0,0,0.07) !important;
 }}
 
-/* ── TABLE GLASS CONTAINER ── */
+/* ── TABLE CONTAINER ── */
 .table-glass {{
-    background: rgba(255,255,255,0.055);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.11);
+    background: #FFFFFF;
+    border: none;
     border-radius: 16px;
     overflow: hidden;
     margin-top: 16px;
+    box-shadow: 0 4px 20px rgba(27,63,139,0.08), 0 1px 4px rgba(0,0,0,0.05);
 }}
 
-/* HTML tables inside .table-glass */
 .table-glass table {{
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
 }}
 .table-glass thead tr {{
-    background: rgba(255,255,255,0.04);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(27,63,139,0.04);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
 }}
 .table-glass thead th {{
     text-align: left;
     font-size: 10px;
     font-weight: 700;
-    color: rgba(219,187,167,0.45);
+    color: rgba(107,114,128,0.6);
     letter-spacing: .1em;
     text-transform: uppercase;
     padding: 10px 16px;
 }}
 .table-glass tbody tr {{
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
     transition: background .15s, border-left .15s;
     border-left: 3px solid transparent;
 }}
-.table-glass tbody tr:nth-child(even) {{ background: rgba(255,255,255,0.02); }}
-.table-glass tbody tr:hover {{ background: rgba(255,255,255,0.06); }}
-.table-glass tbody tr.row-green:hover {{ border-left: 3px solid #6FF24B; }}
+.table-glass tbody tr:nth-child(even) {{ background: rgba(27,63,139,0.02); }}
+.table-glass tbody tr:hover {{ background: rgba(27,63,139,0.04); }}
+.table-glass tbody tr.row-green:hover  {{ border-left: 3px solid #7ED321; }}
 .table-glass tbody tr.row-orange:hover {{ border-left: 3px solid #FF7124; }}
-.table-glass tbody tr.row-blue:hover {{ border-left: 3px solid #3B4883; }}
+.table-glass tbody tr.row-blue:hover   {{ border-left: 3px solid #1B3F8B; }}
 .table-glass td {{
     padding: 10px 16px;
-    color: rgba(219,187,167,0.65);
+    color: rgba(107,114,128,0.8);
 }}
-.table-glass td.td-name {{ color: #E8DFD5; font-weight: 600; }}
-.table-glass td.td-green {{ color: #6FF24B; font-weight: 600; }}
+.table-glass td.td-name   {{ color: #1A1A2E; font-weight: 600; }}
+.table-glass td.td-green  {{ color: #7ED321; font-weight: 600; }}
 .table-glass td.td-orange {{ color: #FF7124; font-weight: 600; }}
-.table-glass td.td-muted {{ color: rgba(219,187,167,0.35); }}
+.table-glass td.td-red    {{ color: #FF4D2E; font-weight: 600; }}
+.table-glass td.td-blue   {{ color: #1B3F8B; font-weight: 600; }}
+.table-glass td.td-muted  {{ color: rgba(107,114,128,0.4); }}
 
-/* Table search pill */
 .table-header-bar {{
     display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05);
 }}
-.table-title {{ font-size: 13px; font-weight: 600; color: #E8DFD5; }}
+.table-title {{ font-size: 13px; font-weight: 600; color: #1A1A2E; }}
 .table-footer {{
-    padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 10px 16px; border-top: 1px solid rgba(0,0,0,0.04);
     display: flex; justify-content: space-between; align-items: center;
-    font-size: 10px; color: rgba(219,187,167,0.3);
+    font-size: 10px; color: rgba(107,114,128,0.4);
 }}
 
 /* ── MGMT LAYOUT GRIDS ── */
@@ -5385,469 +5394,126 @@ div[data-testid="column"] {{ padding: 0 10px !important; }}
 
 /* ── HERO CARD (Brand Finder) ── */
 .hero-grid {{ display: grid; grid-template-columns: 1.25fr 1.05fr 1.25fr; gap: 20px; align-items: center; }}
-.hero-name {{ font-size: clamp(28px, 3vw, 46px); font-weight: 900; line-height: 1.02; color: #E8DFD5; letter-spacing: -0.04em; }}
+.hero-name {{ font-size: clamp(28px, 3vw, 46px); font-weight: 900; line-height: 1.02; color: #1A1A2E; letter-spacing: -0.04em; }}
 .hero-name-row {{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }}
 .hero-mundialista-badge {{
     display: inline-flex; align-items: center; gap: 7px; border-radius: 999px;
     padding: 6px 10px; font-size: 11px; font-weight: 900; text-transform: uppercase;
-    letter-spacing: .02em; color: #202124;
+    letter-spacing: .02em; color: #FFFFFF;
     background: #FF7124; border: none; white-space: nowrap;
 }}
-.hero-id {{ color: rgba(219,187,167,0.5); font-size: 18px; font-weight: 800; margin-top: 10px; }}
-.hero-divider {{ border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 18px 0 14px; }}
+.hero-id {{ color: rgba(107,114,128,0.6); font-size: 18px; font-weight: 800; margin-top: 10px; }}
+.hero-divider {{ border: none; border-top: 1px solid rgba(0,0,0,0.07); margin: 18px 0 14px; }}
 .hero-info-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px 18px; }}
 .hero-info-item {{ display: flex; flex-direction: column; gap: 4px; }}
-.hero-info-label {{ font-size: 10px; text-transform: uppercase; font-weight: 800; color: rgba(219,187,167,0.45); }}
-.hero-info-value {{ font-size: 14px; font-weight: 700; color: #E8DFD5; line-height: 1.25; overflow-wrap: anywhere; }}
+.hero-info-label {{ font-size: 10px; text-transform: uppercase; font-weight: 800; color: rgba(107,114,128,0.5); }}
 
-.signal-stack {{ display: flex; flex-direction: column; gap: 8px; }}
-.sticker-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
-
-.wide-info-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 16px; }}
-.info-mini-label {{ font-size: 10px; text-transform: uppercase; font-weight: 800; color: rgba(219,187,167,0.4); }}
-.info-mini-value {{ font-size: 14px; font-weight: 700; margin-top: 5px; line-height: 1.22; overflow-wrap: anywhere; color: #E8DFD5; }}
-.chip-line {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }}
-
-/* ── AGENDA CARD ── */
-.agenda-date {{
-    width: 64px; height: 64px;
-    border: 1px solid rgba(59,72,131,0.4);
-    border-radius: 50%; display: flex; flex-direction: column;
-    justify-content: center; text-align: center;
-    color: #8B9ED4; font-weight: 800;
+/* ── BUTTONS ── */
+.stButton > button {{
+    background: #FF7124 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    padding: 10px 20px !important;
+    box-shadow: 0 4px 12px rgba(255,113,36,0.25) !important;
+    transition: box-shadow .2s, transform .15s !important;
 }}
-
-/* ── BRAND UPDATE ── */
-.brand-id {{ font-size: 20px; font-weight: 700; color: rgba(219,187,167,0.5); }}
-.brand-badges {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }}
-.row-line {{
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-    padding: 10px 0; font-size: 16px; color: #E8DFD5; line-height: 1.3;
+.stButton > button:hover {{
+    background: #D95A10 !important;
+    box-shadow: 0 6px 18px rgba(255,113,36,0.35) !important;
+    transform: translateY(-1px) !important;
 }}
-.info-card h3 {{ font-size: 26px; font-weight: 800; color: #E8DFD5; margin: 0 0 20px 0; }}
-
-/* ── SECTION CARD PADDING (wide-info, stack, panel) ── */
-.wide-info-card {{
-    padding: 28px 28px !important;
-    margin-bottom: 24px !important;
-}}
-/* Wrapper para formularios interactivos largos (ej. Follow-up form).
-   Mismo look visual que wide-info-card, pero SIN scale-on-hover:
-   ese transform corre los elementos (incl. botones) bajo el cursor
-   durante la transición y hace que los clicks no registren. */
-.form-card-static {{
-    background: rgba(255,255,255,0.06) !important;
-    backdrop-filter: blur(24px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    border-radius: 20px !important;
-    box-shadow: none !important;
-    padding: 28px 28px !important;
-    margin-bottom: 24px !important;
-}}
-.stack-card {{
-    padding: 22px 24px !important;
-}}
-.panel {{
-    padding: 24px 26px !important;
-}}
-.update-card {{
-    padding: 22px 24px !important;
-}}
-.info-card {{
-    padding: 24px 26px !important;
-}}
-.comments-card {{
-    padding: 22px 24px !important;
+.stButton > button:active {{
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(255,113,36,0.2) !important;
 }}
 
-/* ── INNER SPACING: titles, grids, sub-sections ── */
-.wide-info-title {{
-    font-size: 13px;
-    font-weight: 800;
-    margin-bottom: 20px !important;
-    color: rgba(219,187,167,0.55);
-    text-transform: uppercase;
-    letter-spacing: .10em;
+/* ── PROGRESS BARS ── */
+.stProgress > div > div > div > div {{
+    background: linear-gradient(90deg, #FF7124, #FF4D2E) !important;
+    border-radius: 999px !important;
 }}
-.action-grid {{
-    gap: 16px !important;
-    margin-top: 16px !important;
-}}
-.business-card-grid {{
-    gap: 14px !important;
-    margin-top: 8px !important;
-}}
-.priority-top-grid {{
-    gap: 14px !important;
-    margin-bottom: 20px !important;
-}}
-.sticker-grid {{
-    gap: 10px !important;
-}}
-.hero-info-grid {{
-    gap: 16px 20px !important;
-    margin-top: 4px !important;
+.stProgress > div > div > div {{
+    background: rgba(0,0,0,0.07) !important;
+    border-radius: 999px !important;
 }}
 
-/* ── STACK CARD INTERNAL SPACING ── */
-.stack-label {{
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: rgba(219,187,167,0.5);
-    letter-spacing: .08em;
-    margin-bottom: 6px !important;
-}}
-.stack-main {{
-    font-size: clamp(26px, 2.8vw, 40px);
-    font-weight: 900;
-    color: #FF7124;
-    margin-top: 12px !important;
-    line-height: 1.05;
-    letter-spacing: -0.04em;
-}}
-.stack-sub {{
-    font-size: 15px;
-    font-weight: 700;
-    color: #8B9ED4;
-    margin-top: 10px !important;
-}}
-.stack-foot {{
-    font-size: 13px;
-    color: rgba(219,187,167,0.5);
-    font-weight: 700;
-    margin-top: 12px !important;
+/* ── SELECTBOX / DROPDOWN ── */
+div[data-testid="stSelectbox"] > div > div {{
+    background: #FFFFFF !important;
+    border: 1px solid rgba(0,0,0,0.10) !important;
+    border-radius: 12px !important;
+    color: #1A1A2E !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
 }}
 
-
-
-/* ── PRIORITY LAYOUT ── */
-.priority-top-grid {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }}
-.priority-levers {{ grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }}
-.priority-note {{ grid-column: 1/-1; font-size: 11px; opacity: .7; font-weight: 700; margin-top: 4px; color: rgba(219,187,167,0.4); }}
-.multibrand-box {{ grid-column: 1 / -1; background: rgba(59,72,131,0.15); border: 1px solid rgba(59,72,131,0.35); border-radius: 16px; padding: 12px 14px; }}
-.multibrand-summary {{ font-size: 12px; font-weight: 700; margin-top: 6px; color: #E8DFD5; }}
-
-/* ── MONEY CARDS ── */
-.money-card {{
-    border-radius: 50%; height: 220px; width: 220px;
-    padding: 24px 18px; display: flex; flex-direction: column;
-    justify-content: center; text-align: center; box-sizing: border-box; overflow: hidden;
-}}
-.ars-card {{ border: 2px solid rgba(111,242,75,0.35) !important; color: #6FF24B !important; }}
-.usd-card {{ border: 2px solid rgba(111,242,75,0.35) !important; color: #6FF24B !important; }}
-.money-label {{ font-size: 15px; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; }}
-.money-value {{ font-size: clamp(20px, 1.8vw, 28px); font-weight: 800; line-height: 1; white-space: nowrap; }}
-.money-period {{ font-size: 13px; font-weight: 700; margin-top: 14px; }}
-.kpi-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
-.kpi-value {{ font-size: 18px; font-weight: 800; margin-top: 8px; white-space: nowrap; }}
-.variable-value {{ font-size: 32px; font-weight: 800; margin-top: 8px; white-space: nowrap; }}
-.achievement {{ margin-top: 14px; background: rgba(111,242,75,0.1); border-radius: 14px; padding: 8px; text-align: center; font-size: 20px; font-weight: 800; color: #8B9ED4; }}
-
-/* ── BUCKET / SALARY ── */
-.bucket-card {{ border-radius: 20px; padding: 18px; min-height: 160px; text-align: center; margin-bottom: 14px; }}
-.salary-card {{ border-radius: 20px; padding: 18px; min-height: 130px; text-align: center; margin-bottom: 14px; }}
-
-/* ── METRIC ICON ── */
-.metric-icon {{
-    width: 46px; height: 46px; border-radius: 50%;
-    display: flex; justify-content: center; align-items: center;
-    color: white; font-size: 22px; font-weight: 800; margin-bottom: 14px;
-}}
-
-/* ── KPI CARD ── */
-.kpi-card {{ border-radius: 20px; padding: 22px; min-height: 230px; margin-bottom: 20px; overflow: hidden; }}
-.kpi-title {{ font-size: 22px; font-weight: 800; color: #E8DFD5; margin-bottom: 18px; text-align: center; }}
-
-/* ── STATUS CARD ── */
-.status-card {{ border-radius: 50%; aspect-ratio: 1/1; min-height: 140px; padding: 20px; display: flex; flex-direction: column; justify-content: center; text-align: center; }}
-.status-label {{ font-size: 12px; font-weight: 800; text-transform: uppercase; color: rgba(219,187,167,0.45); margin-bottom: 12px; }}
-.status-value {{ font-size: 20px; font-weight: 800; color: #E8DFD5; line-height: 1.12; }}
-
-/* ── METRIC HEADER ── */
-.metric-header {{ height: 76px; border-radius: 20px; padding: 18px 26px; display: flex; align-items: center; margin-top: 14px; margin-bottom: 12px; }}
-.metric-title {{ font-size: 26px; font-weight: 800; color: #E8DFD5; }}
-
-/* ── PANEL ── */
-.panel {{ border-radius: 20px; padding: 20px; margin-bottom: 16px; }}
-
-/* ── MGMT SECTION ── */
-.mgmt-section {{ border-radius: 20px; padding: 20px; min-height: 220px; }}
-.mgmt-section-title {{ font-size: 20px; font-weight: 800; color: #E8DFD5; margin-bottom: 14px; }}
-.mgmt-value {{ font-size: clamp(20px, 1.9vw, 28px); line-height: 1.08; font-weight: 800; white-space: nowrap; letter-spacing: -0.02em; }}
-.mgmt-label {{ font-size: 12px; line-height: 1.2; font-weight: 800; text-transform: uppercase; color: rgba(219,187,167,0.45); min-height: 28px; margin-bottom: 12px; }}
-.mgmt-foot {{ margin-top: 14px; font-size: 13px; color: rgba(219,187,167,0.5); font-weight: 600; }}
-
-/* ── BRAND FINDER HERO ── */
-.hero-card {{ border-radius: 20px; padding: 24px 28px; margin-bottom: 18px; }}
-
-/* ── BUSINESS INFORMATION CARDS (Brand Finder) ── */
-.business-card-grid {{
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 4px;
-}}
-@media (max-width: 1100px) {{
-    .business-card-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-}}
-.business-mini-card {{
-    background: rgba(255,255,255,0.06) !important;
-    backdrop-filter: blur(16px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    border-radius: 16px !important;
-    padding: 20px 20px !important;
-    min-height: 120px !important;
-    position: relative !important;
-    overflow: hidden !important;
-    transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
-}}
-.business-mini-card:hover {{
-    transform: scale(1.03) !important;
-    border-color: rgba(255,255,255,0.22) !important;
-    background: rgba(255,255,255,0.09) !important;
-}}
-/* Lever accent borders */
-.business-mini-card.lever-ads   {{ }}
-.business-mini-card.lever-md    {{ }}
-.business-mini-card.lever-menu  {{ }}
-.business-mini-card.lever-pro   {{ }}
-
-.card-label {{
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    color: rgba(219,187,167,0.65);
-    margin-bottom: 8px;
-}}
-.card-value {{
-    font-size: 22px;
-    font-weight: 900;
-    color: #E8DFD5;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-}}
-.card-copy {{
-    font-size: 12px;
-    font-weight: 600;
-    color: rgba(219,187,167,0.65);
-    margin-top: 6px;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
-}}
-.card-chipline {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 7px;
-}}
-
-/* ── CAMPAIGN MINI-CARDS ── */
-.campaign-mini-card {{
-    background: rgba(255,255,255,0.05) !important;
-    border: 1px solid rgba(255,255,255,0.10) !important;
-    border-radius: 14px !important;
-    padding: 12px 14px !important;
-    min-height: 90px !important;
-    transition: border-color .2s, background .2s !important;
-}}
-.campaign-mini-card:hover {{
-    border-color: rgba(255,255,255,0.20) !important;
-    background: rgba(255,255,255,0.08) !important;
-}}
-.campaign-mini-card.lever-menu  {{ }}
-.campaign-mini-card.lever-ops   {{ }}
-.campaign-mini-card.lever-pro   {{ }}
-
-/* ── PRIORITY OVERVIEW GRID (Brand Finder landing) ── */
-.priority-overview-grid {{
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 12px;
-}}
-@media (max-width: 1100px) {{
-    .priority-overview-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-}}
-.priority-overview-card {{
-    background: rgba(255,255,255,0.06) !important;
-    backdrop-filter: blur(20px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    border-radius: 18px !important;
-    padding: 18px 16px !important;
-    min-height: 130px !important;
-    transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .2s ease, background .2s ease !important;
-}}
-.priority-overview-card:hover {{
-    transform: scale(1.04) !important;
-    border-color: rgba(255,255,255,0.22) !important;
-    background: rgba(255,255,255,0.09) !important;
-}}
-/* Lever accent borders on priority overview cards */
-.priority-overview-card.lever-ops   {{ }}
-.priority-overview-card.lever-menu  {{ }}
-.priority-overview-card.lever-md    {{ }}
-.priority-overview-card.lever-pro   {{ }}
-.priority-overview-card.lever-ads   {{ }}
-
-/* ── 360° ACTION CARD HEALTH CLASSES ── */
-/* Color overrides per health level — border-left accent */
-.action-card.health-green  {{ }}
-.action-card.health-yellow {{ }}
-.action-card.health-orange {{ }}
-.action-card.health-red    {{ }}
-
-/* Lever top-border accent on 360 action cards */
-.action-card.lever-ops   {{ }}
-.action-card.lever-menu  {{ }}
-.action-card.lever-md    {{ }}
-.action-card.lever-pro   {{ }}
-.action-card.lever-ads   {{ }}
-
-/* 360 action card typography */
-.action-area {{
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    color: rgba(219,187,167,0.65);
-    margin-top: 3px;
-}}
-.action-main {{
-    font-size: 20px;
-    font-weight: 900;
-    color: #E8DFD5;
-    margin-top: 12px;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-}}
-.action-reason {{
-    font-size: 13px;
-    font-weight: 600;
-    color: rgba(219,187,167,0.75);
-    margin-top: 8px;
-    line-height: 1.45;
-}}
-.action-secondary {{
-    font-size: 11px;
-    font-weight: 700;
-    color: rgba(219,187,167,0.55);
-    margin-top: 10px;
-    line-height: 1.4;
-    padding-top: 8px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-}}
-
-/* ── SPACING OVERRIDES: more breathing room between cards ── */
-div[data-testid=\"column\"] {{ padding: 0 10px !important; }}
-.mgmt-row {{ gap: 20px !important; margin-bottom: 20px !important; }}
-.action-grid {{ gap: 16px !important; }}
-.business-card-grid {{ gap: 14px !important; }}
-.priority-overview-grid {{ gap: 14px !important; }}
-/* Extra gap between Streamlit column rows */
-div[data-testid=\"stHorizontalBlock\"] {{
-    gap: 20px !important;
-    margin-bottom: 22px !important;
+/* ── EXPANDER ── */
+details summary {{
+    background: #FFFFFF !important;
+    border-radius: 12px !important;
+    padding: 10px 16px !important;
+    color: #1A1A2E !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(27,63,139,0.06) !important;
+    border: none !important;
 }}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-::-webkit-scrollbar-track {{ background: transparent; }}
-::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.12); border-radius: 6px; }}
-::-webkit-scrollbar-thumb:hover {{ background: rgba(255,255,255,0.2); }}
+::-webkit-scrollbar-track {{ background: rgba(0,0,0,0.04); border-radius: 999px; }}
+::-webkit-scrollbar-thumb {{ background: rgba(27,63,139,0.2); border-radius: 999px; }}
+::-webkit-scrollbar-thumb:hover {{ background: rgba(27,63,139,0.35); }}
 
-/* ── STREAMLIT METRIC WIDGET ── */
-[data-testid="metric-container"] {{
-    background: rgba(255,255,255,0.06) !important;
-    backdrop-filter: blur(20px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    border-radius: 14px !important;
-    padding: 16px !important;
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s !important;
+/* ── MGMT STACK CARDS ── */
+.mgmt-stack-card {{
+    background: #FFFFFF !important;
+    border: none !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 20px rgba(27,63,139,0.08), 0 1px 4px rgba(0,0,0,0.05) !important;
 }}
-[data-testid="metric-container"]:hover {{
-    transform: scale(1.04) !important;
-    border-color: rgba(255,255,255,0.22) !important;
+
+/* ── ALERT / INFO BOXES ── */
+div[data-testid="stAlert"] {{
+    background: rgba(27,63,139,0.06) !important;
+    border: 1px solid rgba(27,63,139,0.15) !important;
+    border-radius: 12px !important;
+    color: #1A1A2E !important;
 }}
-[data-testid="metric-container"] [data-testid="stMetricLabel"] {{
-    color: rgba(219,187,167,0.5) !important;
+
+/* ── NEGATIVE DATA INDICATORS ── */
+.negative-val {{ color: #FF4D2E !important; font-weight: 700; }}
+.outline-negative {{
+    color: #FF4D2E !important;
+    border: 1.5px solid #FF4D2E !important;
+    background: transparent !important;
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-weight: 700;
+    font-size: 12px;
+}}
+
+/* ── DATAFRAME OVERRIDES ── */
+[data-testid="stDataFrame"] {{
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 20px rgba(27,63,139,0.08) !important;
+}}
+[data-testid="stDataFrame"] th {{
+    background: rgba(27,63,139,0.04) !important;
+    color: #6B7280 !important;
     font-size: 11px !important;
     font-weight: 700 !important;
-    text-transform: uppercase;
-    letter-spacing: .08em;
+    text-transform: uppercase !important;
+    letter-spacing: .06em !important;
 }}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {{
-    color: #E8DFD5 !important;
-    font-size: 22px !important;
-    font-weight: 800 !important;
-}}
-[data-testid="metric-container"] [data-testid="stMetricDelta"] {{ font-size: 12px !important; }}
-
-/* ── STREAMLIT TABS ── */
-.stTabs [data-baseweb="tab-list"] {{
-    background: rgba(255,255,255,0.04) !important;
-    border-radius: 12px !important;
-    padding: 4px !important;
-    gap: 4px !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-}}
-.stTabs [data-baseweb="tab"] {{
-    background: transparent !important;
-    color: rgba(219,187,167,0.55) !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
+[data-testid="stDataFrame"] td {{
+    color: #1A1A2E !important;
     font-size: 13px !important;
 }}
-.stTabs [aria-selected="true"] {{
-    background: rgba(59,72,131,0.4) !important;
-    color: #E8DFD5 !important;
-    border: 1px solid rgba(111,242,75,0.2) !important;
-}}
-
-/* ── STREAMLIT EXPANDER ── */
-.streamlit-expanderHeader {{
-    background: rgba(255,255,255,0.05) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 12px !important;
-    color: #E8DFD5 !important;
-    font-weight: 700 !important;
-}}
-
-/* ── STREAMLIT BUTTON ── */
-.stButton button {{
-    background: rgba(255,255,255,0.06) !important;
-    color: #E8DFD5 !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    border-radius: 10px !important;
-    font-weight: 700 !important;
-    transition: background .18s, border-color .18s, transform .2s !important;
-    backdrop-filter: blur(12px) !important;
-}}
-.stButton button:hover {{
-    background: rgba(255,255,255,0.1) !important;
-    border-color: rgba(255,255,255,0.22) !important;
-    transform: scale(1.02) !important;
-}}
-.stButton button:active {{ transform: scale(0.98) !important; }}
-
-/* ── STREAMLIT INFO / WARNING / SUCCESS / ERROR ── */
-.stAlert {{
-    background: rgba(255,255,255,0.05) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    border-radius: 12px !important;
-    backdrop-filter: blur(16px) !important;
-}}
-
-/* ── STREAMLIT DATAFRAME ── */
-[data-testid="stDataFrame"] {{
-    background: rgba(255,255,255,0.04) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 12px !important;
+[data-testid="stDataFrame"] tr:nth-child(even) {{
+    background: rgba(27,63,139,0.02) !important;
 }}
 
 </style>
@@ -6223,18 +5889,18 @@ def page_management_dashboard():
     # ── ROW 1: GMV + AOV ──────────────────────────────────────────────────────
     gmv_pct   = max(0, min(1, safe_ratio(vals["gmv_ars"], baseline_vals.get("gmv_ars", 1)) or 0))
     gmv_bar   = round(gmv_pct * 100)
-    gmv_color = "#6FF24B" if gmv_pct >= 1 else ("#FF7124" if gmv_pct >= 0.7 else "#E5332A")
+    gmv_color = "#7ED321" if gmv_pct >= 1 else ("#FF7124" if gmv_pct >= 0.7 else "#FF4D2E")
 
     aov_change = safe_ratio(vals["aov_ars"] - baseline_vals.get("aov_ars", 0), baseline_vals.get("aov_ars", 1)) or 0
     aov_sign   = "+" if aov_change >= 0 else ""
     aov_arrow  = "▲" if aov_change >= 0 else "▼"
-    aov_color  = "#6FF24B" if aov_change >= 0 else "#E5332A"
+    aov_color  = "#7ED321" if aov_change >= 0 else "#FF4D2E"
 
     gmv_surplus     = vals["gmv_ars"] - baseline_vals.get("gmv_ars", 0)
     gmv_surplus_usd = vals["gmv_usd"] - baseline_vals.get("gmv_usd", 0)
     gmv_surplus_cop = vals["gmv_cop"] - baseline_vals.get("gmv_cop", 0)
     surplus_sign    = "+" if gmv_surplus >= 0 else ""
-    surplus_color   = "#6FF24B" if gmv_surplus >= 0 else "#E5332A"
+    surplus_color   = "#7ED321" if gmv_surplus >= 0 else "#FF4D2E"
     surplus_label   = "▲ Excedente sobre mes anterior" if gmv_surplus >= 0 else "▼ Por debajo del mes anterior"
 
     _v_gmv_ars   = fmt_ars(vals["gmv_ars"])
@@ -6252,7 +5918,7 @@ def page_management_dashboard():
     gmv_change    = safe_ratio(vals["gmv_ars"] - baseline_vals.get("gmv_ars", 0), baseline_vals.get("gmv_ars", 1)) or 0
     gmv_sign_ch   = "+" if gmv_change >= 0 else ""
     gmv_arrow_ch  = "&#9650;" if gmv_change >= 0 else "&#9660;"
-    gmv_color_ch  = "#6FF24B" if gmv_change >= 0 else "#E5332A"
+    gmv_color_ch  = "#7ED321" if gmv_change >= 0 else "#FF4D2E"
 
     c1, c2 = st.columns(2)
     with c1:
@@ -6265,7 +5931,7 @@ def page_management_dashboard():
     <div style="font-size:38px;font-weight:900;color:{gmv_color_ch};line-height:1;">{gmv_arrow_ch}</div>
     <div>
       <div style="font-size:28px;font-weight:900;color:{gmv_color_ch};">{gmv_sign_ch}{fmt_percent0(gmv_change)}</div>
-      <div style="font-size:12px;color:#DBBBA7;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
+      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -6281,7 +5947,7 @@ def page_management_dashboard():
     <div style="font-size:38px;font-weight:900;color:{aov_color};line-height:1;">{'&#9650;' if aov_change >= 0 else '&#9660;'}</div>
     <div>
       <div style="font-size:28px;font-weight:900;color:{aov_color};">{aov_sign}{fmt_percent0(aov_change)}</div>
-      <div style="font-size:12px;color:#DBBBA7;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("aov_usd", 0))}</div>
+      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("aov_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -6322,9 +5988,9 @@ def page_management_dashboard():
             f'</svg>'
         )
 
-    ads_donut_color    = "#FF7124" if ads_pct_bar    < 60 else ("#6FF24B" if ads_pct_bar    >= 80 else "#FF7124")
-    md_donut_color     = "#8B9ED4" if md_pct_bar     < 60 else ("#6FF24B" if md_pct_bar     >= 80 else "#8B9ED4")
-    md_pro_donut_color = "#C084FC" if md_pro_pct_bar < 60 else ("#6FF24B" if md_pro_pct_bar >= 80 else "#C084FC")
+    ads_donut_color    = "#FF7124" if ads_pct_bar    < 60 else ("#7ED321" if ads_pct_bar    >= 80 else "#FF7124")
+    md_donut_color     = "#1B3F8B" if md_pct_bar     < 60 else ("#7ED321" if md_pct_bar     >= 80 else "#1B3F8B")
+    md_pro_donut_color = "#C084FC" if md_pro_pct_bar < 60 else ("#7ED321" if md_pro_pct_bar >= 80 else "#C084FC")
 
     coverage_html = (
         '<div class="stack-card mgmt-stack-card" style="padding:26px 28px;">'
@@ -6339,18 +6005,18 @@ def page_management_dashboard():
         f'</div></div>'
         f'<div style="text-align:center;">'
         f'<div style="font-size:11px;font-weight:900;color:#FF7124;">ADS</div>'
-        f'<div style="font-size:10px;color:#DBBBA7;font-weight:700;">{live_coverage["ads"]} marcas</div>'
+        f'<div style="font-size:10px;color:#6B7280;font-weight:700;">{live_coverage["ads"]} marcas</div>'
         f'</div></div>'
         # MD donut
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
         f'<div style="position:relative;width:90px;height:90px;">'
-        f'{_svg_donut(md_pct_bar, "#8B9ED4", size=90, stroke=12)}'
+        f'{_svg_donut(md_pct_bar, "#1B3F8B", size=90, stroke=12)}'
         f'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'
-        f'<div style="font-size:17px;font-weight:900;color:#8B9ED4;line-height:1;">{md_pct_bar}%</div>'
+        f'<div style="font-size:17px;font-weight:900;color:#1B3F8B;line-height:1;">{md_pct_bar}%</div>'
         f'</div></div>'
         f'<div style="text-align:center;">'
-        f'<div style="font-size:11px;font-weight:900;color:#8B9ED4;">MD</div>'
-        f'<div style="font-size:10px;color:#DBBBA7;font-weight:700;">{live_coverage["md"]} marcas</div>'
+        f'<div style="font-size:11px;font-weight:900;color:#1B3F8B;">MD</div>'
+        f'<div style="font-size:10px;color:#6B7280;font-weight:700;">{live_coverage["md"]} marcas</div>'
         f'</div></div>'
         # MD PRO donut (nuevo)
         '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">'
@@ -6361,14 +6027,14 @@ def page_management_dashboard():
         f'</div></div>'
         f'<div style="text-align:center;">'
         f'<div style="font-size:11px;font-weight:900;color:#C084FC;">MD PRO</div>'
-        f'<div style="font-size:10px;color:#DBBBA7;font-weight:700;">{live_coverage["md_pro"]} marcas</div>'
+        f'<div style="font-size:10px;color:#6B7280;font-weight:700;">{live_coverage["md_pro"]} marcas</div>'
         f'</div></div>'
         '</div>'
-        f'<div style="font-size:11px;color:#DBBBA7;margin-top:14px;text-align:center;">Portfolio: {total_brands} marcas &middot; live tracker</div>'
+        f'<div style="font-size:11px;color:#6B7280;margin-top:14px;text-align:center;">Portfolio: {total_brands} marcas &middot; live tracker</div>'
         '</div>'
     )
 
-    def _waffle_icons(filled_count, total=10, filled_color="#6FF24B", empty_color="rgba(255,255,255,0.15)"):
+    def _waffle_icons(filled_count, total=10, filled_color="#7ED321", empty_color="rgba(255,255,255,0.15)"):
         person_path = '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/>'
         icons = []
         for i in range(total):
@@ -6389,22 +6055,22 @@ def page_management_dashboard():
         '<div style="margin-top:16px;display:flex;flex-direction:column;gap:18px;">'
         '<div>'
         '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px;">'
-        '<span style="color:#6FF24B;">🟢 PRO % &nbsp;<span style="font-weight:600;color:#DBBBA7;">usuarios con plan Pro</span></span>'
-        f'<span style="color:#6FF24B;">{pro_pct_bar}%</span>'
+        '<span style="color:#7ED321;">🟢 PRO % &nbsp;<span style="font-weight:600;color:#6B7280;">usuarios con plan Pro</span></span>'
+        f'<span style="color:#7ED321;">{pro_pct_bar}%</span>'
         '</div>'
-        f'<div style="font-size:11px;color:#DBBBA7;margin-bottom:2px;">{pro_icons_count} de 10 = {pro_pct_bar}% PRO</div>'
-        + _waffle_icons(pro_icons_count, filled_color="#6FF24B") +
+        f'<div style="font-size:11px;color:#6B7280;margin-bottom:2px;">{pro_icons_count} de 10 = {pro_pct_bar}% PRO</div>'
+        + _waffle_icons(pro_icons_count, filled_color="#7ED321") +
         '</div>'
         '<div>'
         '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px;">'
-        '<span style="color:#DBBBA7;">⚪ CR % &nbsp;<span style="font-weight:600;">compran vs no compran</span></span>'
-        f'<span style="color:#DBBBA7;">{cr_pct_bar}%</span>'
+        '<span style="color:#6B7280;">⚪ CR % &nbsp;<span style="font-weight:600;">compran vs no compran</span></span>'
+        f'<span style="color:#6B7280;">{cr_pct_bar}%</span>'
         '</div>'
-        f'<div style="font-size:11px;color:#DBBBA7;margin-bottom:2px;">{cr_icons_count} de 10 = {cr_pct_bar}% convierten</div>'
-        + _waffle_icons(cr_icons_count, filled_color="#3B4883", empty_color="rgba(255,255,255,0.15)") +
+        f'<div style="font-size:11px;color:#6B7280;margin-bottom:2px;">{cr_icons_count} de 10 = {cr_pct_bar}% convierten</div>'
+        + _waffle_icons(cr_icons_count, filled_color="#1B3F8B", empty_color="rgba(255,255,255,0.15)") +
         '</div>'
         '</div>'
-        '<div style="font-size:11px;color:#DBBBA7;margin-top:12px;">Baseline reference · last month snapshot · 1 muñequito = 10%</div>'
+        '<div style="font-size:11px;color:#6B7280;margin-top:12px;">Baseline reference · last month snapshot · 1 muñequito = 10%</div>'
         '</div>'
     )
 
@@ -6418,16 +6084,16 @@ def page_management_dashboard():
     rev_pct      = max(0, safe_ratio(ads_revenue["usd"], ADS_REVENUE_TARGET_USD) or 0)
     rev_done_pct = round(min(rev_pct, 1) * 100)
     rev_over_pct = round((rev_pct - 1) * 100) if rev_pct > 1 else 0
-    donut_color  = "#6FF24B" if rev_pct >= 1 else ("#FF7124" if rev_pct >= 0.5 else "#8B9ED4")
+    donut_color  = "#7ED321" if rev_pct >= 1 else ("#FF7124" if rev_pct >= 0.5 else "#1B3F8B")
 
     book_pct   = max(0, safe_ratio(ads_bookings["ars"], baseline_vals.get("gross_bookings_ars", 1)) or 0)
     book_bar   = round(min(book_pct, 1) * 100)
     book_over  = round((book_pct - 1) * 100) if book_pct > 1 else 0
-    book_color = "#6FF24B" if book_pct >= 1 else ("#FF7124" if book_pct >= 0.7 else "#E5332A")
+    book_color = "#7ED321" if book_pct >= 1 else ("#FF7124" if book_pct >= 0.7 else "#FF4D2E")
 
     # ── Barra delgada lateral derecha (thin right-side bar) ──────────────────
     def _thin_bar_right_svg(current_val, goal_val, label_goal,
-                             base_color="#3B4883", over_color="#6FF24B", under_color="#E5332A",
+                             base_color="#1B3F8B", over_color="#7ED321", under_color="#FF4D2E",
                              width=52, height=110):
         """
         Barra vertical delgada, alineada a la derecha del sticker.
@@ -6489,7 +6155,7 @@ def page_management_dashboard():
         # "Meta" debajo
         meta_label = (
             f'<text x="{width/2:.1f}" y="{height - 2:.1f}" text-anchor="middle" '
-            f'font-size="7" fill="rgba(219,187,167,0.5)" font-weight="700">Meta</text>'
+            f'font-size="7" fill="rgba(107,114,128,0.60)" font-weight="700">Meta</text>'
         )
 
         return (
@@ -6502,14 +6168,14 @@ def page_management_dashboard():
     # ── Leyenda compacta ──────────────────────────────────────────────────────
     legend_html = (
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">'
-        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#DBBBA7;">'
-        '<span style="display:inline-block;width:10px;height:10px;background:#3B4883;border-radius:2px;"></span>'
+        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
+        '<span style="display:inline-block;width:10px;height:10px;background:#1B3F8B;border-radius:2px;"></span>'
         'Ejecución</span>'
-        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#DBBBA7;">'
-        '<span style="display:inline-block;width:10px;height:10px;background:#6FF24B;border-radius:2px;"></span>'
+        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
+        '<span style="display:inline-block;width:10px;height:10px;background:#7ED321;border-radius:2px;"></span>'
         'Sobre meta</span>'
-        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#DBBBA7;">'
-        '<span style="display:inline-block;width:10px;height:10px;background:#E5332A;border-radius:2px;"></span>'
+        '<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#6B7280;">'
+        '<span style="display:inline-block;width:10px;height:10px;background:#FF4D2E;border-radius:2px;"></span>'
         'No cumplimiento</span>'
         '</div>'
     )
@@ -6544,7 +6210,7 @@ def page_management_dashboard():
     with c1:
         _over_book  = _book_num - _b_goal_usd
         _pct_book   = round(min(_book_num / max(_b_goal_usd, 1), 9.99) * 100)
-        _sc_book    = "#6FF24B" if _book_num >= _b_goal_usd else "#E5332A"
+        _sc_book    = "#7ED321" if _book_num >= _b_goal_usd else "#FF4D2E"
         _sl_book    = f"▲ +{fmt_usd(_over_book)} sobre meta" if _book_num >= _b_goal_usd else f"▼ Faltan {fmt_usd(abs(_over_book))}"
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:22px 24px;position:relative;overflow:hidden;">
@@ -6555,7 +6221,7 @@ def page_management_dashboard():
       <div class="stack-main mgmt-ars" style="margin-top:0;">{_b_usd}</div>
       <div class="stack-sub mgmt-conv">{_b_ars} &middot; {_b_cop}</div>
       <div style="font-size:12px;font-weight:800;color:{_sc_book};margin-top:8px;">{_sl_book}</div>
-      <div style="font-size:11px;color:#DBBBA7;margin-top:2px;">Meta: {_b_goal} &middot; {_pct_book}% ejec.</div>
+      <div style="font-size:11px;color:#6B7280;margin-top:2px;">Meta: {_b_goal} &middot; {_pct_book}% ejec.</div>
     </div>
     <div style="flex-shrink:0;">{book_bar_svg}</div>
   </div>
@@ -6565,7 +6231,7 @@ def page_management_dashboard():
     with c2:
         _over_rev  = _rev_num - ADS_REVENUE_TARGET_USD
         _pct_rev   = round(min(_rev_num / max(ADS_REVENUE_TARGET_USD, 1), 9.99) * 100)
-        _sc_rev    = "#6FF24B" if _rev_num >= ADS_REVENUE_TARGET_USD else "#E5332A"
+        _sc_rev    = "#7ED321" if _rev_num >= ADS_REVENUE_TARGET_USD else "#FF4D2E"
         _sl_rev    = f"▲ +{fmt_usd(_over_rev)} sobre meta" if _rev_num >= ADS_REVENUE_TARGET_USD else f"▼ Remaining: {_r_rem}"
         st.markdown(f"""
 <div class="stack-card mgmt-stack-card" style="padding:22px 24px;position:relative;overflow:hidden;">
@@ -6574,9 +6240,9 @@ def page_management_dashboard():
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:4px;">
     <div>
       <div class="stack-main mgmt-ars" style="margin-top:0;">{_r_fmt}</div>
-      <div style="font-size:12px;color:#DBBBA7;font-weight:700;margin-top:4px;">Revenue generado</div>
+      <div style="font-size:12px;color:#6B7280;font-weight:700;margin-top:4px;">Revenue generado</div>
       <div style="font-size:12px;font-weight:800;color:{_sc_rev};margin-top:8px;">{_sl_rev}</div>
-      <div style="font-size:11px;color:#DBBBA7;margin-top:2px;">Meta: {_r_goal} &middot; {_pct_rev}% ejec.</div>
+      <div style="font-size:11px;color:#6B7280;margin-top:2px;">Meta: {_r_goal} &middot; {_pct_rev}% ejec.</div>
     </div>
     <div style="flex-shrink:0;">{rev_bar_svg}</div>
   </div>
@@ -6612,7 +6278,7 @@ def page_management_dashboard():
         fill_ratio = min(max(roi_val / max_val, 0), 1)
         fill_w     = fill_ratio * bar_w
 
-        nc = "#6FF24B" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#E5332A")
+        nc = "#7ED321" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#FF4D2E")
 
         # Benchmark tick position
         bm_x = seg_x(bmark / max_val)
@@ -6634,10 +6300,10 @@ def page_management_dashboard():
             # Value text (left-aligned, above bar)
             f'<text x="{pad_l}" y="{label_y}" font-size="11" font-weight="900" fill="{nc}">{roi_val:.1f}x</text>',
             # Benchmark label (right side, above bar)
-            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="8" fill="rgba(219,187,167,0.5)" font-weight="700">bm {bmark}x</text>',
+            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="8" fill="rgba(107,114,128,0.60)" font-weight="700">bm {bmark}x</text>',
             # Zone labels below bar
-            f'<text x="{pad_l}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#E5332A" font-weight="700">low</text>',
-            f'<text x="{seg_x(orange_end):.1f}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#6FF24B" font-weight="700">target</text>',
+            f'<text x="{pad_l}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#FF4D2E" font-weight="700">low</text>',
+            f'<text x="{seg_x(orange_end):.1f}" y="{bar_y + bar_h + 10}" font-size="6.5" fill="#7ED321" font-weight="700">target</text>',
             '</svg>',
         ]
         return "".join(svg_parts)
@@ -6652,7 +6318,7 @@ def page_management_dashboard():
   <div class="stack-label">MD SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_md_usd}</div>
   <div class="stack-sub mgmt-conv">{_md_ars} &middot; {_md_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#8B9ED4;">📊 {_md_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#1B3F8B;">📊 {_md_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {md_gauge}
   </div>
@@ -6665,7 +6331,7 @@ def page_management_dashboard():
   <div class="stack-label">MD PRO SALES &middot; MTD</div>
   <div class="stack-main mgmt-ars" style="margin-top:8px;">{_mdp_usd}</div>
   <div class="stack-sub mgmt-conv">{_mdp_ars} &middot; {_mdp_cop}</div>
-  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#6FF24B;">📊 {_mdp_camp} campaigns</div>
+  <div style="margin-top:6px;font-size:12px;font-weight:800;color:#7ED321;">📊 {_mdp_camp} campaigns</div>
   <div style="position:absolute;bottom:10px;right:14px;opacity:0.90;">
     {mdpro_gauge}
   </div>
@@ -6705,20 +6371,20 @@ def page_management_dashboard():
         f'<div class="stack-label">CONTACT PERFORMANCE · since {_cs_since}</div>'
         f'{"<div style=\"font-size:10px;color:#aaa;margin-top:2px;\">fuente: " + _src_badge + "</div>" if _src_badge else ""}'
         f'</div>'
-        f'<div style="font-size:32px;font-weight:900;color:#FF7124;">{_cs_total_fmt} <span style="font-size:14px;color:#DBBBA7;font-weight:700;">contactos efectivos</span></div>'
+        f'<div style="font-size:32px;font-weight:900;color:#FF7124;">{_cs_total_fmt} <span style="font-size:14px;color:#6B7280;font-weight:700;">contactos efectivos</span></div>'
         '</div>'
         # ── Stacked horizontal bar ──────────────────────────────────────────
         '<div style="display:flex;height:28px;border-radius:999px;overflow:hidden;width:100%;margin-bottom:14px;">'
         f'<div style="width:{calls_pct}%;background:#FF7124;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="📞 Amazon Connect {calls_pct}%">'
         f'{"📞 " + str(calls_pct) + "%" if calls_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{chats_pct}%;background:#8B9ED4;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 WhatsApp {chats_pct}%">'
+        f'<div style="width:{chats_pct}%;background:#1B3F8B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="💬 WhatsApp {chats_pct}%">'
         f'{"💬 " + str(chats_pct) + "%" if chats_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{meets_pct}%;background:#6FF24B;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#6FF24B;white-space:nowrap;overflow:hidden;" title="🖥️ Meet {meets_pct}%">'
+        f'<div style="width:{meets_pct}%;background:#7ED321;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#7ED321;white-space:nowrap;overflow:hidden;" title="🖥️ Meet {meets_pct}%">'
         f'{"🖥️ " + str(meets_pct) + "%" if meets_pct >= 7 else ""}'
         '</div>'
-        f'<div style="width:{ghost_pct}%;background:#E5332A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Contactado {ghost_pct}%">'
+        f'<div style="width:{ghost_pct}%;background:#FF4D2E;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;" title="👻 No Contactado {ghost_pct}%">'
         f'{"👻 " + str(ghost_pct) + "%" if ghost_pct >= 7 else ""}'
         '</div>'
         '</div>'
@@ -6727,22 +6393,22 @@ def page_management_dashboard():
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
         f'<div style="width:12px;height:12px;border-radius:3px;background:#FF7124;flex-shrink:0;"></div>'
         f'<span style="color:#FF7124;">📞 Amazon Connect</span>'
-        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_calls} &middot; {calls_pct}%</span>'
+        f'<span style="color:#6B7280;font-weight:600;">{_cs_calls} &middot; {calls_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#8B9ED4;flex-shrink:0;"></div>'
-        f'<span style="color:#8B9ED4;">💬 WhatsApp</span>'
-        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_chats} &middot; {chats_pct}%</span>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#1B3F8B;flex-shrink:0;"></div>'
+        f'<span style="color:#1B3F8B;">💬 WhatsApp</span>'
+        f'<span style="color:#6B7280;font-weight:600;">{_cs_chats} &middot; {chats_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#6FF24B;flex-shrink:0;"></div>'
-        f'<span style="color:#6FF24B;">🖥️ Meet</span>'
-        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_meets} &middot; {meets_pct}%</span>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#7ED321;flex-shrink:0;"></div>'
+        f'<span style="color:#7ED321;">🖥️ Meet</span>'
+        f'<span style="color:#6B7280;font-weight:600;">{_cs_meets} &middot; {meets_pct}%</span>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;">'
-        f'<div style="width:12px;height:12px;border-radius:3px;background:#E5332A;flex-shrink:0;"></div>'
-        f'<span style="color:#E5332A;">👻 No Answer</span>'
-        f'<span style="color:#DBBBA7;font-weight:600;">{_cs_ghost} &middot; {ghost_pct}%</span>'
+        f'<div style="width:12px;height:12px;border-radius:3px;background:#FF4D2E;flex-shrink:0;"></div>'
+        f'<span style="color:#FF4D2E;">👻 No Answer</span>'
+        f'<span style="color:#6B7280;font-weight:600;">{_cs_ghost} &middot; {ghost_pct}%</span>'
         '</div>'
         '</div>'
         '</div>'
@@ -6773,7 +6439,7 @@ def page_management_dashboard():
     _ref_gmv_usd     = baseline_vals.get("gmv_usd", 0)
     _proj_vs_ref     = ((_projected_gmv / _ref_gmv_usd) - 1) if _ref_gmv_usd > 0 else 0
     _proj_sign       = "+" if _proj_vs_ref >= 0 else ""
-    _proj_color      = "#6FF24B" if _proj_vs_ref >= 0 else "#E5332A"
+    _proj_color      = "#7ED321" if _proj_vs_ref >= 0 else "#FF4D2E"
     _proj_arrow      = "&#9650;" if _proj_vs_ref >= 0 else "&#9660;"
 
     # ADS Revenue projection
@@ -6794,13 +6460,13 @@ def page_management_dashboard():
     # ADS status
     if _ads_proj_pct >= 100:
         _ads_status_label = "✅ En camino a cumplir target ADS"
-        _ads_status_color = "#6FF24B"
+        _ads_status_color = "#7ED321"
     elif _ads_proj_pct >= 75:
         _ads_status_label = "⚡ Necesita acelerar ADS"
         _ads_status_color = "#FF7124"
     else:
         _ads_status_label = "🚨 Gap crítico ADS"
-        _ads_status_color = "#E5332A"
+        _ads_status_color = "#FF4D2E"
 
     st.markdown(
         f'<div class="stack-label" style="margin-bottom:10px;margin-top:8px;">📅 PROYECCIÓN DE CIERRE DE MES · corte dom. {_last_sunday.strftime("%d/%m")} · quedan {_remain_days} días</div>',
@@ -6809,35 +6475,35 @@ def page_management_dashboard():
     _pcol1, _pcol2, _pcol3 = st.columns(3)
     with _pcol1:
         st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px 18px;height:100%;">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Proyección GMV al ritmo actual</div>
-          <div style="font-size:24px;font-weight:900;color:#E8DFD5;line-height:1;">{fmt_usd(_projected_gmv)}</div>
-          <div style="font-size:12px;color:#DBBBA7;margin-top:6px;">{fmt_ars(_projected_gmv * ARS_PER_USD)} estimado</div>
+        <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.08);border-radius:16px;padding:16px 18px;height:100%;">
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Proyección GMV al ritmo actual</div>
+          <div style="font-size:24px;font-weight:900;color:#1A1A2E;line-height:1;">{fmt_usd(_projected_gmv)}</div>
+          <div style="font-size:12px;color:#6B7280;margin-top:6px;">{fmt_ars(_projected_gmv * ARS_PER_USD)} estimado</div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
             <span style="font-size:22px;color:{_proj_color};font-weight:900;">{_proj_arrow}</span>
             <span style="font-size:15px;font-weight:900;color:{_proj_color};">{_proj_sign}{fmt_percent0(_proj_vs_ref)} vs mes anterior</span>
           </div>
-          <div style="margin-top:8px;font-size:12px;color:#DBBBA7;">{_proj_status}</div>
+          <div style="margin-top:8px;font-size:12px;color:#6B7280;">{_proj_status}</div>
         </div>
         """, unsafe_allow_html=True)
     with _pcol2:
         st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px 18px;height:100%;">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Proyección ADS Revenue</div>
-          <div style="font-size:24px;font-weight:900;color:#E8DFD5;line-height:1;">{fmt_usd(_projected_ads)}</div>
-          <div style="font-size:12px;color:#DBBBA7;margin-top:6px;">Target: {fmt_usd(ADS_REVENUE_TARGET_USD)} &middot; {_ads_proj_pct:.0f}% cubierto</div>
+        <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.08);border-radius:16px;padding:16px 18px;height:100%;">
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Proyección ADS Revenue</div>
+          <div style="font-size:24px;font-weight:900;color:#1A1A2E;line-height:1;">{fmt_usd(_projected_ads)}</div>
+          <div style="font-size:12px;color:#6B7280;margin-top:6px;">Target: {fmt_usd(ADS_REVENUE_TARGET_USD)} &middot; {_ads_proj_pct:.0f}% cubierto</div>
           <div style="margin-top:10px;font-size:13px;font-weight:800;color:{_ads_status_color};">{_ads_status_label}</div>
-          <div style="margin-top:6px;font-size:12px;color:#DBBBA7;">Necesitás generar {fmt_usd(_ads_needed_daily)}/día los próximos {_remain_days}d para llegar</div>
+          <div style="margin-top:6px;font-size:12px;color:#6B7280;">Necesitás generar {fmt_usd(_ads_needed_daily)}/día los próximos {_remain_days}d para llegar</div>
         </div>
         """, unsafe_allow_html=True)
     with _pcol3:
         st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px 18px;height:100%;">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:8px;">Ritmo diario actual</div>
-          <div style="font-size:24px;font-weight:900;color:#E8DFD5;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#DBBBA7;font-weight:700;">/día GMV</span></div>
-          <div style="font-size:14px;font-weight:900;color:#E8DFD5;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#DBBBA7;font-weight:700;">/día ADS Rev.</span></div>
-          <div style="margin-top:10px;font-size:12px;color:#DBBBA7;">Corte semanal: dom. {_last_sunday.strftime("%d/%m")} · {_elapsed_days} días acumulados</div>
-          <div style="font-size:12px;color:#DBBBA7;margin-top:4px;">Datos actualizados desde Current sheets.</div>
+        <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.08);border-radius:16px;padding:16px 18px;height:100%;">
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Ritmo diario actual</div>
+          <div style="font-size:24px;font-weight:900;color:#1A1A2E;line-height:1;">{fmt_usd(_daily_gmv_usd)} <span style="font-size:14px;color:#6B7280;font-weight:700;">/día GMV</span></div>
+          <div style="font-size:14px;font-weight:900;color:#1A1A2E;margin-top:8px;">{fmt_usd(_daily_ads_usd)} <span style="font-size:12px;color:#6B7280;font-weight:700;">/día ADS Rev.</span></div>
+          <div style="margin-top:10px;font-size:12px;color:#6B7280;">Corte semanal: dom. {_last_sunday.strftime("%d/%m")} · {_elapsed_days} días acumulados</div>
+          <div style="font-size:12px;color:#6B7280;margin-top:4px;">Datos actualizados desde Current sheets.</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -7214,25 +6880,25 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     def _status_pill(text):
         low = text.lower()
         if any(k in low for k in ["✅on", "✅ on", "active 🚀", "estable", "✅"]):
-            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#7ED321")
         elif any(k in low for k in ["⚠️w1", "⚠️ w1", "⚠️ revisar", "revisar"]):
             return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif any(k in low for k in ["🚨w2", "🚨 w2"]):
             return _make_pill(text, "rgba(255,113,36,0.12)", "#D95A10")
         elif any(k in low for k in ["🆘w3", "🆘 w3"]):
-            return _make_pill(text, "rgba(229,51,42,0.12)", "#E5332A")
+            return _make_pill(text, "rgba(229,51,42,0.12)", "#FF4D2E")
         elif any(k in low for k in ["☠️off", "☠️ off", "😴off", "😴 off", "inactive 💤", "off"]):
-            return _make_pill(text, "rgba(255,255,255,0.06)", "#DBBBA7")
+            return _make_pill(text, "rgba(255,255,255,0.92)", "#6B7280")
         elif any(k in low for k in ["frío", "frio", "❄️"]):
-            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#1B3F8B")
         elif any(k in low for k in ["renegociación", "renegociacion", "🔄"]):
-            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#1B3F8B")
         elif any(k in low for k in ["prioritized 🔥"]):
             return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif any(k in low for k in ["non prioritized"]):
-            return _make_pill(text, "rgba(255,255,255,0.06)", "#DBBBA7")
+            return _make_pill(text, "rgba(255,255,255,0.92)", "#6B7280")
         else:
-            return _make_pill(text, "rgba(59,72,131,0.08)", "#DBBBA7")
+            return _make_pill(text, "rgba(59,72,131,0.08)", "#6B7280")
 
     # Opp pill (already existed)
     def _opp_pill(text):
@@ -7240,40 +6906,40 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         if any(k in low for k in ["🏆 acquire", "🏆acquire"]):
             return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif any(k in low for k in ["🔧 upsell urgente", "🔧upsell urgente", "upsell urgente"]):
-            return _make_pill(text, "rgba(229,51,42,0.08)", "#E5332A")
+            return _make_pill(text, "rgba(229,51,42,0.08)", "#FF4D2E")
         elif any(k in low for k in ["⚡ upselling", "⚡upselling"]):
-            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#1B3F8B")
         elif "adquisición" in low or "adquisicion" in low:
-            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#1B3F8B")
         elif "upselling" in low:
-            return _make_pill(text, "rgba(59,72,131,0.10)", "#3B4883")
-        return _make_pill(text, "rgba(59,72,131,0.08)", "#DBBBA7")
+            return _make_pill(text, "rgba(59,72,131,0.10)", "#1B3F8B")
+        return _make_pill(text, "rgba(59,72,131,0.08)", "#6B7280")
 
     # Revenue Proj 80% pill — green money sticker, value x4
     def _revenue_pill(text):
         if text in ("-", "", "—"):
             return f'<span style="font-size:12px;color:rgba(255,255,255,0.15);">—</span>'
         val4 = _revenue_x4(text)
-        return _make_pill(f"↑ {val4}", "rgba(111,242,75,0.12)", "#6FF24B")
+        return _make_pill(f"↑ {val4}", "rgba(111,242,75,0.12)", "#7ED321")
 
     # commercial_action / movement pill — indigo
     def _action_pill(text):
         low = text.lower()
         if any(k in low for k in ["closed", "cerrado", "won", "ganado"]):
-            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#7ED321")
         elif any(k in low for k in ["rejected", "rechazado", "lost"]):
-            return _make_pill(text, "rgba(229,51,42,0.12)", "#E5332A")
+            return _make_pill(text, "rgba(229,51,42,0.12)", "#FF4D2E")
         elif any(k in low for k in ["negotiation", "negociación", "pipeline"]):
             return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
-        return _make_pill(text, "rgba(59,72,131,0.15)", "#3B4883")
+        return _make_pill(text, "rgba(59,72,131,0.15)", "#1B3F8B")
 
     # pipeline_stage / opportunity_status pill — amber
     def _stage_pill(text):
         low = text.lower()
         if any(k in low for k in ["closed", "won", "cerrado"]):
-            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#7ED321")
         elif any(k in low for k in ["rejected", "lost", "rechazado"]):
-            return _make_pill(text, "rgba(229,51,42,0.12)", "#E5332A")
+            return _make_pill(text, "rgba(229,51,42,0.12)", "#FF4D2E")
         return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
 
     # ── column routing map ───────────────────────────────────────────────────
@@ -7282,7 +6948,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     def _pene_pill(text):
         low = text.lower()
         if "✅" in low or "en rango" in low:
-            return _make_pill(text, "rgba(111,242,75,0.12)", "#6FF24B")
+            return _make_pill(text, "rgba(111,242,75,0.12)", "#7ED321")
         elif "⚠️" in low or "sobre techo" in low:
             return _make_pill(text, "rgba(255,113,36,0.12)", "#D95A10")
         elif "bajo" in low:
@@ -7290,8 +6956,8 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         elif "0%" in low or "sin promo" in low or "objetivo" in low:
             return _make_pill(text, "rgba(255,113,36,0.08)", "#D95A10")
         elif "sin gmv" in low:
-            return _make_pill(text, "rgba(255,255,255,0.06)", "#DBBBA7")
-        return _make_pill(text, "rgba(59,72,131,0.08)", "#DBBBA7")
+            return _make_pill(text, "rgba(255,255,255,0.92)", "#6B7280")
+        return _make_pill(text, "rgba(59,72,131,0.08)", "#6B7280")
 
     COL_PILL_MAP = {
         "name":               _name_pill,
@@ -7330,24 +6996,24 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     th_base = (
         'position:sticky;top:0;z-index:2;padding:10px 14px;'
         'text-align:left;font-size:11px;font-weight:700;'
-        'letter-spacing:0.05em;text-transform:uppercase;color:rgba(219,187,167,0.5);'
-        'background:rgba(255,255,255,0.06);border-bottom:2px solid rgba(255,255,255,0.06);'
-        'white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.06);'
+        'letter-spacing:0.05em;text-transform:uppercase;color:rgba(107,114,128,0.60);'
+        'background:rgba(255,255,255,0.92);border-bottom:2px solid rgba(255,255,255,0.92);'
+        'white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.92);'
     )
     header_cells = (
         f'<th style="position:sticky;top:0;z-index:2;padding:10px 8px 10px 20px;width:36px;'
         f'text-align:center;font-size:11px;font-weight:700;letter-spacing:0.05em;'
-        f'text-transform:uppercase;color:rgba(219,187,167,0.5);background:rgba(255,255,255,0.06);'
-        f'border-bottom:2px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 rgba(255,255,255,0.06);">N.</th>'
+        f'text-transform:uppercase;color:rgba(107,114,128,0.60);background:rgba(255,255,255,0.92);'
+        f'border-bottom:2px solid rgba(255,255,255,0.92);box-shadow:0 1px 0 rgba(255,255,255,0.92);">N.</th>'
     )
     for col in display_df.columns:
         header_cells += f'<th style="{th_base}">{html.escape(str(col))}</th>'
-    header = f'<thead><tr style="background:rgba(255,255,255,0.06);">{header_cells}</tr></thead>'
+    header = f'<thead><tr style="background:rgba(255,255,255,0.92);">{header_cells}</tr></thead>'
 
     # ── rows ─────────────────────────────────────────────────────────────────
     rows_html = []
     for i, (_, row) in enumerate(display_df.iterrows()):
-        base_bg  = "rgba(255,255,255,0.06)" if i % 2 == 0 else "rgba(255,255,255,0.04)"
+        base_bg  = "rgba(255,255,255,0.92)" if i % 2 == 0 else "rgba(27,63,139,0.03)"
         hover_in = (
             "this.style.background='rgba(59,72,131,0.15)';"
             "this.style.boxShadow='0 4px 18px rgba(78,99,217,0.13)';"
@@ -7364,7 +7030,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         row_num = (
             f'<td style="padding:12px 8px 12px 20px;text-align:center;'
             f'font-size:12px;font-weight:600;color:rgba(255,255,255,0.15);'
-            f'border-bottom:1px solid rgba(255,255,255,0.06);">{i+1}</td>'
+            f'border-bottom:1px solid rgba(255,255,255,0.92);">{i+1}</td>'
         )
         cells = row_num
         for col, val in zip(display_df.columns, row):
@@ -7385,15 +7051,15 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
                                .replace(".","").replace(",","").replace("%","").replace("x","").strip())
                 is_numeric = stripped.lstrip("-").isdigit()
                 if is_numeric:
-                    cell_inner = f'<span style="font-size:13px;font-weight:700;color:#E8DFD5;">{html.escape(text)}</span>'
+                    cell_inner = f'<span style="font-size:13px;font-weight:700;color:#1A1A2E;">{html.escape(text)}</span>'
                 else:
-                    cell_inner = f'<span style="font-size:12px;color:#DBBBA7;">{html.escape(text)}</span>'
+                    cell_inner = f'<span style="font-size:12px;color:#6B7280;">{html.escape(text)}</span>'
 
             # For raw-HTML columns (días, próximo contacto, roi trend) strip tags for the tooltip
             import re as _re
             tooltip_text = _re.sub(r"<[^>]+>", "", text) if col_key in ("días", "próximo contacto", "roi trend") else text
             cells += (
-                f'<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);'
+                f'<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.92);'
                 f'white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;'
                 f'transition:background 0.15s;" title="{html.escape(tooltip_text)}">'
                 f'{cell_inner}</td>'
@@ -7410,14 +7076,14 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     count_note = ""
     if len(df) > max_rows:
         count_note = (
-            f'<div style="font-size:11px;color:rgba(219,187,167,0.5);padding:8px 20px 12px;">'
+            f'<div style="font-size:11px;color:rgba(107,114,128,0.60);padding:8px 20px 12px;">'
             f'Showing first {max_rows} of {len(df)} rows.</div>'
         )
 
     table_html = (
-        f'<div id="{tid}" style="border-radius:16px;border:1px solid rgba(255,255,255,0.12);'
+        f'<div id="{tid}" style="border-radius:16px;border:1px solid rgba(0,0,0,0.08);'
         f'box-shadow:0 2px 16px rgba(0,0,0,0.07);margin:8px 0 20px 0;'
-        f'background:rgba(255,255,255,0.06);overflow:hidden;">'
+        f'background:rgba(255,255,255,0.92);overflow:hidden;">'
         f'<div style="overflow-x:auto;overflow-y:auto;max-height:{scroll_h}px;">'
         f'<table style="width:100%;border-collapse:collapse;'
         f'font-family:Inter,-apple-system,sans-serif;">'
@@ -7432,7 +7098,7 @@ def _render_light_table(df, height=420):
     _render_html_table(df)
 
 
-def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#6FF24B", color_pipeline="#FF7124", projected_usd=0):
+def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#7ED321", color_pipeline="#FF7124", projected_usd=0):
     """
     Barra de 4 segmentos:
       - Verde:   Activo hoy (REVENUE NET MTD)
@@ -7487,10 +7153,10 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         scale_html          = '<div style="display:flex;justify-content:space-between;font-size:10px;color:{};margin-bottom:8px;padding:0 2px;"><span>0</span><span>100%</span><span>120%</span><span>140%</span></div>'.format(color_muted)
         if at_140:
             status_label    = "🏆 +140% — Modo bestia"
-            status_color    = "#6FF24B"
+            status_color    = "#7ED321"
         else:
             status_label    = "🔥 Peleando 140%"
-            status_color    = "#6FF24B"
+            status_color    = "#7ED321"
     elif at_100:
         # Superó 100% — peleando por 120%
         tramo_120       = target_usd * 0.2
@@ -7512,7 +7178,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         pct_gap         = (gap_usd / bar_ceiling) * 100
         overall_pct     = min((base_covered + pipeline_usd) / target_usd * 100, 100)
         overall_label   = "{:.0f}% cubierto".format(overall_pct)
-        status_color    = "#FF7124" if pct_covered >= 0.70 else "#E5332A"
+        status_color    = "#FF7124" if pct_covered >= 0.70 else "#FF4D2E"
         status_label    = "Needs focus" if pct_covered >= 0.70 else "Gap critical"
         gap_label       = "Gap"
         marker_html     = ""
@@ -7525,7 +7191,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     <div style="font-size:12px;font-weight:700;color:{sc};background:rgba(255,255,255,.06);border-radius:20px;padding:3px 12px;border:1px solid {sc}40;">{sl}</div>
   </div>
   <div style="position:relative;margin-bottom:4px;">
-    <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.08);">
+    <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.95);">
       <div style="width:{pa:.1f}%;background:{ca};border-radius:8px 0 0 8px;transition:width .4s;"></div>
       <div style="width:{pp:.1f}%;background:{cp};transition:width .4s;"></div>
       <div style="width:{ppl:.1f}%;background:{cpl};transition:width .4s;"></div>
@@ -7589,10 +7255,10 @@ def _render_churn_distribution_bar(counts, total):
     color_muted  = COLORS["muted"]
 
     segments = [
-        ("On",  "✅ On",  "#6FF24B"),
+        ("On",  "✅ On",  "#7ED321"),
         ("W1",  "⚠️ W1",  "#FFD166"),
         ("W2",  "🚨 W2",  "#FF7124"),
-        ("W3",  "🆘 W3",  "#E5332A"),
+        ("W3",  "🆘 W3",  "#FF4D2E"),
         ("Off", "😴 Off", "rgba(255,255,255,.25)"),
     ]
 
@@ -7627,7 +7293,7 @@ def _render_churn_distribution_bar(counts, total):
       {n_churned} en riesgo ({pct_churned:.1f}%)
     </div>
   </div>
-  <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.08);margin-bottom:12px;">
+  <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.95);margin-bottom:12px;">
     {bars_html}
   </div>
   <div style="display:flex;gap:24px;flex-wrap:wrap;">
@@ -8222,7 +7888,7 @@ def page_opportunity_list():
             active_usd=active_md_combined_usd,
             pipeline_usd=min(md_pipeline_usd, md_gap_usd),
             target_usd=md_combined_target_usd,
-            color_active="#8B9ED4",
+            color_active="#1B3F8B",
             color_pipeline="#FF7124",
         )
         st.markdown(
@@ -8238,7 +7904,7 @@ def page_opportunity_list():
         # la penetración MD sola alcance al menos el 90% del target MD.
         if md_commission_paid:
             st.markdown(
-                f"<div style='font-size:12px; color:#6FF24B; font-weight:700; margin-bottom:10px;'>"
+                f"<div style='font-size:12px; color:#7ED321; font-weight:700; margin-bottom:10px;'>"
                 f"✅ Comisión MD habilitada · penetración MD {pene_md_pct:.2f}% es "
                 f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
                 f"— ≥ {MD_COMMISSION_THRESHOLD_PCT*100:.0f}% requerido</div>",
@@ -8954,7 +8620,7 @@ def page_follow_up_list():
     health_score = round(100 * n_dentro_ciclo / total_portfolio) if total_portfolio > 0 else 0
 
     if health_score >= 70:
-        score_color = "#6FF24B"
+        score_color = "#7ED321"
         score_label = "SANA"
     elif health_score >= 45:
         score_color = "#FF7124"
@@ -8963,7 +8629,7 @@ def page_follow_up_list():
         score_color = "#FF7124"
         score_label = "EN ALERTA"
     else:
-        score_color = "#E5332A"
+        score_color = "#FF4D2E"
         score_label = "CRÍTICA"
 
     bw_activo   = pct_activo
@@ -8981,13 +8647,13 @@ def page_follow_up_list():
         except (ValueError, TypeError):
             return "—"
         if d <= 10:
-            color = "#6FF24B"
+            color = "#7ED321"
         elif d <= 15:
-            color = "#6FF24B"
+            color = "#7ED321"
         elif d <= 21:
             color = "#FF7124"
         else:
-            color = "#E5332A"
+            color = "#FF4D2E"
         return (
             f'<span style="background:{color}22; color:{color}; '
             f'font-weight:700; padding:2px 8px; border-radius:6px; '
@@ -9002,7 +8668,7 @@ def page_follow_up_list():
         """
         ts = pd.to_datetime(last_dt, errors="coerce")
         if pd.isna(ts):
-            return '<span style="color:#E5332A; font-weight:700;">Sin contacto</span>'
+            return '<span style="color:#FF4D2E; font-weight:700;">Sin contacto</span>'
         ideal_dt  = ts + timedelta(days=15)
         limite_dt = ts + timedelta(days=21)
         days_to_ideal  = (ideal_dt.date()  - date.today()).days
@@ -9012,7 +8678,7 @@ def page_follow_up_list():
             # Ya venció el límite de 21 días
             overdue = abs(days_to_limite)
             return (
-                f'<span style="color:#E5332A; font-weight:700;">'
+                f'<span style="color:#FF4D2E; font-weight:700;">'
                 f'Vencido hace {overdue}d</span>'
             )
         elif days_to_ideal <= 0:
@@ -9024,7 +8690,7 @@ def page_follow_up_list():
         else:
             # Dentro del ciclo ideal
             return (
-                f'<span style="color:#8B9ED4;">'
+                f'<span style="color:#1B3F8B;">'
                 f'en {days_to_ideal}d · {ideal_dt.strftime("%d/%m")}</span>'
             )
 
@@ -9101,8 +8767,8 @@ def page_follow_up_list():
     st.markdown(f"""
     <style>
     .hm-card {{
-        background: #272D4E;
-        border: 1px solid #272D4E;
+        background: #FFFFFF;
+        border: 1px solid #FFFFFF;
         border-radius: 16px;
         padding: 20px 24px 16px 24px;
         margin-bottom: 18px;
@@ -9112,7 +8778,7 @@ def page_follow_up_list():
         font-weight: 700;
         letter-spacing: 2px;
         text-transform: uppercase;
-        color: #8B9ED4;
+        color: #1B3F8B;
         margin-bottom: 14px;
     }}
     .hm-score-ring {{
@@ -9125,7 +8791,7 @@ def page_follow_up_list():
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        background: conic-gradient({score_color} {health_score}%, #272D4E {health_score}%);
+        background: conic-gradient({score_color} {health_score}%, #FFFFFF {health_score}%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -9136,7 +8802,7 @@ def page_follow_up_list():
         width: 58px;
         height: 58px;
         border-radius: 50%;
-        background: #272D4E;
+        background: #FFFFFF;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -9163,7 +8829,7 @@ def page_follow_up_list():
     }}
     .hm-score-desc {{
         font-size: 13px;
-        color: #8B9ED4;
+        color: #1B3F8B;
         margin-top: 2px;
     }}
     .hm-zones {{
@@ -9175,7 +8841,7 @@ def page_follow_up_list():
     .hm-zone {{
         flex: 1;
         min-width: 100px;
-        background: #272D4E;
+        background: #FFFFFF;
         border-radius: 10px;
         padding: 10px 12px;
         position: relative;
@@ -9188,14 +8854,14 @@ def page_follow_up_list():
         border-radius: 10px 0 0 10px;
     }}
     .hm-zone-emoji {{ font-size: 16px; }}
-    .hm-zone-name {{ font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #8B9ED4; text-transform: uppercase; margin-top: 4px; }}
+    .hm-zone-name {{ font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #1B3F8B; text-transform: uppercase; margin-top: 4px; }}
     .hm-zone-count {{ font-size: 24px; font-weight: 900; color: rgba(255,255,255,0.9); line-height: 1.1; }}
-    .hm-zone-pct {{ font-size: 11px; color: #8B9ED4; }}
-    .hm-zone-range {{ font-size: 10px; color: #5B6FA8; margin-top: 2px; }}
+    .hm-zone-pct {{ font-size: 11px; color: #1B3F8B; }}
+    .hm-zone-range {{ font-size: 10px; color: #3D64B8; margin-top: 2px; }}
     .hm-bar-wrap {{ border-radius: 8px; overflow: hidden; height: 10px; display: flex; margin-top: 4px; }}
     .hm-bar-seg {{ height: 10px; transition: width 0.3s; }}
     .hm-legend {{ display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; }}
-    .hm-legend-item {{ display: flex; align-items: center; gap: 5px; font-size: 11px; color: #8B9ED4; }}
+    .hm-legend-item {{ display: flex; align-items: center; gap: 5px; font-size: 11px; color: #1B3F8B; }}
     .hm-legend-dot {{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }}
     </style>
     <div class="hm-card">
@@ -9214,7 +8880,7 @@ def page_follow_up_list():
         </div>
         <div class="hm-zones">
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#6FF24B;"></div>
+                <div class="hm-zone-accent" style="background:#7ED321;"></div>
                 <div class="hm-zone-emoji">🟢</div>
                 <div class="hm-zone-name">Activo</div>
                 <div class="hm-zone-count">{n_activo}</div>
@@ -9222,7 +8888,7 @@ def page_follow_up_list():
                 <div class="hm-zone-range">0 – 10 días</div>
             </div>
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#6FF24B;"></div>
+                <div class="hm-zone-accent" style="background:#7ED321;"></div>
                 <div class="hm-zone-emoji">🟡</div>
                 <div class="hm-zone-name">Cadencia ideal</div>
                 <div class="hm-zone-count">{n_cadencia}</div>
@@ -9238,7 +8904,7 @@ def page_follow_up_list():
                 <div class="hm-zone-range">16 – 21 días</div>
             </div>
             <div class="hm-zone">
-                <div class="hm-zone-accent" style="background:#E5332A;"></div>
+                <div class="hm-zone-accent" style="background:#FF4D2E;"></div>
                 <div class="hm-zone-emoji">🔴</div>
                 <div class="hm-zone-name">Fría</div>
                 <div class="hm-zone-count">{n_fria_total}</div>
@@ -9247,16 +8913,16 @@ def page_follow_up_list():
             </div>
         </div>
         <div class="hm-bar-wrap">
-            <div class="hm-bar-seg" style="width:{bw_activo}%; background:#6FF24B;"></div>
-            <div class="hm-bar-seg" style="width:{bw_cadencia}%; background:#6FF24B;"></div>
+            <div class="hm-bar-seg" style="width:{bw_activo}%; background:#7ED321;"></div>
+            <div class="hm-bar-seg" style="width:{bw_cadencia}%; background:#7ED321;"></div>
             <div class="hm-bar-seg" style="width:{bw_alerta}%; background:#FF7124;"></div>
-            <div class="hm-bar-seg" style="width:{bw_fria}%; background:#E5332A;"></div>
+            <div class="hm-bar-seg" style="width:{bw_fria}%; background:#FF4D2E;"></div>
         </div>
         <div class="hm-legend">
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#6FF24B;"></div> Activo (0–10d)</div>
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#6FF24B;"></div> Cadencia (11–15d)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#7ED321;"></div> Activo (0–10d)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#7ED321;"></div> Cadencia (11–15d)</div>
             <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF7124;"></div> Alerta (16–21d)</div>
-            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#E5332A;"></div> Fría (&gt;21d · sin contacto)</div>
+            <div class="hm-legend-item"><div class="hm-legend-dot" style="background:#FF4D2E;"></div> Fría (&gt;21d · sin contacto)</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -9266,36 +8932,36 @@ def page_follow_up_list():
     # Color thresholds: today ≥5 green, ≥2 orange, else red
     #                   week  ≥15 green, ≥8 orange, else red
     #                   month ≥60 green, ≥30 orange, else red
-    _today_color = "#6FF24B" if _contacts_today >= 5 else ("#FF7124" if _contacts_today >= 2 else "#E5332A")
-    _wk_color    = "#6FF24B" if _contacts_this_week >= 15 else ("#FF7124" if _contacts_this_week >= 8 else "#E5332A")
-    _mo_color    = "#6FF24B" if _contacts_this_month >= 60 else ("#FF7124" if _contacts_this_month >= 30 else "#E5332A")
+    _today_color = "#7ED321" if _contacts_today >= 5 else ("#FF7124" if _contacts_today >= 2 else "#FF4D2E")
+    _wk_color    = "#7ED321" if _contacts_this_week >= 15 else ("#FF7124" if _contacts_this_week >= 8 else "#FF4D2E")
+    _mo_color    = "#7ED321" if _contacts_this_month >= 60 else ("#FF7124" if _contacts_this_month >= 30 else "#FF4D2E")
 
     st.markdown(f"""
 <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
     <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(111,242,75,.06);
         border:1.5px solid rgba(111,242,75,.22);border-radius:12px;padding:10px 18px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;letter-spacing:1px;">📞 HOY</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;letter-spacing:1px;">📞 HOY</div>
         <div style="font-size:30px;font-weight:900;color:{_today_color};line-height:1;">{_contacts_today}</div>
-        <div style="font-size:11px;color:#8B9ED4;">contactos efectivos</div>
+        <div style="font-size:11px;color:#1B3F8B;">contactos efectivos</div>
     </div>
     <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(78,99,217,.07);
         border:1.5px solid rgba(78,99,217,.25);border-radius:12px;padding:10px 18px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;letter-spacing:1px;">📅 SEMANA</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;letter-spacing:1px;">📅 SEMANA</div>
         <div style="font-size:30px;font-weight:900;color:{_wk_color};line-height:1;">{_contacts_this_week}</div>
-        <div style="font-size:11px;color:#8B9ED4;">{_week_label}</div>
+        <div style="font-size:11px;color:#1B3F8B;">{_week_label}</div>
     </div>
     <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(255,113,36,.06);
         border:1.5px solid rgba(255,113,36,.22);border-radius:12px;padding:10px 18px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;letter-spacing:1px;">🗓️ MES</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;letter-spacing:1px;">🗓️ MES</div>
         <div style="font-size:30px;font-weight:900;color:{_mo_color};line-height:1;">{_contacts_this_month}</div>
-        <div style="font-size:11px;color:#8B9ED4;">{_month_label}</div>
+        <div style="font-size:11px;color:#1B3F8B;">{_month_label}</div>
     </div>
     <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);
-        border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px 14px;font-size:11px;color:#8B9ED4;">
-        <span style="color:#6FF24B;">🟢 {n_activo}</span> &nbsp;·&nbsp;
-        <span style="color:#6FF24B;">🟡 {n_cadencia}</span> &nbsp;·&nbsp;
+        border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px 14px;font-size:11px;color:#1B3F8B;">
+        <span style="color:#7ED321;">🟢 {n_activo}</span> &nbsp;·&nbsp;
+        <span style="color:#7ED321;">🟡 {n_cadencia}</span> &nbsp;·&nbsp;
         <span style="color:#FF7124;">🟠 {n_alerta}</span> &nbsp;·&nbsp;
-        <span style="color:#E5332A;">🔴 {n_fria_total}</span>
+        <span style="color:#FF4D2E;">🔴 {n_fria_total}</span>
     </div>
 </div>
     """, unsafe_allow_html=True)
@@ -9487,16 +9153,16 @@ def page_call_quality_trainer():
     st.markdown("""
     <style>
     .qt-score-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:1.5rem; }
-    .qt-score-card { background:rgba(255,255,255,0.05); border-radius:8px; padding:12px 14px; }
+    .qt-score-card { background:rgba(255,255,255,0.90); border-radius:8px; padding:12px 14px; }
     .qt-score-val  { font-size:22px; font-weight:600; line-height:1.1; }
     .qt-score-lbl  { font-size:11px; color:#888; margin-top:3px; }
     .qt-score-trend{ font-size:11px; margin-top:2px; }
-    .qt-ok  { color:#6FF24B; }
+    .qt-ok  { color:#7ED321; }
     .qt-warn{ color:#D95A10; }
-    .qt-bad { color:#E5332A; }
+    .qt-bad { color:#FF4D2E; }
 
     .qt-trainer-card {
-        border: 1px solid rgba(255,255,255,0.12);
+        border: 1px solid rgba(0,0,0,0.08);
         border-radius:10px;
         margin-bottom: 1.2rem;
         overflow: hidden;
@@ -9504,14 +9170,14 @@ def page_call_quality_trainer():
     .qt-card-header {
         display: flex; align-items: center; gap: 12px;
         padding: 14px 18px 10px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+        border-bottom: 1px solid rgba(255,255,255,0.95);
     }
     .qt-rank-badge {
         width:30px; height:30px; border-radius:50%;
         display:flex; align-items:center; justify-content:center;
         font-size:13px; font-weight:700; flex-shrink:0;
     }
-    .qt-dim-label { font-size:14px; font-weight:600; color:#E8DFD5; flex:1; }
+    .qt-dim-label { font-size:14px; font-weight:600; color:#1A1A2E; flex:1; }
     .qt-score-pill {
         font-size:13px; font-weight:600; padding:3px 10px;
         border-radius:20px; flex-shrink:0;
@@ -9529,12 +9195,12 @@ def page_call_quality_trainer():
         font-size:12px; color:#D95A10; line-height:1.6;
     }
     .qt-tip-box {
-        background:rgba(59,72,131,0.10); border-left:3px solid #3B4883;
+        background:rgba(59,72,131,0.10); border-left:3px solid #1B3F8B;
         border-radius:0 6px 6px 0; padding:8px 12px;
-        font-size:12px; color:#DBBBA7; line-height:1.6;
+        font-size:12px; color:#6B7280; line-height:1.6;
     }
     .qt-example {
-        background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:6px;
+        background:rgba(27,63,139,0.03); border:1px solid rgba(255,255,255,0.95); border-radius:6px;
         padding:8px 10px; font-size:11px; color:#666; line-height:1.55;
         margin-bottom:6px; font-style:italic;
     }
@@ -9547,9 +9213,9 @@ def page_call_quality_trainer():
     .qt-above-section {
         margin-top:1.5rem; padding:12px 16px; border-radius:8px;
         border:1px solid rgba(111,242,75,0.08); background:rgba(111,242,75,0.08);
-        font-size:12px; color:#6FF24B; line-height:1.7;
+        font-size:12px; color:#7ED321; line-height:1.7;
     }
-    .qt-above-section b { color:#6FF24B; }
+    .qt-above-section b { color:#7ED321; }
     .qt-separator {
         font-size:11px; font-weight:700; letter-spacing:.08em;
         text-transform:uppercase; color:#bbb;
@@ -9609,7 +9275,7 @@ def page_call_quality_trainer():
                 _pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(_hist_scores))
                 _last  = _hist_scores[-1]
                 _first = _hist_scores[0]
-                _line_color = "#6FF24B" if _last >= _first else "#E5332A"
+                _line_color = "#7ED321" if _last >= _first else "#FF4D2E"
                 _dot_x = _sx(len(_hist_scores)-1)
                 _dot_y = _sy(_last)
                 _spark_svg = (
@@ -9619,10 +9285,10 @@ def page_call_quality_trainer():
                     f'</svg>'
                 )
                 _trend_label = f"+{_last-_first:.1f}pp" if _last >= _first else f"{_last-_first:.1f}pp"
-                _trend_color = "#6FF24B" if _last >= _first else "#E5332A"
+                _trend_color = "#7ED321" if _last >= _first else "#FF4D2E"
                 st.markdown(
-                    f'''<div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.04);
-                    border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#555;">
+                    f'''<div style="display:flex;align-items:center;gap:14px;background:rgba(27,63,139,0.03);
+                    border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#555;">
                     <span style="font-weight:700;color:#333;">Historial Call Quality Score</span>
                     {_spark_svg}
                     <span style="font-weight:700;color:{_trend_color};">{_trend_label} ({_hist_weeks[0]} → {_hist_weeks[-1]})</span>
@@ -9638,7 +9304,7 @@ def page_call_quality_trainer():
 
     st.markdown(f"""
     <div class="qt-score-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">
-      <div class="qt-score-card" style="border:2px solid {"#6FF24B" if _composite_score and _composite_score >= 80 else ("#D95A10" if _composite_score and _composite_score >= 65 else "#E5332A")};background:{"rgba(111,242,75,0.08)" if _composite_score and _composite_score >= 80 else ("rgba(255,113,36,0.06)" if _composite_score and _composite_score >= 65 else "rgba(229,51,42,0.10)")};">
+      <div class="qt-score-card" style="border:2px solid {"#7ED321" if _composite_score and _composite_score >= 80 else ("#D95A10" if _composite_score and _composite_score >= 65 else "#FF4D2E")};background:{"rgba(111,242,75,0.08)" if _composite_score and _composite_score >= 80 else ("rgba(255,113,36,0.06)" if _composite_score and _composite_score >= 65 else "rgba(229,51,42,0.10)")};">
         <div class="qt-score-val {_composite_color}" style="font-size:28px;">{f"{_composite_score:.1f}%" if _composite_score is not None else "—"}</div>
         <div class="qt-score-lbl" style="font-weight:800;">⭐ Call Quality Score</div>
         <div class="qt-score-trend {_composite_color}">{_composite_label}</div>
@@ -9658,7 +9324,7 @@ def page_call_quality_trainer():
         </div>
       </div>
       <div class="qt-score-card">
-        <div class="qt-score-val" style="color:#E8DFD5">{n_calls}</div>
+        <div class="qt-score-val" style="color:#1A1A2E">{n_calls}</div>
         <div class="qt-score-lbl">Llamadas analizadas</div>
         <div class="qt-score-trend" style="color:#888">Período cargado</div>
       </div>
@@ -9684,7 +9350,7 @@ def page_call_quality_trainer():
         pct   = round(score * 100, 1)
 
         if pct < 40:
-            rank_bg, rank_fg, pill_bg, pill_fg = "rgba(229,51,42,0.10)", "#E5332A", "rgba(229,51,42,0.10)", "#E5332A"
+            rank_bg, rank_fg, pill_bg, pill_fg = "rgba(229,51,42,0.10)", "#FF4D2E", "rgba(229,51,42,0.10)", "#FF4D2E"
         elif pct < 60:
             rank_bg, rank_fg, pill_bg, pill_fg = "rgba(255,113,36,0.10)", "#D95A10", "rgba(255,113,36,0.10)", "#D95A10"
         else:
@@ -9695,13 +9361,13 @@ def page_call_quality_trainer():
         if spark:
             for i, v in enumerate(spark):
                 if v is None:
-                    dot_bg, dot_txt = "rgba(255,255,255,0.08)", "#bbb"
+                    dot_bg, dot_txt = "rgba(255,255,255,0.95)", "#bbb"
                 elif v >= 80:
-                    dot_bg, dot_txt = "rgba(111,242,75,0.08)", "#6FF24B"
+                    dot_bg, dot_txt = "rgba(111,242,75,0.08)", "#7ED321"
                 elif v >= 60:
                     dot_bg, dot_txt = "rgba(255,113,36,0.10)", "#D95A10"
                 else:
-                    dot_bg, dot_txt = "rgba(229,51,42,0.10)", "#E5332A"
+                    dot_bg, dot_txt = "rgba(229,51,42,0.10)", "#FF4D2E"
                 wlabel = f"W{i+1}"
                 val_str = f"{round(v)}%" if v is not None else "—"
                 spark_html += f'<div class="qt-spark-dot" style="background:{dot_bg};color:{dot_txt}" title="{wlabel}: {val_str}">{val_str}</div>'
@@ -9917,7 +9583,7 @@ def page_productivity_heatmap():
 
     def cell_style(pct, lo_bg, hi_bg, lo_text, hi_text):
         if pct is None:
-            return "background:rgba(255,255,255,0.05);color:#aaa;"
+            return "background:rgba(255,255,255,0.90);color:#aaa;"
         t = min(pct / 100, 1.0)
         # Only interpolate if both colors are hex (#RRGGBB); otherwise pick by threshold
         if lo_bg.startswith("#") and hi_bg.startswith("#"):
@@ -9946,21 +9612,21 @@ def page_productivity_heatmap():
     .hm-wrap { width: 100%; font-family: sans-serif; }
     .hm-table { width: 100%; border-collapse: collapse; }
     .hm-table th {
-        font-size: 11px; font-weight: 500; color: #DBBBA7;
-        text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid rgba(255,255,255,0.12);
+        font-size: 11px; font-weight: 500; color: #6B7280;
+        text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid rgba(0,0,0,0.08);
     }
     .hm-table th.hm-lh { text-align: left; min-width: 150px; }
     .hm-table td.hm-label {
-        font-size: 12px; color: #E8DFD5; padding: 3px 6px 3px 2px;
-        border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
+        font-size: 12px; color: #1A1A2E; padding: 3px 6px 3px 2px;
+        border-bottom: 1px solid rgba(255,255,255,0.95); white-space: nowrap;
     }
     .hm-table td.hm-label-sub {
-        font-size: 11px; color: #DBBBA7; padding: 3px 6px 3px 20px;
-        border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
+        font-size: 11px; color: #6B7280; padding: 3px 6px 3px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.95); white-space: nowrap;
     }
     .hm-table td.hm-c {
         text-align: center; padding: 3px 3px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+        border-bottom: 1px solid rgba(255,255,255,0.95);
     }
     .hm-cell-inner {
         display: flex; flex-direction: column; align-items: center;
@@ -9990,18 +9656,18 @@ def page_productivity_heatmap():
     }
     .hm-insight {
         margin-top: 1.5rem; padding: 12px 16px; border-radius: 8px;
-        border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
-        font-size: 12px; color: #DBBBA7; line-height: 1.6;
+        border: 1px solid rgba(0,0,0,0.08); background: rgba(27,63,139,0.03);
+        font-size: 12px; color: #6B7280; line-height: 1.6;
     }
-    .hm-insight b { color: #E8DFD5; font-weight: 600; }
+    .hm-insight b { color: #1A1A2E; font-weight: 600; }
     .hm-cell-inner-rec {
         display: flex; flex-direction: column; align-items: center;
         justify-content: center; border-radius: 6px;
         padding: 3px 4px; min-height: 30px; min-width: 60px;
-        border: 1.5px dashed #6FF24B;
+        border: 1.5px dashed #7ED321;
     }
-    .hm-rec-val { font-size: 11px; font-weight: 700; color: #6FF24B; }
-    .hm-rec-lbl { font-size: 9px; color: #DBBBA7; opacity: .9; }
+    .hm-rec-val { font-size: 11px; font-weight: 700; color: #7ED321; }
+    .hm-rec-lbl { font-size: 9px; color: #6B7280; opacity: .9; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -10057,7 +9723,7 @@ def page_productivity_heatmap():
             for i, (pct, (c, t)) in enumerate(zip(pcts, freqs)):
                 # Highlight the best week with a dashed lime border
                 is_best = (i == best_widx and best_pct > 0)
-                border_style = "outline:2px dashed #6FF24B;outline-offset:-2px;" if is_best else ""
+                border_style = "outline:2px dashed #7ED321;outline-offset:-2px;" if is_best else ""
                 sty = cell_style(pct, g["color_cell_lo"], g["color_cell_hi"],
                                  g["color_text_lo"], g["color_text_hi"])
                 trophy = '<span style="font-size:8px;opacity:.8">🏆</span>' if is_best else ""
@@ -10071,7 +9737,7 @@ def page_productivity_heatmap():
             html += f"<tr>{row}</tr>"
 
             # ── Benchmark subrow: "Tu récord" line ────────────────────────
-            rec_row = f'<td class="hm-label-sub" style="color:#8B9ED4;font-size:10px;">📈 récord personal</td>'
+            rec_row = f'<td class="hm-label-sub" style="color:#1B3F8B;font-size:10px;">📈 récord personal</td>'
             for i, pct in enumerate(pcts):
                 is_best = (i == best_widx and best_pct > 0)
                 if is_best:
@@ -10085,7 +9751,7 @@ def page_productivity_heatmap():
                 else:
                     delta = pct - best_pct
                     delta_str = f"{delta:+d}pp" if best_pct > 0 else "—"
-                    delta_color = "#6FF24B" if delta >= 0 else "#aaa"
+                    delta_color = "#7ED321" if delta >= 0 else "#aaa"
                     rec_row += (
                         f'<td class="hm-c">'
                         f'<div style="display:flex;align-items:center;justify-content:center;min-height:30px;">'
@@ -10113,16 +9779,16 @@ def page_productivity_heatmap():
     _bm_records.sort(key=lambda x: x[1], reverse=True)
     if _bm_records:
         _bm_items_html = "".join(
-            f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.08);">' 
-            f'<span style="font-size:12px;color:#E8DFD5;min-width:130px;">{bm_name}</span>' 
-            f'<span style="font-size:13px;font-weight:700;color:#6FF24B;">{bm_pct}%</span>' 
-            f'<span style="font-size:11px;color:#DBBBA7;">mejor en {bm_wk}</span>' 
+            f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.95);">' 
+            f'<span style="font-size:12px;color:#1A1A2E;min-width:130px;">{bm_name}</span>' 
+            f'<span style="font-size:13px;font-weight:700;color:#7ED321;">{bm_pct}%</span>' 
+            f'<span style="font-size:11px;color:#6B7280;">mejor en {bm_wk}</span>' 
             f'🏆</div>'
             for bm_name, bm_pct, bm_wk in _bm_records[:6]
         )
         html += f'''
-        <div style="margin-top:1.2rem;background:rgba(111,242,75,0.06);border:1px solid #6FF24B;border-radius:8px;padding:12px 16px;">
-        <div style="font-size:11px;font-weight:700;color:#6FF24B;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">
+        <div style="margin-top:1.2rem;background:rgba(111,242,75,0.06);border:1px solid #7ED321;border-radius:8px;padding:12px 16px;">
+        <div style="font-size:11px;font-weight:700;color:#7ED321;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">
             📈 Benchmark personal — tus récords por palanca
         </div>
         {_bm_items_html}
@@ -10240,8 +9906,8 @@ def page_productivity_heatmap():
             for _, r in corr_df.iterrows():
                 delta_val = r["Delta %"]
                 if delta_val is None or (isinstance(delta_val, float) and pd.isna(delta_val)):
-                    delta_cell = "<span style='color:#DBBBA7'>—</span>"
-                    delta_bg   = "rgba(255,255,255,0.05)"
+                    delta_cell = "<span style='color:#6B7280'>—</span>"
+                    delta_bg   = "rgba(255,255,255,0.90)"
                 elif float(delta_val) >= 0:
                     _lg = PALETTE["laser_green"]
                     delta_cell = f"<b style='color:{_lg};filter:brightness(.65)'>+{delta_val}%</b>"
@@ -10257,11 +9923,11 @@ def page_productivity_heatmap():
                 marcas   = int(r["Marcas c/ palanca"])
 
                 rows_html += (
-                    f"<tr style='border-bottom:1px solid rgba(255,255,255,0.08)'>"
-                    f"<td style='padding:5px 10px;color:#E8DFD5;font-weight:600'>{semana}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#DBBBA7'>{marcas}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#E8DFD5'>{gmv_con}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#E8DFD5'>{gmv_sin}</td>"
+                    f"<tr style='border-bottom:1px solid rgba(255,255,255,0.95)'>"
+                    f"<td style='padding:5px 10px;color:#1A1A2E;font-weight:600'>{semana}</td>"
+                    f"<td style='padding:5px 10px;text-align:center;color:#6B7280'>{marcas}</td>"
+                    f"<td style='padding:5px 10px;text-align:center;color:#1A1A2E'>{gmv_con}</td>"
+                    f"<td style='padding:5px 10px;text-align:center;color:#1A1A2E'>{gmv_sin}</td>"
                     f"<td style='padding:5px 10px;text-align:center;background:{delta_bg}'>{delta_cell}</td>"
                     f"</tr>"
                 )
@@ -10403,11 +10069,11 @@ def page_earnings_calculator():
         cx = cy   = size / 2
 
         if achievement >= 1.0:
-            arc_color = "#6FF24B"
+            arc_color = "#7ED321"
         elif achievement >= 0.7:
             arc_color = "#FF7124"
         else:
-            arc_color = "#E5332A"
+            arc_color = "#FF4D2E"
 
         pct_label  = f"+{round(over*100)}%" if over > 0 else f"{round(achievement*100)}%"
         over_label = "over goal!" if over > 0 else "achieved"
@@ -10415,23 +10081,23 @@ def page_earnings_calculator():
         # Color accent per KPI
         accent_map = {
             "Ads":         "#FF7124",
-            "MD":          "#8B9ED4",
-            "MD PRO":      "#6FF24B",
-            "Churn":       "#E5332A",
-            "Productivity":"#6FF24B",
+            "MD":          "#1B3F8B",
+            "MD PRO":      "#7ED321",
+            "Churn":       "#FF4D2E",
+            "Productivity":"#7ED321",
         }
-        accent = accent_map.get(name, "#8B9ED4")
+        accent = accent_map.get(name, "#1B3F8B")
 
         donut_svg = (
             f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}">'
             # track
-            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="{stroke}"/>'
+            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="{stroke}"/>'
             # progress arc
             f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{arc_color}" stroke-width="{stroke}" '
             f'stroke-dasharray="{filled} {gap}" stroke-dashoffset="{offset}" stroke-linecap="round"/>'
             # center % text
             f'<text x="{cx}" y="{cy - 6}" text-anchor="middle" font-size="20" font-weight="900" fill="{arc_color}">{pct_label}</text>'
-            f'<text x="{cx}" y="{cy + 12}" text-anchor="middle" font-size="9" fill="rgba(219,187,167,0.5)">{over_label}</text>'
+            f'<text x="{cx}" y="{cy + 12}" text-anchor="middle" font-size="9" fill="rgba(107,114,128,0.60)">{over_label}</text>'
             f'</svg>'
         )
 
@@ -10444,16 +10110,16 @@ def page_earnings_calculator():
     min-height:0;
     padding:22px 20px 18px;
 ">
-  <div style="font-size:13px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:14px;letter-spacing:.04em;">{name}</div>
+  <div style="font-size:13px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:14px;letter-spacing:.04em;">{name}</div>
   <div style="display:flex;align-items:center;gap:16px;">
     <div style="flex-shrink:0;">{donut_svg}</div>
     <div style="flex:1;min-width:0;">
       <div style="background:rgba(191,255,0,.07);border:1.5px solid rgba(191,255,0,.35);border-radius:14px;padding:10px 12px;margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">Target</div>
-        <div style="font-size:15px;font-weight:900;color:#E8DFD5;margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{target_formatter(target)}</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;">Target</div>
+        <div style="font-size:15px;font-weight:900;color:#1A1A2E;margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{target_formatter(target)}</div>
       </div>
       <div style="background:rgba(139,157,255,.07);border:1.5px solid rgba(139,157,255,.35);border-radius:14px;padding:10px 12px;">
-        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#DBBBA7;">Result</div>
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;color:#6B7280;">Result</div>
         <div style="font-size:15px;font-weight:900;color:{accent};margin-top:4px;line-height:1.15;overflow-wrap:anywhere;">{result_formatter(result)}</div>
       </div>
     </div>
@@ -10504,7 +10170,7 @@ def page_earnings_calculator():
         _next_bucket_name  = "Bucket 1 (90% del target)"
         _gap_to_next        = _b1_threshold - ads_result
         _comm_unlock        = (_b1_threshold - _b1_threshold) * 0.10  # = 0 (solo se empieza a acumular)
-        _next_color         = "#E5332A"
+        _next_color         = "#FF4D2E"
         _next_note          = f"Todavía no entraste al rango comisionado. Necesitás cerrar {fmt_usd(_gap_to_next)} más."
     elif ads_result < _b2_threshold:
         _next_bucket_name  = "Bucket 2 (100% del target)"
@@ -10521,7 +10187,7 @@ def page_earnings_calculator():
     else:
         _next_bucket_name  = "Superaste los 3 buckets 🏆"
         _gap_to_next        = 0
-        _next_color         = "#6FF24B"
+        _next_color         = "#7ED321"
         _next_note          = f"Estás en el máximo tier. Cada USD adicional genera 0.30 de comisión. Total acumulado: {fmt_usd(total_comm_usd)}."
 
     # Barra de progreso hacia el siguiente bucket
@@ -10535,21 +10201,21 @@ def page_earnings_calculator():
     st.markdown(f"""
 <div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-bottom:16px;
     box-shadow:0 4px 14px rgba(0,0,0,0.05);">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:10px;">
         🎯 Próximo hito de comisión
     </div>
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div>
             <div style="font-size:22px;font-weight:900;color:{_next_color};">{_next_bucket_name}</div>
-            <div style="font-size:15px;font-weight:800;color:#E8DFD5;margin-top:4px;">
+            <div style="font-size:15px;font-weight:800;color:#1A1A2E;margin-top:4px;">
                 {"Faltan " + fmt_usd(_gap_to_next) + " de ADS Revenue" if _gap_to_next > 0 else "¡Máximo nivel alcanzado!"}
             </div>
         </div>
         <div style="flex:1;min-width:200px;">
-            <div style="height:10px;border-radius:8px;background:rgba(255,255,255,0.08);overflow:hidden;margin-bottom:6px;">
+            <div style="height:10px;border-radius:8px;background:rgba(255,255,255,0.95);overflow:hidden;margin-bottom:6px;">
                 <div style="width:{_bucket_pct}%;height:100%;background:{_next_color};border-radius:8px;transition:width .4s;"></div>
             </div>
-            <div style="font-size:11px;color:#DBBBA7;">{_next_note}</div>
+            <div style="font-size:11px;color:#6B7280;">{_next_note}</div>
         </div>
     </div>
 </div>
@@ -10616,24 +10282,24 @@ def page_earnings_calculator():
 
         st.markdown(f"""
 <div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-top:12px;margin-bottom:16px;">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#DBBBA7;margin-bottom:12px;">
+    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:12px;">
         💡 Si cerrás este deal
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
         <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(219,187,167,0.5);text-transform:uppercase;margin-bottom:4px;">Deal</div>
-            <div style="font-size:22px;font-weight:900;color:#3B4883;">{fmt_usd(sim_deal_usd)}</div>
-            <div style="font-size:11px;color:rgba(219,187,167,0.5);">ADS Revenue</div>
+            <div style="font-size:10px;font-weight:700;color:rgba(107,114,128,0.60);text-transform:uppercase;margin-bottom:4px;">Deal</div>
+            <div style="font-size:22px;font-weight:900;color:#1B3F8B;">{fmt_usd(sim_deal_usd)}</div>
+            <div style="font-size:11px;color:rgba(107,114,128,0.60);">ADS Revenue</div>
         </div>
         <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(219,187,167,0.5);text-transform:uppercase;margin-bottom:4px;">Comisión extra</div>
-            <div style="font-size:22px;font-weight:900;color:#6FF24B;">+{fmt_usd(sim_delta)}</div>
-            <div style="font-size:11px;color:rgba(219,187,167,0.5);">≈ {fmt_cop(sim_delta_cop)} COP</div>
+            <div style="font-size:10px;font-weight:700;color:rgba(107,114,128,0.60);text-transform:uppercase;margin-bottom:4px;">Comisión extra</div>
+            <div style="font-size:22px;font-weight:900;color:#7ED321;">+{fmt_usd(sim_delta)}</div>
+            <div style="font-size:11px;color:rgba(107,114,128,0.60);">≈ {fmt_cop(sim_delta_cop)} COP</div>
         </div>
         <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(219,187,167,0.5);text-transform:uppercase;margin-bottom:4px;">Bucket</div>
+            <div style="font-size:10px;font-weight:700;color:rgba(107,114,128,0.60);text-transform:uppercase;margin-bottom:4px;">Bucket</div>
             <div style="font-size:15px;font-weight:900;color:#FF7124;">{sim_bucket_label}</div>
-            <div style="font-size:11px;color:rgba(219,187,167,0.5);">Total comisión: {fmt_usd(sim_total)}</div>
+            <div style="font-size:11px;color:rgba(107,114,128,0.60);">Total comisión: {fmt_usd(sim_total)}</div>
         </div>
     </div>
 </div>
@@ -12068,16 +11734,16 @@ def render_campaign_designer_html(design):
         fill = int(pct * width_pct)
         return (
             f"<div style='margin-bottom:10px'>"
-            f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:3px'>"
+            f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:3px'>"
             f"<span style='text-transform:uppercase;letter-spacing:.04em'>{html.escape(label)}</span>"
-            f"<span style='color:#E8DFD5'>{int(pct*100)}%</span></div>"
-            f"<div style='background:rgba(255,255,255,0.06);border-radius:999px;height:8px;overflow:hidden'>"
+            f"<span style='color:#1A1A2E'>{int(pct*100)}%</span></div>"
+            f"<div style='background:rgba(255,255,255,0.92);border-radius:999px;height:8px;overflow:hidden'>"
             f"<div style='width:{fill}%;height:100%;background:{color};border-radius:999px;transition:width .4s'></div>"
             f"</div></div>"
         )
 
     def risk_badge(risk_label):
-        colors = {"Low": ("#6FF24B", "rgba(111,242,75,0.08)"), "Medium": ("#FF7124", "rgba(255,113,36,0.08)"), "High": ("#E5332A", "rgba(229,51,42,0.10)")}
+        colors = {"Low": ("#7ED321", "rgba(111,242,75,0.08)"), "Medium": ("#FF7124", "rgba(255,113,36,0.08)"), "High": ("#FF4D2E", "rgba(229,51,42,0.10)")}
         fg, bg = colors.get(risk_label, ("#FF7124", "rgba(255,113,36,0.08)"))
         return (
             f"<span style='background:{bg};color:{fg};border:1px solid {fg};border-radius:999px;"
@@ -12086,7 +11752,7 @@ def render_campaign_designer_html(design):
 
     def check_row(label, ok):
         icon = "✅" if ok else "⬜"
-        color = "#6FF24B" if ok else "rgba(219,187,167,0.5)"
+        color = "#7ED321" if ok else "rgba(107,114,128,0.60)"
         return (
             f"<div style='display:flex;align-items:center;gap:8px;padding:5px 0;"
             f"border-bottom:1px solid rgba(0,0,0,.05);font-size:13px;color:{color};font-weight:700'>"
@@ -12106,9 +11772,9 @@ def render_campaign_designer_html(design):
     for (sub_label, sub_val, sub_copy, sub_cls) in strategy_sub_items:
         sub_cards_html += (
             f"<div class='campaign-mini-card {sub_cls}' style='flex:1 1 170px;min-width:155px;min-height:0;padding:12px 14px;border-radius:14px'>"
-            f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.05em;color:rgba(219,187,167,0.5);margin-bottom:4px'>{html.escape(sub_label)}</div>"
-            f"<div style='font-size:14px;font-weight:900;color:#E8DFD5;line-height:1.2;overflow-wrap:anywhere'>{html.escape(sub_val)}</div>"
-            f"<div style='font-size:11px;color:#DBBBA7;margin-top:4px;line-height:1.3'>{html.escape(sub_copy)}</div>"
+            f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.05em;color:rgba(107,114,128,0.60);margin-bottom:4px'>{html.escape(sub_label)}</div>"
+            f"<div style='font-size:14px;font-weight:900;color:#1A1A2E;line-height:1.2;overflow-wrap:anywhere'>{html.escape(sub_val)}</div>"
+            f"<div style='font-size:11px;color:#6B7280;margin-top:4px;line-height:1.3'>{html.escape(sub_copy)}</div>"
             f"</div>"
         )
 
@@ -12130,32 +11796,32 @@ def render_campaign_designer_html(design):
         f"<div class='card-label'>🏅 Top Products Pyramid</div>"
         f"<div style='margin-top:16px;display:flex;flex-direction:column;align-items:center;gap:10px;flex:1'>"
         # Level 1 — Hero
-        f"<div style='background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);backdrop-filter:blur(12px);color:#E8DFD5;border-radius:16px;"
+        f"<div style='background:rgba(255,255,255,0.95);border:1px solid rgba(255,255,255,0.15);backdrop-filter:blur(12px);color:#1A1A2E;border-radius:16px;"
         f"padding:18px 22px;font-size:16px;font-weight:900;text-align:center;width:62%;"
         f"line-height:1.3'>"
         f"🥇 Hero<br><span style='font-size:13px;font-weight:700;opacity:.75'>{p1_name}</span>"
         f"</div>"
         # Level 2 — Backup
-        f"<div style='background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(12px);color:#E8DFD5;border-radius:16px;"
+        f"<div style='background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);backdrop-filter:blur(12px);color:#1A1A2E;border-radius:16px;"
         f"padding:16px 22px;font-size:15px;font-weight:900;text-align:center;width:81%;"
         f"line-height:1.3'>"
         f"🥈 Backup<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p2_name}</span>"
         f"</div>"
         # Level 3 — Tactical
-        f"<div style='background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px);color:#E8DFD5;border-radius:16px;"
+        f"<div style='background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.95);backdrop-filter:blur(12px);color:#1A1A2E;border-radius:16px;"
         f"padding:14px 22px;font-size:14px;font-weight:900;text-align:center;width:100%;"
         f"line-height:1.3'>"
         f"🥉 Tactical<br><span style='font-size:12px;font-weight:700;opacity:.75'>{p3_name}</span>"
         f"</div>"
         f"</div>"
-        f"<div style='font-size:11px;color:rgba(219,187,167,0.5);margin-top:14px;text-align:center'>Use as album stickers for the pitch</div>"
+        f"<div style='font-size:11px;color:rgba(107,114,128,0.60);margin-top:14px;text-align:center'>Use as album stickers for the pitch</div>"
         f"</div>"
     )
 
     # ── 3. GUARDRAILS CARD (rediseñado) ──────────────────────────
     pressure_pct = to_number(pressure, 0)
 
-    risk_color_map = {"Low": "#6FF24B", "Medium": "#FF7124", "High": "#E5332A"}
+    risk_color_map = {"Low": "#7ED321", "Medium": "#FF7124", "High": "#FF4D2E"}
     risk_bg_map   = {"Low": "rgba(111,242,75,0.08)",  "Medium": "rgba(255,113,36,0.08)",  "High": "rgba(229,51,42,0.10)"}
     pressure_color = risk_color_map.get(risk, "#FF7124")
 
@@ -12163,9 +11829,9 @@ def render_campaign_designer_html(design):
     thermo_levels = {"Low": 1, "Medium": 2, "High": 3}
     thermo_level  = thermo_levels.get(risk, 2)
     thermo_colors = {
-        1: ("#6FF24B", "rgba(111,242,75,0.08)"),   # Low  → green
+        1: ("#7ED321", "rgba(111,242,75,0.08)"),   # Low  → green
         2: ("#FF7124", "rgba(255,113,36,0.08)"),   # Mid  → tangerine
-        3: ("#E5332A", "rgba(229,51,42,0.10)"),   # High → red
+        3: ("#FF4D2E", "rgba(229,51,42,0.10)"),   # High → red
     }
     thermo_fg, thermo_bg_light = thermo_colors[thermo_level]
     # Altura del relleno: 33% / 66% / 100%
@@ -12175,7 +11841,7 @@ def render_campaign_designer_html(design):
         f"<div style='display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px'>"
         f"<svg width='24' height='64' viewBox='0 0 24 64' fill='none' xmlns='http://www.w3.org/2000/svg'>"
         # tubo externo
-        f"<rect x='9' y='4' width='6' height='42' rx='3' fill='rgba(255,255,255,0.12)'/>"
+        f"<rect x='9' y='4' width='6' height='42' rx='3' fill='rgba(0,0,0,0.08)'/>"
         # relleno dinámico (crece de abajo hacia arriba)
         f"<rect x='9' y='{46 - thermo_fill_h // 3 * 14}' width='6' height='{thermo_fill_h // 3 * 14}' rx='3' fill='{thermo_fg}'/>"
         # bulbo
@@ -12185,7 +11851,7 @@ def render_campaign_designer_html(design):
         # etiquetas L / M / H al lado
         f"<div style='display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:-60px;margin-left:28px'>"
         + "".join([
-            f"<span style='font-size:9px;font-weight:900;color:{'#E5332A' if i==3 else '#FF7124' if i==2 else '#6FF24B'};opacity:{'1' if thermo_level==i else '0.3'}'>"
+            f"<span style='font-size:9px;font-weight:900;color:{'#FF4D2E' if i==3 else '#FF7124' if i==2 else '#7ED321'};opacity:{'1' if thermo_level==i else '0.3'}'>"
             f"{'H' if i==3 else 'M' if i==2 else 'L'}</span>"
             for i in [3, 2, 1]
         ]) +
@@ -12197,17 +11863,17 @@ def render_campaign_designer_html(design):
     pressure_dots_count = min(max(round(pressure_pct * 10), 0), 10)
     pressure_dots_html = "".join([
         f"<span style='display:inline-block;width:14px;height:14px;border-radius:50%;"
-        f"background:{'#E5332A' if idx >= 6 else '#FF7124' if idx >= 4 else '#6FF24B'};"
+        f"background:{'#FF4D2E' if idx >= 6 else '#FF7124' if idx >= 4 else '#7ED321'};"
         f"opacity:{'1' if idx < pressure_dots_count else '0.18'};margin:2px'></span>"
         for idx in range(10)
     ])
     pressure_dot_chart = (
         f"<div style='margin-bottom:10px'>"
-        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:6px'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:6px'>"
         f"<span style='text-transform:uppercase;letter-spacing:.04em'>Partner Pressure</span>"
-        f"<span style='color:#E8DFD5'>{int(pressure_pct * 100)}%</span></div>"
+        f"<span style='color:#1A1A2E'>{int(pressure_pct * 100)}%</span></div>"
         f"<div style='display:flex;flex-wrap:wrap;gap:3px'>{pressure_dots_html}</div>"
-        f"<div style='display:flex;justify-content:space-between;font-size:9px;color:rgba(219,187,167,0.5);margin-top:4px'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:9px;color:rgba(107,114,128,0.60);margin-top:4px'>"
         f"<span>LOW</span><span>MID</span><span>HIGH</span></div>"
         f"</div>"
     )
@@ -12215,7 +11881,7 @@ def render_campaign_designer_html(design):
     # ── Gráfico de proyección (barras históricas + proyección) para Impact ──
     impact_mid_val = (impact_low + impact_high) / 2
     impact_norm_val = min(max(impact_mid_val / 25.0, 0), 1)
-    impact_color_val = "#6FF24B" if impact_norm_val >= 0.5 else "#FF7124" if impact_norm_val >= 0.25 else "#8B9ED4"
+    impact_color_val = "#7ED321" if impact_norm_val >= 0.5 else "#FF7124" if impact_norm_val >= 0.25 else "#1B3F8B"
 
     # Barras: 4 históricas (valores simulados crecientes) + 1 proyección destacada
     # Las barras históricas representan semanas/períodos previos normalizados al GMV actual
@@ -12233,7 +11899,7 @@ def render_campaign_designer_html(design):
         _by = _chart_h - _bh
         _bars_svg += (
             f"<rect x='{_bx}' y='{_by}' width='{_bar_w}' height='{_bh}' rx='3' "
-            f"fill='rgba(219,187,167,0.4)' opacity='.7'/>"
+            f"fill='rgba(107,114,128,0.45)' opacity='.7'/>"
         )
     # Barra proyectada (última, destacada con el color del impact)
     _proj_bx = 4 + 4 * (_bar_w + _bar_gap)
@@ -12256,13 +11922,13 @@ def render_campaign_designer_html(design):
         for bi, r in enumerate(_hist_ratios)
     ])
     _bars_svg += (
-        f"<polyline points='{_trend_pts}' fill='none' stroke='#DBBBA7' "
+        f"<polyline points='{_trend_pts}' fill='none' stroke='#6B7280' "
         f"stroke-width='1.5' stroke-dasharray='3 2' stroke-linecap='round'/>"
     )
 
     impact_forecast_svg = (
         f"<div style='margin-bottom:10px'>"
-        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#DBBBA7;margin-bottom:4px'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px'>"
         f"<span style='text-transform:uppercase;letter-spacing:.04em'>Proyección de Impacto</span>"
         f"<span style='color:{impact_color_val};font-size:12px'>+{impact_low}% – +{impact_high}% GMV</span></div>"
         f"<svg viewBox='0 0 {_chart_w} {_chart_h}' width='100%' height='{_chart_h}' "
@@ -12283,17 +11949,17 @@ def render_campaign_designer_html(design):
         f"background:{thermo_bg_light};border-radius:12px;padding:10px 14px'>"
         f"{thermometer_svg}"
         f"<div style='margin-left:18px'>"
-        f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.06em;color:rgba(219,187,167,0.5)'>High Risk</div>"
+        f"<div style='font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.06em;color:rgba(107,114,128,0.60)'>High Risk</div>"
         f"<div style='font-size:18px;font-weight:900;color:{thermo_fg}'>{html.escape(risk)}</div>"
-        f"<div style='font-size:10px;color:rgba(219,187,167,0.5);margin-top:2px'>Low · Mid · High</div>"
+        f"<div style='font-size:10px;color:rgba(107,114,128,0.60);margin-top:2px'>Low · Mid · High</div>"
         f"</div>"
         f"</div>"
         # Partner Pressure con dot chart
         f"{pressure_dot_chart}"
         # Impact con forecast chart
         f"{impact_forecast_svg}"
-        f"<div style='margin-top:6px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 12px;"
-        f"font-size:11px;color:#DBBBA7;line-height:1.4'>"
+        f"<div style='margin-top:6px;background:rgba(255,255,255,0.92);border-radius:12px;padding:8px 12px;"
+        f"font-size:11px;color:#6B7280;line-height:1.4'>"
         f"⚠️ Pressure ≥60% = High Risk · ROI target Ads &gt;4.5x · MD &gt;3.2x"
         f"</div>"
         f"</div>"
@@ -12349,7 +12015,7 @@ def render_campaign_designer_html(design):
     reasoning_card = (
         f"<div class='campaign-mini-card lever-ops' style='padding:20px 22px'>"
         f"<div class='card-label'>🧠 Por qué esta estrategia</div>"
-        f"<div style='font-size:13px;color:#DBBBA7;line-height:1.65;margin-top:10px'>"
+        f"<div style='font-size:13px;color:#6B7280;line-height:1.65;margin-top:10px'>"
         f"{reasoning_paragraph}"
         f"</div>"
         f"</div>"
@@ -13126,27 +12792,27 @@ def _roi_chip(roi_value, benchmark=3.2):
     orange_end = benchmark / cap
 
     if roi >= benchmark:
-        label_color, label_text = "#6FF24B", f"ROI {fmt_roi(roi_value)} ✓"
+        label_color, label_text = "#7ED321", f"ROI {fmt_roi(roi_value)} ✓"
     elif roi >= benchmark * 0.6:
         label_color, label_text = "#D95A10", f"ROI {fmt_roi(roi_value)} ~"
     else:
-        label_color, label_text = "#E5332A", f"ROI {fmt_roi(roi_value)} ↓"
+        label_color, label_text = "#FF4D2E", f"ROI {fmt_roi(roi_value)} ↓"
 
     gauge_svg = (
         f'<svg width="108" height="54" viewBox="0 0 108 54" xmlns="http://www.w3.org/2000/svg">'
         # Red arc
-        f'<path d="{arc_path(0, red_end)}" fill="#E5332A" opacity="0.85"/>'
+        f'<path d="{arc_path(0, red_end)}" fill="#FF4D2E" opacity="0.85"/>'
         # Orange arc
         f'<path d="{arc_path(red_end, orange_end)}" fill="#FF7124" opacity="0.85"/>'
         # Green arc
-        f'<path d="{arc_path(orange_end, 1.0)}" fill="#6FF24B" opacity="0.85"/>'
+        f'<path d="{arc_path(orange_end, 1.0)}" fill="#7ED321" opacity="0.85"/>'
         # Needle
-        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#272D4E" stroke-width="2.5" stroke-linecap="round"/>'
+        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>'
         # Center dot
-        f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="#272D4E"/>'
+        f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="#FFFFFF"/>'
         # Benchmark tick
-        f'<line x1="{cx + r * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y1="{cy + r * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" x2="{cx + (r + 4) * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y2="{cy + (r + 4) * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" stroke="#272D4E" stroke-width="1.5"/>'
-        f'<text x="{cx}" y="52" text-anchor="middle" font-size="7" fill="#DBBBA7" font-weight="700">/{benchmark}x</text>'
+        f'<line x1="{cx + r * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y1="{cy + r * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" x2="{cx + (r + 4) * _math.cos(_math.radians(-180 + orange_end * 180)):.1f}" y2="{cy + (r + 4) * _math.sin(_math.radians(-180 + orange_end * 180)):.1f}" stroke="#FFFFFF" stroke-width="1.5"/>'
+        f'<text x="{cx}" y="52" text-anchor="middle" font-size="7" fill="#6B7280" font-weight="700">/{benchmark}x</text>'
         '</svg>'
     )
 
@@ -13172,7 +12838,7 @@ def _business_card(label, value, copy="", lever_class="", chip=""):
 def render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw=0, conversion_raw=0, commission_raw=0, cvr_weekly=None, cvr_source='Sin datos', cvr_bench=None):
     import math as _math
 
-    def _waffle_icons(filled_count, total=10, filled_color="#6FF24B", empty_color="rgba(255,255,255,0.15)"):
+    def _waffle_icons(filled_count, total=10, filled_color="#7ED321", empty_color="rgba(255,255,255,0.15)"):
         person_path = '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/>'
         icons = []
         for i in range(total):
@@ -13206,11 +12872,11 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
 
         # Color: green if under benchmark, orange approaching, red over
         if commission_val >= benchmark:
-            nc = "#E5332A"
+            nc = "#FF4D2E"
         elif commission_val >= benchmark * 0.6:
             nc = "#FF7124"
         else:
-            nc = "#6FF24B"
+            nc = "#7ED321"
 
         green_w  = green_end * bar_w
         orange_w = (orange_end - green_end) * bar_w
@@ -13221,14 +12887,14 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
 
         svg_parts = [
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">',
-            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.08)"/>',
+            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.95)"/>',
             f'<rect x="{pad_l:.1f}" y="{bar_y}" width="{green_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(191,255,0,0.28)"/>',
             f'<rect x="{orange_x:.1f}" y="{bar_y}" width="{orange_w:.1f}" height="{bar_h}" fill="rgba(255,138,61,0.22)"/>',
             f'<rect x="{red_x:.1f}" y="{bar_y}" width="{red_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,92,122,0.25)"/>',
             f'<rect x="{pad_l}" y="{bar_y + 1}" width="{fill_w:.1f}" height="{bar_h - 2}" rx="{rx - 1}" fill="{nc}" opacity="0.90"/>',
-            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#272D4E" opacity="0.40"/>',
+            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#FFFFFF" opacity="0.40"/>',
             f'<text x="{pad_l}" y="{label_y}" font-size="6.5" font-weight="900" fill="{nc}">{fmt_percent0(commission_val)}</text>',
-            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="rgba(219,187,167,0.5)" font-weight="700">/{fmt_percent0(benchmark)}</text>',
+            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="rgba(107,114,128,0.60)" font-weight="700">/{fmt_percent0(benchmark)}</text>',
             '</svg>',
         ]
         return f'<div style="position:absolute;bottom:8px;right:8px;opacity:0.95;">{"".join(svg_parts)}</div>'
@@ -13250,7 +12916,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         fill_ratio = min(max(roi_val / max_val, 0), 1)
         fill_w     = fill_ratio * bar_w
         bm_x       = pad_l + (bmark / max_val) * bar_w
-        nc = "#6FF24B" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#E5332A")
+        nc = "#7ED321" if roi_val >= bmark else ("#FF7124" if roi_val >= bmark * 0.6 else "#FF4D2E")
 
         red_w    = (bmark * 0.6 / max_val) * bar_w
         orange_w = ((bmark - bmark * 0.6) / max_val) * bar_w
@@ -13264,7 +12930,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         svg_parts = [
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">',
             # Track
-            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.08)"/>',
+            f'<rect x="{pad_l}" y="{bar_y}" width="{bar_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,255,255,0.95)"/>',
             # Zone tints
             f'<rect x="{red_x:.1f}" y="{bar_y}" width="{red_w:.1f}" height="{bar_h}" rx="{rx}" fill="rgba(255,92,122,0.28)"/>',
             f'<rect x="{orange_x:.1f}" y="{bar_y}" width="{orange_w:.1f}" height="{bar_h}" fill="rgba(255,138,61,0.22)"/>',
@@ -13272,11 +12938,11 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
             # Filled bar
             f'<rect x="{pad_l}" y="{bar_y + 1}" width="{fill_w:.1f}" height="{bar_h - 2}" rx="{rx - 1}" fill="{nc}" opacity="0.90"/>',
             # Benchmark tick
-            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#272D4E" opacity="0.40"/>',
+            f'<rect x="{bm_x - 0.8:.1f}" y="{bar_y - 2}" width="1.6" height="{bar_h + 4}" rx="0.8" fill="#FFFFFF" opacity="0.40"/>',
             # Value label
             f'<text x="{pad_l}" y="{label_y}" font-size="6.5" font-weight="900" fill="{nc}">{roi_val:.1f}x</text>',
             # Benchmark label
-            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="rgba(219,187,167,0.5)" font-weight="700">/{bmark}x</text>',
+            f'<text x="{W - pad_r}" y="{label_y}" text-anchor="end" font-size="5.5" fill="rgba(107,114,128,0.60)" font-weight="700">/{bmark}x</text>',
             '</svg>',
         ]
         return f'<div style="position:absolute;top:8px;right:8px;opacity:0.95;">{"".join(svg_parts)}</div>'
@@ -13294,14 +12960,14 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     # PRO Users card with waffle
     pro_pct = round(pro_users_raw * 100) if pro_users_raw <= 1 else round(pro_users_raw)
     pro_icons = max(0, min(10, round(pro_pct / 10)))
-    pro_waffle_html = _waffle_icons(pro_icons, filled_color="#6FF24B", empty_color="rgba(255,255,255,0.15)")
+    pro_waffle_html = _waffle_icons(pro_icons, filled_color="#7ED321", empty_color="rgba(255,255,255,0.15)")
     pro_card = (
         f"<div class='business-mini-card lever-pro'>"
         f"<div class='card-label'>PRO Users</div>"
         f"<div class='card-value'>{html.escape(clean(pro_users_display, '-'))}</div>"
         f"<div class='card-copy'>User mix / Prime opportunity</div>"
         f"{pro_waffle_html}"
-        f'<div style="font-size:10px;color:#DBBBA7;margin-top:4px;">{pro_icons} de 10 · 1 figura = 10%</div>'
+        f'<div style="font-size:10px;color:#6B7280;margin-top:4px;">{pro_icons} de 10 · 1 figura = 10%</div>'
         f"</div>"
     )
 
@@ -13310,17 +12976,17 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     _cvr_norm = (_cvr_val if _cvr_val <= 1 else _cvr_val / 100) if _cvr_val else 0
     cr_pct = round(_cvr_norm * 100)
     cr_icons = max(0, min(10, round(cr_pct / 10)))
-    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#3B4883", empty_color="rgba(255,255,255,0.15)")
+    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#1B3F8B", empty_color="rgba(255,255,255,0.15)")
     _cvr_main = fmt_percent0(_cvr_norm) if _cvr_val is not None else clean(conversion_display, '-')
-    _cvr_src_html = f"<span style='font-size:9px;color:rgba(219,187,167,0.5);margin-left:4px;'>({html.escape(cvr_source)})</span>"
+    _cvr_src_html = f"<span style='font-size:9px;color:rgba(107,114,128,0.60);margin-left:4px;'>({html.escape(cvr_source)})</span>"
     _bench_html = ""
     if cvr_bench is not None:
         _bn = cvr_bench if cvr_bench <= 1 else cvr_bench / 100
         _delta = _cvr_norm - _bn
-        _dc = "#6FF24B" if _delta >= 0 else "#E5332A"
+        _dc = "#7ED321" if _delta >= 0 else "#FF4D2E"
         _ds = "+" if _delta >= 0 else ""
         _bench_html = (
-            f'<div style="font-size:10px;color:#DBBBA7;margin-top:4px;">'
+            f'<div style="font-size:10px;color:#6B7280;margin-top:4px;">'
             f'Benchmark categ.: {fmt_percent0(_bn)} '
             f'<span style="color:{_dc};font-weight:700;">{_ds}{fmt_percent0(_delta)}</span>'
             f'</div>'
@@ -13332,7 +12998,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         f"<div class='card-copy'>Últimas 4 semanas · vs benchmark categoría</div>"
         f"{cr_waffle_html}"
         f"{_bench_html}"
-        f'<div style="font-size:10px;color:#DBBBA7;margin-top:2px;">{cr_icons} de 10 · 1 figura = 10%</div>'
+        f'<div style="font-size:10px;color:#6B7280;margin-top:2px;">{cr_icons} de 10 · 1 figura = 10%</div>'
         f"</div>"
     )
 
@@ -13436,7 +13102,7 @@ def render_brand_profile(row, brand_id):
     coin_info = get_coinversion_info(brand_id, name)
     extra_stickers_html = ""
     if coin_info.get("found"):
-        tier_color = "linear-gradient(145deg,#3B4883,#272D4E)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#6FF24B,#6FF24B)"
+        tier_color = "linear-gradient(145deg,#1B3F8B,#FFFFFF)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#7ED321,#7ED321)"
         extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_color};margin-left:8px'>{coin_info['sticker']}</span>"
 
     # General Information fields — computed here so they can be embedded in the hero-card
@@ -13451,7 +13117,7 @@ def render_brand_profile(row, brand_id):
     finder_search_url = _build_google_search_url(name, category, finder_contact_number)
     _saved_link_sticker = (
         f"<a href='{html.escape(finder_saved_link)}' target='_blank' rel='noopener noreferrer' "
-        f"style='color:#6FF24B;font-size:13px;font-weight:600;text-decoration:none;'>📍 Local</a>"
+        f"style='color:#7ED321;font-size:13px;font-weight:600;text-decoration:none;'>📍 Local</a>"
         if finder_saved_link else
         f"<a href='{html.escape(finder_search_url)}' target='_blank' rel='noopener noreferrer' "
         f"style='color:rgba(169,187,255,0.6);font-size:13px;text-decoration:none;'>🔎 Buscar</a>"
@@ -13484,7 +13150,7 @@ def render_brand_profile(row, brand_id):
         </div>
         <div class="hero-info-item">
             <div class="hero-info-label">Contact</div>
-            <div class="hero-info-value" id="contact-num-{normalize_brand_id(brand_id)}">{html.escape(fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"])))}&nbsp;<button onclick="(function(){{var t=document.getElementById('contact-num-{normalize_brand_id(brand_id)}').innerText.trim();navigator.clipboard.writeText(t).then(function(){{var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}}).catch(function(){{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{{document.execCommand('copy');}}catch(e){{}}document.body.removeChild(ta);var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}});}})();" id="copy-btn-{normalize_brand_id(brand_id)}" title="Copiar número" style="background:rgba(59,72,131,0.28);border:1px solid rgba(59,72,131,0.55);border-radius:5px;padding:1px 6px;font-size:11px;cursor:pointer;color:#8B9ED4;vertical-align:middle;margin-left:2px;">📋</button></div>
+            <div class="hero-info-value" id="contact-num-{normalize_brand_id(brand_id)}">{html.escape(fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"])))}&nbsp;<button onclick="(function(){{var t=document.getElementById('contact-num-{normalize_brand_id(brand_id)}').innerText.trim();navigator.clipboard.writeText(t).then(function(){{var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}}).catch(function(){{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{{document.execCommand('copy');}}catch(e){{}}document.body.removeChild(ta);var b=document.getElementById('copy-btn-{normalize_brand_id(brand_id)}');b.textContent='✅';setTimeout(function(){{b.textContent='📋';}},1800);}});}})();" id="copy-btn-{normalize_brand_id(brand_id)}" title="Copiar número" style="background:rgba(59,72,131,0.28);border:1px solid rgba(59,72,131,0.55);border-radius:5px;padding:1px 6px;font-size:11px;cursor:pointer;color:#1B3F8B;vertical-align:middle;margin-left:2px;">📋</button></div>
         </div>
         <div class="hero-info-item">
             <div class="hero-info-label">Email</div>
@@ -13589,10 +13255,10 @@ def render_brand_profile(row, brand_id):
                 _cl_brand = _cl_brand.sort_values("datetime", ascending=False).head(5)
                 _hist_rows = "".join([
                     f"<div style='display:flex;gap:12px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,0.06);align-items:baseline;'>"
-                    f"<span style='font-size:11px;color:rgba(219,187,167,0.5);white-space:nowrap;min-width:110px;'>{html.escape(str(r.get('datetime',''))[:16])}</span>"
-                    f"<span style='font-size:12px;color:#DBBBA7;min-width:120px;'>{html.escape(str(r.get('field','')))}</span>"
-                    f"<span style='font-size:12px;color:rgba(219,187,167,0.5);text-decoration:line-through;margin-right:6px;'>{html.escape(str(r.get('old_value','')))}</span>"
-                    f"<span style='font-size:12px;font-weight:700;color:#E8DFD5;'>{html.escape(str(r.get('new_value','')))}</span>"
+                    f"<span style='font-size:11px;color:rgba(107,114,128,0.60);white-space:nowrap;min-width:110px;'>{html.escape(str(r.get('datetime',''))[:16])}</span>"
+                    f"<span style='font-size:12px;color:#6B7280;min-width:120px;'>{html.escape(str(r.get('field','')))}</span>"
+                    f"<span style='font-size:12px;color:rgba(107,114,128,0.60);text-decoration:line-through;margin-right:6px;'>{html.escape(str(r.get('old_value','')))}</span>"
+                    f"<span style='font-size:12px;font-weight:700;color:#1A1A2E;'>{html.escape(str(r.get('new_value','')))}</span>"
                     f"</div>"
                     for _, r in _cl_brand.iterrows()
                 ])
@@ -13620,32 +13286,32 @@ def render_brand_profile(row, brand_id):
     _bf_days = _days_since_timestamp(_bf_last_dt)
     if _bf_days is None:
         _bf_days_label = "Sin contacto registrado"
-        _bf_days_color = "#E5332A"
+        _bf_days_color = "#FF4D2E"
     elif _bf_days == 0:
         _bf_days_label = "Contactado hoy"
-        _bf_days_color = "#6FF24B"
+        _bf_days_color = "#7ED321"
     elif _bf_days <= 7:
         _bf_days_label = f"Hace {_bf_days}d · en ciclo activo"
-        _bf_days_color = "#6FF24B"
+        _bf_days_color = "#7ED321"
     elif _bf_days <= 14:
         _bf_days_label = f"Hace {_bf_days}d · en cadencia"
-        _bf_days_color = "#6FF24B"
+        _bf_days_color = "#7ED321"
     elif _bf_days <= 21:
         _bf_days_label = f"Hace {_bf_days}d · zona de alerta"
         _bf_days_color = "#FF7124"
     else:
         _bf_days_label = f"Hace {_bf_days}d · marca fría ❄️"
-        _bf_days_color = "#E5332A"
+        _bf_days_color = "#FF4D2E"
 
     # Temperature badge
     if _bf_days is None or _bf_days > 21:
-        _bf_temp_badge = "<span style='background:rgba(229,51,42,0.10);color:#E5332A;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>❄️ Fría</span>"
+        _bf_temp_badge = "<span style='background:rgba(229,51,42,0.10);color:#FF4D2E;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>❄️ Fría</span>"
     elif _bf_days > 14:
         _bf_temp_badge = "<span style='background:rgba(255,113,36,0.10);color:#D95A10;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟠 Alerta</span>"
     elif _bf_days > 7:
         _bf_temp_badge = "<span style='background:rgba(255,113,36,0.08);color:#D95A10;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟡 Cadencia</span>"
     else:
-        _bf_temp_badge = "<span style='background:rgba(111,242,75,0.08);color:#6FF24B;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟢 Activa</span>"
+        _bf_temp_badge = "<span style='background:rgba(111,242,75,0.08);color:#7ED321;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;'>🟢 Activa</span>"
 
     # Opportunity score from scored data
     _bf_scored_df = _prepare_growth_scored_data()
@@ -13666,9 +13332,9 @@ def render_brand_profile(row, brand_id):
                     _bf_opp_rank = int(_bf_rank_match.index[0]) + 1
 
     _bf_score_html = (
-        f"<span style='font-size:20px;font-weight:900;color:#3B4883;'>{_bf_opp_score}</span>"
-        f"<span style='font-size:11px;color:#DBBBA7;margin-left:4px;'>opp. score</span>"
-        f"<span style='font-size:11px;color:#DBBBA7;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
+        f"<span style='font-size:20px;font-weight:900;color:#1B3F8B;'>{_bf_opp_score}</span>"
+        f"<span style='font-size:11px;color:#6B7280;margin-left:4px;'>opp. score</span>"
+        f"<span style='font-size:11px;color:#6B7280;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
         if _bf_opp_score is not None else
         "<span style='font-size:12px;color:#aaa;'>Score no disponible</span>"
     )
@@ -13876,7 +13542,7 @@ def render_brand_profile(row, brand_id):
 
     # Source badge (tiny label below the note)
     _source_badge_map = {
-        "transcript":  ("#6FF24B", "📋 Transcripción"),
+        "transcript":  ("#7ED321", "📋 Transcripción"),
         "productivity": (PALETTE["blue_glow"], "📊 Productivity mes"),
         "csv":         (PALETTE["cinnamon_ice"], "💬 Último contacto"),
         "excel":       ("#aaa", "📄 Excel"),
@@ -13890,7 +13556,7 @@ def render_brand_profile(row, brand_id):
     )
 
     _bf_last_note_html = (
-        f'<span style="font-size:11px;color:#DBBBA7;font-style:italic;white-space:pre-wrap;line-height:1.5;">'
+        f'<span style="font-size:11px;color:#6B7280;font-style:italic;white-space:pre-wrap;line-height:1.5;">'
         f'{html.escape(_note_display_clean)}</span>'
         f'{_source_badge_html}'
         if _display_last_note and _display_last_note.strip() not in ["-", ""] else
@@ -13899,16 +13565,16 @@ def render_brand_profile(row, brand_id):
 
     st.markdown(f"""
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
-      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;">
+      <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Último contacto</div>
         <div style="font-size:13px;font-weight:800;color:{_bf_days_color};">{_bf_days_label}</div>
         <div style="margin-top:6px;">{_bf_temp_badge}</div>
       </div>
-      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
+      <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
         <div style="margin-top:2px;">{_bf_last_note_html}</div>
       </div>
-      <div style="background:rgba(59,72,131,0.18);border:1px solid rgba(59,72,131,0.35);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
+      <div style="background:rgba(59,72,131,0.18);border:1px solid rgba(27,63,139,0.12);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:{PALETTE['blue_glow']};margin-bottom:8px;">🎯 Retomar llamada</div>
         <div style="margin-top:2px;">{_retomar_html}</div>
       </div>
@@ -13983,7 +13649,7 @@ def render_brand_profile(row, brand_id):
         svg_parts = [
             f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">',
             # Línea base (eje X)
-            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>',
+            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>',
             # Línea de tendencia
             f'<polyline points="{line_pts}" fill="none" stroke="#FF7124" stroke-width="1.8"/>',
         ]
@@ -14016,7 +13682,7 @@ def render_brand_profile(row, brand_id):
             # Etiqueta del mes en el eje X
             svg_parts.append(
                 f'<text x="{x:.1f}" y="{MT+PH+11}" text-anchor="middle" '
-                f'font-size="6.5" fill="rgba(219,187,167,0.6)" font-weight="700">{lbl}</text>'
+                f'font-size="6.5" fill="rgba(107,114,128,0.70)" font-weight="700">{lbl}</text>'
             )
 
         svg_parts.append('</svg>')
@@ -14027,7 +13693,7 @@ def render_brand_profile(row, brand_id):
             change_pct = points_raw[-1][1] / points_raw[-2][1] - 1
         else:
             change_pct = None
-        _change_color = "#6FF24B" if (change_pct or 0) >= 0 else "#E5332A"
+        _change_color = "#7ED321" if (change_pct or 0) >= 0 else "#FF4D2E"
         _change_sign  = "+" if (change_pct or 0) >= 0 else ""
         _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
 
@@ -14060,10 +13726,10 @@ def render_brand_profile(row, brand_id):
         st.markdown(_gmv_card, unsafe_allow_html=True)
         _orders_from_caba = get_orders_from_detalle_caba(brand_id, brand_name=name)
         st.markdown(
-            f"""<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+            f"""<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.1);
             border-radius:10px;padding:8px 14px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
                 <span style="font-size:11px;color:rgba(232,223,213,.6);font-weight:700;letter-spacing:.04em;">📦 ÓRDENES · DETALLE CABA</span>
-                <span style="font-size:16px;font-weight:800;color:#E8DFD5;">{int(_orders_from_caba):,}</span>
+                <span style="font-size:16px;font-weight:800;color:#1A1A2E;">{int(_orders_from_caba):,}</span>
             </div>""".replace(",", "."),
             unsafe_allow_html=True
         )
@@ -14138,20 +13804,20 @@ def render_brand_profile(row, brand_id):
 
 
 
-    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#3B4883"):
+    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#1B3F8B"):
         return f"""
-<div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;min-height:160px;">
+<div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;min-height:160px;">
   <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:8px;">{emoji} {title}</div>
   <div style="font-size:24px;font-weight:900;color:{color};line-height:1.1;">{main_value}</div>
-  <div style="font-size:12px;color:#DBBBA7;margin-top:3px;margin-bottom:10px;">{main_sub}</div>
+  <div style="font-size:12px;color:#6B7280;margin-top:3px;margin-bottom:10px;">{main_sub}</div>
   <div style="border-top:1px solid rgba(78,99,217,0.12);padding-top:8px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8B9ED4;margin-bottom:4px;">Cómo decírselo al dueño</div>
-    <div style="font-size:12px;color:#DBBBA7;line-height:1.45;font-style:italic;">"{pitch_text}"</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#1B3F8B;margin-bottom:4px;">Cómo decírselo al dueño</div>
+    <div style="font-size:12px;color:#6B7280;line-height:1.45;font-style:italic;">"{pitch_text}"</div>
   </div>
 </div>"""
 
     # ── Compute card values for all 4 analytics cards ───────────────────────
-    _be_color = "#E5332A" if _be_pct_over_current > 40 else "#FF7124" if _be_pct_over_current > 20 else "#6FF24B"
+    _be_color = "#FF4D2E" if _be_pct_over_current > 40 else "#FF7124" if _be_pct_over_current > 20 else "#7ED321"
     _aov_rounded        = round(_aov / 1000) * 1000
     _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
     _promos_per_order   = round(_margin_per_order / _promo_cost_per_order, 1) if _promo_cost_per_order > 0 else 0
@@ -14173,7 +13839,7 @@ def render_brand_profile(row, brand_id):
         _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
     elif _cr_above_bench:
         _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
-        _inc_color = "#E8DFD5"
+        _inc_color = "#1A1A2E"
         _c3_main   = f"+{_delta_pp}pp sobre benchmark"
         _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
         _c3_pitch  = (
@@ -14181,7 +13847,7 @@ def render_brand_profile(row, brand_id):
             + (f"Con {_traffic_disp} visitas mensuales reales, el problema no es la tienda — es el volumen de tráfico." if _traffic_disp else "El problema no es la tienda — es el volumen de tráfico.")
         )
     else:
-        _inc_color = "#6FF24B" if _gmv_incremental > 0 else "#aaa"
+        _inc_color = "#7ED321" if _gmv_incremental > 0 else "#aaa"
         _c3_main   = fmt_ars(round(_gmv_incremental)) if _gmv_incremental > 0 else "Sin dato suficiente"
         _c3_sub    = f"CR {_cr_display} → benchmark {_bench_display} ({_bench_source}) · {_traffic_source}"
         _c3_pitch  = (
@@ -14200,13 +13866,13 @@ def render_brand_profile(row, brand_id):
         _d4_pitch = "Activá ads para empezar a generar tráfico y CVR medibles."
     else:
         if not _traffic_ok and not _cvr_ok:
-            _d4_color = "#E5332A"; _d4_diag = "Problema doble"; _d4_diag_sub = "Tráfico bajo y conversión baja"
+            _d4_color = "#FF4D2E"; _d4_diag = "Problema doble"; _d4_diag_sub = "Tráfico bajo y conversión baja"
         elif not _traffic_ok:
             _d4_color = "#FF7124"; _d4_diag = "Problema: Tráfico"; _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
         elif not _cvr_ok:
             _d4_color = "#FF7124"; _d4_diag = "Problema: Conversión"; _d4_diag_sub = "Hay visitas · la tienda no convierte"
         else:
-            _d4_color = "#6FF24B"; _d4_diag = "Ambas métricas OK"; _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
+            _d4_color = "#7ED321"; _d4_diag = "Ambas métricas OK"; _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
         _lost_orders = round(_traffic_weekly * max(_cr_benchmark_norm - _cr_current_norm, 0)) if (_has_traffic and _has_cvr and not _cvr_ok) else 0
         _d4_main = _d4_diag
         _tw_disp = f"{round(_traffic_weekly):,}".replace(",", ".") if _has_traffic else "s/d"
@@ -14285,16 +13951,16 @@ def render_brand_profile(row, brand_id):
         _lever_tactical_map.setdefault(_lc, []).append(_item)
 
     fill_colors_map = {
-        'health-green':  '#6FF24B',
-        'health-yellow': '#8B9ED4',
+        'health-green':  '#7ED321',
+        'health-yellow': '#1B3F8B',
         'health-orange': '#FF7124',
-        'health-red':    '#E5332A',
+        'health-red':    '#FF4D2E',
     }
     pct_colors_map = {
-        'health-green':  '#6FF24B',
+        'health-green':  '#7ED321',
         'health-yellow': '#D95A10',
         'health-orange': '#D95A10',
-        'health-red':    '#E5332A',
+        'health-red':    '#FF4D2E',
     }
     area_emojis_map = {
         'lever-ops':  '⚙️',
@@ -14317,8 +13983,8 @@ def render_brand_profile(row, brand_id):
         score_pct   = float(score_match.group(1)) if score_match else 100.0
         score_pct   = max(0.0, min(100.0, score_pct))
 
-        ring_color = '#272D4E' if lever_cls == 'lever-menu' else '#6FF24B'
-        pct_color  = pct_colors_map.get(health_cls, '#6FF24B')
+        ring_color = '#FFFFFF' if lever_cls == 'lever-menu' else '#7ED321'
+        pct_color  = pct_colors_map.get(health_cls, '#7ED321')
         emoji      = area_emojis_map.get(lever_cls, '📊')
 
         r     = 22
@@ -14328,7 +13994,7 @@ def render_brand_profile(row, brand_id):
 
         ring_svg = (
             f'<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
-            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5"/>'
+            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="5"/>'
             f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="{ring_color}" stroke-width="5" '
             f'stroke-linecap="round" stroke-dasharray="{filled} {gap}" transform="rotate(-90 30 30)"/>'
             f'<text x="30" y="35" text-anchor="middle" font-size="18">{emoji}</text>'
@@ -14355,7 +14021,7 @@ def render_brand_profile(row, brand_id):
             divider = (
                 "<div style='margin:14px 0 10px;border-top:1px solid rgba(78,99,217,0.18);'></div>"
                 "<div style='font-size:10px;font-weight:900;text-transform:uppercase;"
-                "letter-spacing:.06em;color:#8B9ED4;margin-bottom:8px;'>🎯 Priority Signal</div>"
+                "letter-spacing:.06em;color:#1B3F8B;margin-bottom:8px;'>🎯 Priority Signal</div>"
             )
             items_html = ""
             for ti in tactical_items:
@@ -14363,14 +14029,14 @@ def render_brand_profile(row, brand_id):
                 t_cue  = clean(ti.get('cue') or ti.get('argument'), '')
                 t_cls  = clean(ti.get('class'), 'health-yellow')
                 t_color_map = {
-                    'health-green': '#6FF24B', 'health-yellow': '#D95A10',
-                    'health-orange': '#D95A10', 'health-red': '#E5332A',
+                    'health-green': '#7ED321', 'health-yellow': '#D95A10',
+                    'health-orange': '#D95A10', 'health-red': '#FF4D2E',
                 }
                 t_col = t_color_map.get(t_cls, '#D95A10')
                 items_html += (
                     f"<div style='margin-bottom:8px;'>"
                     f"<div style='font-size:13px;font-weight:900;color:{t_col};line-height:1.15;'>{html.escape(t_main)}</div>"
-                    + (f"<div style='font-size:11px;color:#DBBBA7;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
+                    + (f"<div style='font-size:11px;color:#6B7280;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
                     + "</div>"
                 )
             bottom_html = divider + items_html
@@ -14551,23 +14217,23 @@ def render_brand_profile(row, brand_id):
     if _bullets or reasoning_paragraph:
         _items_html = "".join(
             f"<div style='display:flex;gap:10px;margin-bottom:9px;'>"
-            f"<span style='color:#6FF24B;font-size:14px;line-height:1.5;flex-shrink:0;'>›</span>"
+            f"<span style='color:#7ED321;font-size:14px;line-height:1.5;flex-shrink:0;'>›</span>"
             f"<span style='font-size:13px;line-height:1.6;'>{b}</span>"
             f"</div>"
             for b in _bullets
         )
         if reasoning_paragraph:
             _reasoning_html = (
-                f"<div style='font-size:13px;color:#DBBBA7;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
-                f"<hr style='border:none;border-top:1px solid rgba(255,255,255,0.08);margin:14px 0;'>"
+                f"<div style='font-size:13px;color:#6B7280;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
+                f"<hr style='border:none;border-top:1px solid rgba(255,255,255,0.95);margin:14px 0;'>"
             )
 
     _pitch_block = ""
     if _bullets or reasoning_paragraph:
         _pitch_block = (
-            f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);"
+            f"<div style='background:rgba(27,63,139,0.03);border:1px solid rgba(255,255,255,0.97);"
             f"border-radius:14px;padding:20px 22px;margin-top:16px;'>"
-            f"<div style='font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);"
+            f"<div style='font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);"
             f"letter-spacing:.06em;margin-bottom:12px;'>📋 Datos para el pitch · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>"
             f"<div>{_reasoning_html}{_items_html}</div>"
             f"</div>"
@@ -14604,22 +14270,22 @@ def render_brand_profile(row, brand_id):
                 _pf_ancla_body += " Hay marcas similares vendiendo mucho más con la palanca correcta."
         except Exception:
             pass
-        _pf_ancla_color = "#6FF24B" if (_pf_pct_num if "brand_percentile" in mctx else 0) >= 75 else "#FF7124"
+        _pf_ancla_color = "#7ED321" if (_pf_pct_num if "brand_percentile" in mctx else 0) >= 75 else "#FF7124"
     elif _pi_gmv > 0 and mctx.get("market_gmv_avg"):
         try:
             _avg_n = float(mctx["market_gmv_avg"].replace("ARS","").replace("$","").replace(".","").replace(",",".").strip())
             _ratio = _pi_gmv / _avg_n if _avg_n > 0 else 0
             _pf_ancla_main = f"{_ratio:.1f}x el promedio"
             _pf_ancla_body = f"Su GMV ({fmt_ars(_pi_gmv)}) es {_ratio:.1f}x el promedio de la categoría ({mctx['market_gmv_avg']})."
-            _pf_ancla_color = "#6FF24B" if _ratio >= 1.5 else "#FF7124"
+            _pf_ancla_color = "#7ED321" if _ratio >= 1.5 else "#FF7124"
         except Exception:
             _pf_ancla_main = "N/D"
             _pf_ancla_body = "Sin datos de posición en la categoría."
-            _pf_ancla_color = "#DBBBA7"
+            _pf_ancla_color = "#6B7280"
     else:
         _pf_ancla_main = "N/D"
         _pf_ancla_body = "Sin datos de posición en la categoría."
-        _pf_ancla_color = "#DBBBA7"
+        _pf_ancla_color = "#6B7280"
 
     # Card 2: Benchmark — top de la categoría
     _pf_bench_label = "🏆 Benchmark"
@@ -14630,7 +14296,7 @@ def render_brand_profile(row, brand_id):
     else:
         _pf_bench_main = "N/D"
         _pf_bench_body = "Sin datos del top de la categoría."
-        _pf_bench_color = "#DBBBA7"
+        _pf_bench_color = "#6B7280"
 
     # Card 3: Pitch Lever — argumento directo para la palanca
     _pf_pitch_label = f"💡 Pitch {_pi_lever}"
@@ -14638,11 +14304,11 @@ def render_brand_profile(row, brand_id):
         if not ads_current.get("active", False):
             _pf_pitch_main = "Sin Ads activo"
             _pf_pitch_body = f"El tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata."
-            _pf_pitch_color = "#E5332A"
+            _pf_pitch_color = "#FF4D2E"
         elif ads_roi > 0:
             _pf_pitch_main = f"ROI {ads_roi:.1f}x"
             _pf_pitch_body = f"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Ya probaste que funciona — el paso lógico es escalar, no mantener el mismo presupuesto."
-            _pf_pitch_color = "#6FF24B"
+            _pf_pitch_color = "#7ED321"
         else:
             _pf_pitch_main = "Ads activo"
             _pf_pitch_body = "Ads activo. Revisá el ROI para definir si mantener o escalar."
@@ -14651,11 +14317,11 @@ def render_brand_profile(row, brand_id):
         if not md_current.get("active", False):
             _pf_pitch_main = "Sin MD activo"
             _pf_pitch_body = f"Sin MD activo estás perdiendo frecuencia de pedido. En {_pi_category} el markdown es la palanca más directa para subir en el ranking."
-            _pf_pitch_color = "#E5332A"
+            _pf_pitch_color = "#FF4D2E"
         elif md_roi > 0:
             _pf_pitch_main = f"ROI {md_roi:.1f}x"
             _pf_pitch_body = f"MD activo con ROI de {md_roi:.1f}x — base para proponer un upgrade de descuento o ampliar el alcance."
-            _pf_pitch_color = "#6FF24B"
+            _pf_pitch_color = "#7ED321"
         else:
             _pf_pitch_main = "MD activo"
             _pf_pitch_body = "MD activo. Revisá el ROI para definir la próxima acción."
@@ -14663,29 +14329,29 @@ def render_brand_profile(row, brand_id):
 
     _pitch_facts_block = f"""
 <div style="margin-top:16px;">
-  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
     letter-spacing:.06em;margin-bottom:10px;">📋 Pitch Facts · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);
       border-radius:12px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
         letter-spacing:.06em;margin-bottom:8px;">{_pf_ancla_label}</div>
       <div style="font-size:22px;font-weight:900;color:{_pf_ancla_color};line-height:1.1;margin-bottom:8px;">{_pf_ancla_main}</div>
-      <div style="font-size:12px;color:#DBBBA7;line-height:1.55;">{_pf_ancla_body}</div>
+      <div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_ancla_body}</div>
     </div>
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);
       border-radius:12px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
         letter-spacing:.06em;margin-bottom:8px;">{_pf_bench_label}</div>
       <div style="font-size:22px;font-weight:900;color:{_pf_bench_color};line-height:1.1;margin-bottom:8px;">{_pf_bench_main}</div>
-      <div style="font-size:12px;color:#DBBBA7;line-height:1.55;">{_pf_bench_body}</div>
+      <div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_bench_body}</div>
     </div>
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);
       border-radius:12px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.5);
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
         letter-spacing:.06em;margin-bottom:8px;">{_pf_pitch_label}</div>
       <div style="font-size:22px;font-weight:900;color:{_pf_pitch_color};line-height:1.1;margin-bottom:8px;">{_pf_pitch_main}</div>
-      <div style="font-size:12px;color:#DBBBA7;line-height:1.55;">{_pf_pitch_body}</div>
+      <div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_pitch_body}</div>
     </div>
   </div>
 </div>"""
@@ -14694,40 +14360,40 @@ def render_brand_profile(row, brand_id):
 <div class="wide-info-card">
   <div class="wide-info-title">Analytics</div>
   <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
-      <div style="font-size:26px;font-weight:900;color:#6FF24B;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
-      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Cuantos más pedidos, más rápido empieza la ganancia real."</div>
+      <div style="font-size:26px;font-weight:900;color:#7ED321;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Cuantos más pedidos, más rápido empieza la ganancia real."</div>
       </div>
     </div>
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>
       <div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{'es' if _be_orders != 1 else ''}</div>
-      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
       </div>
     </div>
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">📈 GMV incremental si CR llega al benchmark</div>
       <div style="font-size:26px;font-weight:900;color:{_inc_color};line-height:1.1;">{_c3_main}</div>
-      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_c3_sub}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_c3_pitch}"</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">{_c3_sub}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_c3_pitch}"</div>
       </div>
     </div>
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:16px 18px;">
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.55);letter-spacing:.06em;margin-bottom:8px;">🔍 Diagnóstico Traffic &amp; CVR</div>
       <div style="font-size:26px;font-weight:900;color:{_d4_color};line-height:1.1;">{_d4_main}</div>
-      <div style="font-size:12px;color:#DBBBA7;margin-top:4px;margin-bottom:12px;">{_d4_sub}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(219,187,167,0.45);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#DBBBA7;line-height:1.5;font-style:italic;">"{_d4_pitch}"</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">{_d4_sub}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_d4_pitch}"</div>
       </div>
     </div>
   </div>
@@ -14884,15 +14550,15 @@ def render_brand_profile(row, brand_id):
   }}
   .inf-card.blue {{
     background: linear-gradient(135deg, rgba(59,72,131,.18), rgba(59,72,131,.32));
-    border: 1.5px solid #3B4883;
+    border: 1.5px solid #1B3F8B;
   }}
   .inf-card.orange {{
     background: linear-gradient(135deg, rgba(255,113,36,.14), rgba(255,113,36,.24));
     border: 1.5px solid #FF7124;
   }}
   .inf-emoji {{ font-size: 20px; }}
-  .inf-title {{ font-size: 14px; font-weight: 800; color: #E8DFD5; }}
-  .inf-desc  {{ font-size: 11px; color: #DBBBA7; line-height: 1.5; }}
+  .inf-title {{ font-size: 14px; font-weight: 800; color: #1A1A2E; }}
+  .inf-desc  {{ font-size: 11px; color: #6B7280; line-height: 1.5; }}
   .inf-actions {{ display: flex; gap: 8px; margin-top: 8px; }}
   .inf-btn {{
     flex: 1;
@@ -14908,11 +14574,11 @@ def render_brand_profile(row, brand_id):
     transition: opacity .15s;
   }}
   .inf-btn:hover {{ opacity: .82; }}
-  .inf-btn.copy-blue   {{ background: #3B4883; color: #E8DFD5; }}
-  .inf-btn.open-blue   {{ background: rgba(59,72,131,.25); color: #8B9ED4; border: 1px solid #3B4883; }}
+  .inf-btn.copy-blue   {{ background: #1B3F8B; color: #1A1A2E; }}
+  .inf-btn.open-blue   {{ background: rgba(59,72,131,.25); color: #1B3F8B; border: 1px solid #1B3F8B; }}
   .inf-btn.copy-orange {{ background: #FF7124; color: #fff; }}
   .inf-btn.open-orange {{ background: rgba(255,113,36,.18); color: #FF7124; border: 1px solid #FF7124; }}
-  .inf-feedback {{ font-size: 10px; color: #6FF24B; margin-top: 4px; min-height: 14px; }}
+  .inf-feedback {{ font-size: 10px; color: #7ED321; margin-top: 4px; min-height: 14px; }}
 </style>
 
 <div class="inf-wrapper">
@@ -15589,7 +15255,7 @@ def page_campaign_weekly_tracker():
             _rng = max(_mx - _mn, 0.1)
             def _sx(i): return PAD + i * (W - 2*PAD) / max(len(roi_vals)-1, 1)
             def _sy(v): return H - PAD - (v - _mn) / _rng * (H - 2*PAD)
-            line_color = "#6FF24B" if roi_vals[-1] >= roi_vals[0] else "#E5332A"
+            line_color = "#7ED321" if roi_vals[-1] >= roi_vals[0] else "#FF4D2E"
             pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(roi_vals))
             dots = "".join(
                 f'<circle cx="{_sx(i):.1f}" cy="{_sy(v):.1f}" r="2.8" fill="{line_color}" title="{fmt_roi2(v)}"/>' 
@@ -15673,8 +15339,8 @@ def page_campaign_weekly_tracker():
                 for _, r in _drop_brands.iterrows()
             )
             st.markdown(
-                f'<div style="background:rgba(229,51,42,0.10);border-left:4px solid #E5332A;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#E5332A;">'
+                f'<div style="background:rgba(229,51,42,0.10);border-left:4px solid #FF4D2E;border-radius:0 8px 8px 0;'
+                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#FF4D2E;">'
                 f'🔻 <b>Caída de ROI crítica esta semana:</b> {_drop_items}</div>',
                 unsafe_allow_html=True,
             )
@@ -16092,12 +15758,12 @@ def _render_followup_form(row, brand_id, name):
             st.session_state[_transcript_text_key] = call_transcript
         transcript_analysis = st.session_state.get(_transcript_cache_key)
         if transcript_analysis:
-            sentiment_color = {"Positive": "#6FF24B", "Neutral": "#FF7124", "Negative": "#D95A10"}.get(transcript_analysis["sentiment"], "#FF7124")
+            sentiment_color = {"Positive": "#7ED321", "Neutral": "#FF7124", "Negative": "#D95A10"}.get(transcript_analysis["sentiment"], "#FF7124")
             levers_str = " · ".join(transcript_analysis["levers"]) if transcript_analysis["levers"] else "Ninguna detectada"
             actions_str = "\n".join(f"• {a}" for a in transcript_analysis["action_items"]) if transcript_analysis["action_items"] else "• Ninguna detectada"
             st.markdown(f"""
             <div style="background:rgba(111,242,75,0.08);border:1px solid rgba(111,242,75,0.25);border-radius:10px;padding:14px 18px;margin:12px 0;">
-                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#6FF24B;margin-bottom:10px;">🤖 ANÁLISIS LOCAL DE TRANSCRIPCIÓN</div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#7ED321;margin-bottom:10px;">🤖 ANÁLISIS LOCAL DE TRANSCRIPCIÓN</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                     <div>
                         <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">SENTIMIENTO</div>
@@ -16105,16 +15771,16 @@ def _render_followup_form(row, brand_id, name):
                     </div>
                     <div>
                         <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">STATUS SUGERIDO</div>
-                        <div style="font-weight:700;color:#E8DFD5;">{transcript_analysis["suggested_status"]}</div>
+                        <div style="font-weight:700;color:#1A1A2E;">{transcript_analysis["suggested_status"]}</div>
                     </div>
                     <div>
                         <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">PALANCAS</div>
-                        <div style="font-weight:600;color:#E8DFD5;">{levers_str}</div>
+                        <div style="font-weight:600;color:#1A1A2E;">{levers_str}</div>
                     </div>
                 </div>
                 <div style="margin-top:10px;">
                     <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">PRÓXIMOS PASOS DETECTADOS</div>
-                    <div style="font-size:13px;white-space:pre-line;color:#E8DFD5;">{actions_str}</div>
+                    <div style="font-size:13px;white-space:pre-line;color:#1A1A2E;">{actions_str}</div>
                 </div>
                 <div style="margin-top:8px;font-size:10px;color:rgba(232,223,213,.4);">Este análisis se guardará como nota automática. Seleccioná el Status correcto arriba si difiere del sugerido.</div>
             </div>
@@ -16147,8 +15813,8 @@ def _render_followup_form(row, brand_id, name):
         f"✅ Contacto registrado — próximo seguimiento en 14 días ({_auto_next_date.strftime('%d/%m/%Y')})"
     )
     st.markdown(
-        f"<div style='background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 14px;"
-        f"margin:10px 0 6px 0;font-size:12px;color:#DBBBA7;'>📅 {_auto_label}</div>",
+        f"<div style='background:rgba(27,63,139,0.03);border-radius:8px;padding:8px 14px;"
+        f"margin:10px 0 6px 0;font-size:12px;color:#6B7280;'>📅 {_auto_label}</div>",
         unsafe_allow_html=True
     )
     # Manual override: allow changing the scheduled date
@@ -16169,16 +15835,16 @@ def _render_followup_form(row, brand_id, name):
     def _render_calendar_fields(suffix, default_task="Follow-up", default_notes=""):
         # ── Color por tipo de task ────────────────────────────────────────────
         task_colors = {
-            "Campaign Follow Up":  "#3B4883",
+            "Campaign Follow Up":  "#1B3F8B",
             "Campaign Negotiation": "#FF7124",
             "Contractual Changes":  "#1D9E75",
         }
-        task_color = next((v for k, v in task_colors.items() if k.lower() in default_task.lower()), "#3B4883")
+        task_color = next((v for k, v in task_colors.items() if k.lower() in default_task.lower()), "#1B3F8B")
 
         st.markdown(f"""
         <div style="
             border-left: 4px solid {task_color};
-            background: rgba(255,255,255,0.04);
+            background: rgba(27,63,139,0.03);
             border-radius: 0 10px 10px 0;
             padding: 14px 18px 10px 16px;
             margin: 16px 0 10px 0;
@@ -16649,11 +16315,11 @@ def page_weekly_calendar():
 
     # ── Task colors ───────────────────────────────────────────────────────────
     TASK_COLORS = {
-        "campaign follow up":   {"bg": "rgba(59,72,131,0.85)",  "border": "#3B4883", "text": "#FFFFFF"},
+        "campaign follow up":   {"bg": "rgba(59,72,131,0.85)",  "border": "#1B3F8B", "text": "#FFFFFF"},
         "campaign negotiation": {"bg": "rgba(255,113,36,0.85)", "border": "#FF7124", "text": "#FFFFFF"},
         "contractual changes":  {"bg": "rgba(29,158,117,0.85)", "border": "#1D9E75", "text": "#FFFFFF"},
     }
-    PRIORITY_COLORS = {"high": "#E5332A", "mid": "#FF7124", "low": "#8B9ED4"}
+    PRIORITY_COLORS = {"high": "#FF4D2E", "mid": "#FF7124", "low": "#1B3F8B"}
 
     def _task_color(task_str, priority_str):
         tl = task_str.lower()
@@ -16661,7 +16327,7 @@ def page_weekly_calendar():
             if key in tl:
                 return val
         p = priority_str.lower()
-        c = PRIORITY_COLORS.get(p, "#8B9ED4")
+        c = PRIORITY_COLORS.get(p, "#1B3F8B")
         return {"bg": c, "border": c, "text": "#FFFFFF"}
 
     st.markdown("### This Week")
@@ -16687,19 +16353,19 @@ def page_weekly_calendar():
     _today_count    = int((active_agenda["_parsed_date"] == today).sum()) if not active_agenda.empty else 0
     _tomorrow_count = int((active_agenda["_parsed_date"] == today + timedelta(days=1)).sum()) if not active_agenda.empty else 0
     _overdue_count  = int((active_agenda["_parsed_date"] < today).sum()) if not active_agenda.empty else 0
-    _today_color    = "#E5332A" if _today_count >= 5 else ("#D95A10" if _today_count >= 3 else "#6FF24B")
+    _today_color    = "#FF4D2E" if _today_count >= 5 else ("#D95A10" if _today_count >= 3 else "#7ED321")
     _tmrw_color     = "#D95A10" if _tomorrow_count >= 5 else "rgba(232,223,213,.45)"
-    _overdue_color  = "#E5332A" if _overdue_count > 0 else "rgba(232,223,213,.3)"
+    _overdue_color  = "#FF4D2E" if _overdue_count > 0 else "rgba(232,223,213,.3)"
 
     st.markdown(
         f'''<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
+        <div style="background:rgba(27,63,139,0.03);border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:8px 16px;font-size:13px;">
             📅 <b>Hoy:</b> <span style="color:{_today_color};font-weight:700;">{_today_count} tareas</span>
         </div>
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
+        <div style="background:rgba(27,63,139,0.03);border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:8px 16px;font-size:13px;">
             📆 <b>Mañana:</b> <span style="color:{_tmrw_color};font-weight:700;">{_tomorrow_count} tareas</span>
         </div>
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:8px 16px;font-size:13px;">
+        <div style="background:rgba(27,63,139,0.03);border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:8px 16px;font-size:13px;">
             ⚠️ <b>Vencidas:</b> <span style="color:{_overdue_color};font-weight:700;">{_overdue_count} tareas</span>
         </div>
         </div>''',
@@ -16710,10 +16376,10 @@ def page_weekly_calendar():
     st.markdown(f"""
     <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
         <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);">TASK TYPES</span>
-        <span style="font-size:12px;color:#8B9ED4;">● Campaign Follow Up</span>
+        <span style="font-size:12px;color:#1B3F8B;">● Campaign Follow Up</span>
         <span style="font-size:12px;color:#FF7124;">● Campaign Negotiation</span>
         <span style="font-size:12px;color:#1D9E75;">● Contractual Changes</span>
-        <span style="font-size:12px;color:#E5332A;margin-left:12px;">● Overdue</span>
+        <span style="font-size:12px;color:#FF4D2E;margin-left:12px;">● Overdue</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -16724,13 +16390,13 @@ def page_weekly_calendar():
         ddate = d if isinstance(d, date) else d.date()
         is_today = ddate == today
         day_count = int((active_agenda["_parsed_date"] == ddate).sum()) if not active_agenda.empty else 0
-        bg = "rgba(59,72,131,0.25)" if is_today else "rgba(255,255,255,0.04)"
-        border_b = "2px solid #3B4883" if is_today else "1px solid rgba(255,255,255,0.08)"
-        num_color = "#FFFFFF" if is_today else "#E8DFD5"
-        num_bg = "#3B4883" if is_today else "transparent"
-        count_color = "#6FF24B" if day_count > 0 else "rgba(232,223,213,.3)"
+        bg = "rgba(27,63,139,0.12)" if is_today else "rgba(27,63,139,0.03)"
+        border_b = "2px solid #1B3F8B" if is_today else "1px solid rgba(255,255,255,0.95)"
+        num_color = "#FFFFFF" if is_today else "#1A1A2E"
+        num_bg = "#1B3F8B" if is_today else "transparent"
+        count_color = "#7ED321" if day_count > 0 else "rgba(232,223,213,.3)"
         header_html += f'''
-        <div style="background:{bg};border-bottom:{border_b};padding:8px 4px 8px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.06);">
+        <div style="background:{bg};border-bottom:{border_b};padding:8px 4px 8px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.92);">
             <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.5);">{d.strftime("%a").upper()}</div>
             <div style="display:inline-block;background:{num_bg};border-radius:50%;width:28px;height:28px;line-height:28px;font-size:16px;font-weight:700;color:{num_color};margin:2px 0;">{d.strftime("%d")}</div>
             <div style="font-size:10px;color:{count_color};font-weight:600;">{day_count} task{"s" if day_count != 1 else ""}</div>
@@ -16813,7 +16479,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
     grid_lines_html = ""
     for h in range(HOUR_START, HOUR_END + 1):
         top = (h - HOUR_START) * SLOT_HEIGHT
-        color = "rgba(255,255,255,0.10)" if h % 2 == 0 else "rgba(255,255,255,0.04)"
+        color = "rgba(0,0,0,0.07)" if h % 2 == 0 else "rgba(27,63,139,0.03)"
         grid_lines_html += f'<div class="grid-line" style="top:{top}px;background:{color};"></div>'
 
     # ── Línea de "ahora" ──────────────────────────────────────────────────────
@@ -16865,8 +16531,8 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
             else:
                 pos = "top:0px;height:44px;"
 
-            overdue_border = "border-top:2px solid #E5332A;" if is_overdue else ""
-            overdue_badge = "<span style='font-size:9px;font-weight:700;color:#E5332A;'>⚠ OVERDUE</span>" if is_overdue else ""
+            overdue_border = "border-top:2px solid #FF4D2E;" if is_overdue else ""
+            overdue_badge = "<span style='font-size:9px;font-weight:700;color:#FF4D2E;'>⚠ OVERDUE</span>" if is_overdue else ""
             ch_str = f" · {html.escape(channel)}" if channel else ""
 
             cards_html += f"""<div class="evt" style="{pos}background:{colors['bg']};border-left:3px solid {colors['border']};{overdue_border}"
@@ -16896,15 +16562,15 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
       .cal-grid {{
         display: grid;
         grid-template-columns: 52px repeat(7, 1fr);
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.95);
         border-radius: 10px;
         overflow: hidden;
       }}
       .hour-col {{
         position: relative;
         height: {total_height}px;
-        background: rgba(255,255,255,0.02);
-        border-right: 1px solid rgba(255,255,255,0.08);
+        background: rgba(27,63,139,0.02);
+        border-right: 1px solid rgba(255,255,255,0.95);
       }}
       .hour-label {{
         position: absolute;
@@ -16919,7 +16585,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
       .day-col {{
         position: relative;
         height: {total_height}px;
-        border-right: 1px solid rgba(255,255,255,0.06);
+        border-right: 1px solid rgba(255,255,255,0.92);
         min-width: 0;
       }}
       .grid-line {{
@@ -16933,13 +16599,13 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
         z-index: 10;
         pointer-events: none;
       }}
-      .now-line-bar {{ height: 2px; background: #E5332A; opacity: .85; }}
+      .now-line-bar {{ height: 2px; background: #FF4D2E; opacity: .85; }}
       .now-dot {{
         position: absolute;
         top: -4px; left: -4px;
         width: 8px; height: 8px;
         border-radius: 50%;
-        background: #E5332A;
+        background: #FF4D2E;
       }}
       .evt {{
         position: absolute;
@@ -17009,7 +16675,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
                 st.markdown(f"""
                 <div style="background:{colors['bg']};border-left:3px solid {colors['border']};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px;">
                     <div style="font-size:11px;font-weight:700;color:{colors['text']};">{task}</div>
-                    <div style="font-size:12px;color:#E8DFD5;">{name_ev}</div>
+                    <div style="font-size:12px;color:#1A1A2E;">{name_ev}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("✓ Done", key=f"done_nd_{excel_row}_{idx}", use_container_width=True):
@@ -17179,7 +16845,7 @@ def page_brand_update():
             _elapsed_label = st.session_state[_last_saved_key].strftime("%H:%M")
         st.markdown(
             f'''<div style="background:rgba(111,242,75,0.08);border:1px solid rgba(111,242,75,0.25);border-radius:8px;
-            padding:8px 14px;font-size:12px;color:#6FF24B;font-weight:600;margin-bottom:10px;">
+            padding:8px 14px;font-size:12px;color:#7ED321;font-weight:600;margin-bottom:10px;">
             ✓ Último guardado exitoso: {_elapsed_label}</div>''',
             unsafe_allow_html=True,
         )
