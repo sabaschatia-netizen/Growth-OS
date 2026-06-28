@@ -2166,10 +2166,9 @@ def write_if_editable(ws, row_number, headers, candidates, value, updated, locke
     updated.append(label)
 
 
-def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
-    wb = openpyxl.load_workbook(excel_path)
+def _update_agenda_notes_inner(wb, brand_id, notes_value, append=False):
+    """Misma lógica de update_agenda_notes pero opera sobre un wb ya abierto, sin guardar ni cerrar."""
     if AGENDA_SHEET not in wb.sheetnames:
-        wb.close()
         return False, "Agenda sheet not found."
 
     ws = wb[AGENDA_SHEET]
@@ -2190,7 +2189,6 @@ def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
             break
 
     if not header_row:
-        wb.close()
         return False, "Agenda headers not found."
 
     id_col = headers.get("id")
@@ -2205,7 +2203,6 @@ def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
             matched_rows.append(r)
 
     if not matched_rows:
-        wb.close()
         return False, "Brand ID not found in Agenda."
 
     row_number = matched_rows[0]
@@ -2219,6 +2216,16 @@ def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
     else:
         notes_cell.value = notes_value
 
+    return True, "Agenda notes updated."
+
+
+def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
+    """Wrapper público sin cambios de comportamiento: abre, aplica, guarda, cierra."""
+    wb = openpyxl.load_workbook(excel_path)
+    ok, msg = _update_agenda_notes_inner(wb, brand_id, notes_value, append=append)
+    if not ok:
+        wb.close()
+        return ok, msg
     try:
         wb.save(excel_path)
         wb.close()
@@ -2229,15 +2236,9 @@ def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
 
 
 
-def add_event_to_agenda(excel_path, event_data):
-    """
-    Adds a new row to the Agenda sheet.
-    Expected columns: date/data, time, id, name, task, channel, priority, status, notes.
-    """
-    wb = openpyxl.load_workbook(excel_path)
-
+def _add_event_to_agenda_inner(wb, event_data):
+    """Misma lógica de add_event_to_agenda pero opera sobre un wb ya abierto, sin guardar ni cerrar."""
     if AGENDA_SHEET not in wb.sheetnames:
-        wb.close()
         return False, "Agenda sheet not found."
 
     ws = wb[AGENDA_SHEET]
@@ -2258,7 +2259,6 @@ def add_event_to_agenda(excel_path, event_data):
             break
 
     if not header_row:
-        wb.close()
         return False, "Agenda headers not found."
 
     def agenda_col(candidates):
@@ -2282,10 +2282,8 @@ def add_event_to_agenda(excel_path, event_data):
 
     missing = [k for k, v in col_map.items() if v is None]
     if missing:
-        wb.close()
         return False, "Missing Agenda columns: " + ", ".join(missing)
 
-    # Find the first truly empty row after the header in the agenda columns.
     next_row = ws.max_row + 1
     for r in range(header_row + 1, ws.max_row + 2):
         is_empty = True
@@ -2307,6 +2305,16 @@ def add_event_to_agenda(excel_path, event_data):
     ws.cell(next_row, col_map["status"]).value = event_data.get("status")
     ws.cell(next_row, col_map["notes"]).value = event_data.get("notes")
 
+    return True, "Event added to Weekly Calendar."
+
+
+def add_event_to_agenda(excel_path, event_data):
+    """Wrapper público sin cambios de comportamiento: abre, aplica, guarda, cierra."""
+    wb = openpyxl.load_workbook(excel_path)
+    ok, msg = _add_event_to_agenda_inner(wb, event_data)
+    if not ok:
+        wb.close()
+        return ok, msg
     try:
         wb.save(excel_path)
         wb.close()
@@ -2318,19 +2326,9 @@ def add_event_to_agenda(excel_path, event_data):
 
 
 
-def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, opportunity_status=None, comment_text=""):
-    """
-    Updates follow-up related fields in the Growth OS sheet after saving a comment.
-    Important: Not Contacted / No contesta should NOT refresh Last Positive Contact,
-    because it is not an effective interaction and should not heat up the Follow-Up List.
-    """
-    if not os.path.exists(excel_path):
-        return False, "Excel file not found."
-
-    wb = openpyxl.load_workbook(excel_path)
-
+def _update_contact_followup_fields_inner(wb, brand_id, contact_channel=None, opportunity_status=None, comment_text=""):
+    """Misma lógica de update_contact_followup_fields pero opera sobre un wb ya abierto, sin guardar ni cerrar."""
     if GROWTH_SHEET not in wb.sheetnames:
-        wb.close()
         return False, "Growth OS sheet not found."
 
     ws = wb[GROWTH_SHEET]
@@ -2338,7 +2336,6 @@ def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, o
     row_number = find_brand_row(ws, headers, brand_id)
 
     if not row_number:
-        wb.close()
         return False, "Brand ID not found."
 
     updated_any = False
@@ -2398,7 +2395,6 @@ def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, o
                 updated_any = True
 
     if not updated_any:
-        wb.close()
         return False, "No matching follow-up fields found."
 
     try:
@@ -2407,6 +2403,18 @@ def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, o
     except Exception:
         pass
 
+    return True, "Follow-up fields updated."
+
+
+def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, opportunity_status=None, comment_text=""):
+    """Wrapper público sin cambios de comportamiento: abre, aplica, guarda, cierra."""
+    if not os.path.exists(excel_path):
+        return False, "Excel file not found."
+    wb = openpyxl.load_workbook(excel_path)
+    ok, msg = _update_contact_followup_fields_inner(wb, brand_id, contact_channel=contact_channel, opportunity_status=opportunity_status, comment_text=comment_text)
+    if not ok:
+        wb.close()
+        return ok, msg
     try:
         wb.save(excel_path)
         wb.close()
@@ -2416,24 +2424,17 @@ def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, o
         return False, "Excel file is open. Close it before saving follow-up fields."
 
 
-def update_brand_in_excel(brand_id, updates):
-    if not os.path.exists(EXCEL_FILE):
-        return False, "Excel file not found.", [], [], [], None
-
-    backup_path = make_backup(EXCEL_FILE)
-
-    wb = openpyxl.load_workbook(EXCEL_FILE)
+def _update_brand_in_excel_inner(wb, brand_id, updates):
+    """Misma lógica de update_brand_in_excel pero opera sobre un wb ya abierto, sin guardar ni cerrar."""
     if GROWTH_SHEET not in wb.sheetnames:
-        wb.close()
-        return False, "Growth OS sheet not found.", [], [], [], backup_path
+        return False, "Growth OS sheet not found.", [], [], []
 
     ws = wb[GROWTH_SHEET]
     headers = get_sheet_headers(ws)
     row_number = find_brand_row(ws, headers, brand_id)
 
     if not row_number:
-        wb.close()
-        return False, "Brand ID not found.", [], [], [], backup_path
+        return False, "Brand ID not found.", [], [], []
 
     updated = []
     locked = []
@@ -2466,6 +2467,22 @@ def update_brand_in_excel(brand_id, updates):
         wb.calculation.forceFullCalc = True
     except Exception:
         pass
+
+    return True, "Changes saved successfully.", updated, locked, missing
+
+
+def update_brand_in_excel(brand_id, updates):
+    """Wrapper público sin cambios de comportamiento: abre, aplica, guarda, cierra, limpia caché."""
+    if not os.path.exists(EXCEL_FILE):
+        return False, "Excel file not found.", [], [], [], None
+
+    backup_path = make_backup(EXCEL_FILE)
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ok, msg, updated, locked, missing = _update_brand_in_excel_inner(wb, brand_id, updates)
+
+    if not ok:
+        wb.close()
+        return False, msg, updated, locked, missing, backup_path
 
     try:
         wb.save(EXCEL_FILE)
@@ -2528,6 +2545,87 @@ def save_comment_csv(brand_id, brand_name, comment, contact_channel="", opportun
     final.to_csv(COMMENTS_FILE, index=False, encoding="utf-8-sig")
 
 
+def _extract_customer_text(transcript):
+    """
+    Separa la transcripción por hablante (formato Amazon Connect: 'Agent:' / 'Customer:'
+    o 'Agente:' / 'Cliente:'). Devuelve (customer_text, full_text_lower).
+    Si no detecta ningún prefijo de hablante, devuelve el texto completo como customer_text
+    (fallback seguro para transcripciones sin formato).
+    """
+    speaker_pattern = re.compile(
+        r'(?im)^\s*(agent|agente|customer|cliente)\s*:\s*(.*)$'
+    )
+    matches = speaker_pattern.findall(transcript)
+    if not matches:
+        return transcript.lower(), transcript.lower()
+
+    customer_lines = []
+    for speaker, line in matches:
+        if speaker.lower() in ("customer", "cliente"):
+            customer_lines.append(line)
+    customer_text = " ".join(customer_lines).lower()
+    full_text = transcript.lower()
+    return (customer_text if customer_text.strip() else full_text), full_text
+
+
+def _has_negated(text, keyword, window=4):
+    """
+    Busca `keyword` en `text` y revisa si dentro de las `window` palabras anteriores
+    aparece una negación (no, nunca, jamás, para nada, imposible, no creo, no puedo).
+    Devuelve True si la mención está negada (y por tanto debe invertirse o descartarse).
+    """
+    negators = {"no", "nunca", "jamás", "tampoco", "ni"}
+    negator_phrases = ["para nada", "imposible", "no creo", "no puedo", "no podemos",
+                        "no queremos", "no tenemos", "ni de", "que va"]
+    idx = text.find(keyword)
+    if idx == -1:
+        return False
+    if any(phrase in text[max(0, idx - 40):idx] for phrase in negator_phrases):
+        return True
+    preceding = text[max(0, idx - 40):idx].split()
+    preceding_window = preceding[-window:] if len(preceding) > window else preceding
+    return any(w.strip(",.;") in negators for w in preceding_window)
+
+
+def _detect_sentiment_weighted(customer_text):
+    """
+    Detecta sentimiento solo sobre el texto del cliente, con:
+      1. Rechazo explícito de alto peso -> Negative inmediato, sin importar nada más.
+      2. Negación de señales positivas -> esas señales se descartan, no cuentan a favor.
+      3. Frases completas de rechazo a palancas específicas (ej. "no me interesan los descuentos").
+    """
+    low = customer_text
+
+    high_weight_rejection = [
+        "no me llames más", "no me llame más", "no estoy interesado", "no estoy interesada",
+        "estamos bien así", "no es el momento", "tengo contrato con otro", "ya tengo otro proveedor",
+        "no quiero seguir", "dejame en paz", "déjeme en paz", "no quiero hablar de esto",
+        "no me interesa para nada", "ya dije que no"
+    ]
+    if any(phrase in low for phrase in high_weight_rejection):
+        return "Negative", True  # True = rechazo explícito, máxima prioridad
+
+    positive_signals = ["perfecto", "de acuerdo", "vamos", "sí claro", "me interesa",
+                        "lo hacemos", "dale", "genial", "excelente", "cerramos", "activamos",
+                        "okay", "ok", "buenísimo", "bárbaro", "confirmado", "listo"]
+    negative_signals = ["no me interesa", "no quiero", "estoy conforme", "no gracias",
+                        "no puedo", "no tengo presupuesto", "ya no", "cancel",
+                        "cortamos", "no voy a", "lo dejo", "me retiro"]
+
+    pos = 0
+    for k in positive_signals:
+        if k in low and not _has_negated(low, k):
+            pos += 1
+    neg = sum(1 for k in negative_signals if k in low)
+
+    if neg >= 2 or (neg > pos and neg > 0):
+        return "Negative", False
+    elif pos >= 2 or pos > neg:
+        return "Positive", False
+    else:
+        return "Neutral", False
+
+
 def analyze_transcript_locally(transcript):
     """
     Analyzes a call transcript using pure Python keyword/regex logic.
@@ -2541,35 +2639,24 @@ def analyze_transcript_locally(transcript):
     if not transcript or not transcript.strip():
         return None
 
-    low = transcript.lower()
+    customer_text, low = _extract_customer_text(transcript)
     result = {}
 
-    # ── Sentiment ────────────────────────────────────────────────────────────
-    positive_signals = ["perfecto", "de acuerdo", "vamos", "sí claro", "me interesa",
-                        "lo hacemos", "dale", "genial", "excelente", "cerramos", "activamos",
-                        "okay", "ok", "buenísimo", "bárbaro", "confirmado", "listo"]
-    negative_signals = ["no me interesa", "no quiero", "estoy conforme", "no gracias",
-                        "no puedo", "no tengo presupuesto", "ya no", "cancel",
-                        "cortamos", "no voy a", "lo dejo", "me retiro"]
-    neutral_signals  = ["lo pienso", "lo consulto", "veo", "te llamo", "después",
-                        "no sé", "quizás", "tal vez", "voy a ver"]
-
-    pos = sum(1 for k in positive_signals if k in low)
-    neg = sum(1 for k in negative_signals if k in low)
-    neu = sum(1 for k in neutral_signals  if k in low)
-
-    if neg >= 2 or (neg > pos and neg > 0):
-        result["sentiment"] = "Negative"
-    elif pos >= 2 or pos > neg:
-        result["sentiment"] = "Positive"
-    else:
-        result["sentiment"] = "Neutral"
+    # ── Sentiment (solo sobre lo que dice el cliente, con negaciones y rechazo explícito) ──
+    sentiment_value, explicit_rejection = _detect_sentiment_weighted(customer_text)
+    result["sentiment"] = sentiment_value
+    result["explicit_rejection"] = explicit_rejection
 
     # ── Levers / palancas detectadas ─────────────────────────────────────────
     levers = []
     if any(k in low for k in ["rappi ads", "ads", "publicidad", "banner", "sponsored", "visibilidad paga", "campaña"]):
         levers.append("ADS")
-    if any(k in low for k in ["descuento", "promo", "markdown", "porcentaje", "20%", "25%", "30%", "oferta", "promoción"]):
+    md_rejection_phrases = ["no me interesan los descuentos", "no tenemos margen para descuentos",
+                             "no queremos hacer promoción", "no podemos bajar el precio",
+                             "ya tenemos promoción", "no me sirve el descuento"]
+    md_keywords_present = any(k in low for k in ["descuento", "promo", "markdown", "porcentaje", "20%", "25%", "30%", "oferta", "promoción"])
+    md_explicitly_rejected = any(phrase in low for phrase in md_rejection_phrases)
+    if md_keywords_present and not md_explicitly_rejected:
         levers.append("MD")
     if any(k in low for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "visibilidad orgánica"]):
         levers.append("Top Restaurant")
@@ -2580,7 +2667,7 @@ def analyze_transcript_locally(transcript):
     result["levers"] = levers
 
     # ── Suggested status ─────────────────────────────────────────────────────
-    if any(k in low for k in ["no me interesa", "no quiero", "no voy a", "lo dejo", "me retiro", "no tengo presupuesto", "no quiero invertir"]):
+    if explicit_rejection or any(k in low for k in ["no me interesa", "no quiero", "no voy a", "lo dejo", "me retiro", "no tengo presupuesto", "no quiero invertir"]):
         result["suggested_status"] = "Rejected ❌"
     elif any(k in low for k in ["activamos", "cerramos", "lo hacemos", "confirmado", "arrancamos", "activar"]):
         result["suggested_status"] = "Deal Closed 🏆"
@@ -2634,9 +2721,10 @@ def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email
     if not transcript or not transcript.strip():
         return
 
-    low = transcript.lower()
+    customer_text, low = _extract_customer_text(transcript)
 
-    # ── Helper: check any keyword present ────────────────────────────────────
+    # ── Helper: check any keyword present (sobre texto completo, para detectar
+    # palancas mencionadas por cualquiera de los dos hablantes) ────────────────
     def has(keywords):
         return 1 if any(k in low for k in keywords) else 0
 
@@ -2646,15 +2734,12 @@ def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email
     def avg(*vals):
         return round(sum(vals) / len(vals), 2)
 
-    # ── SENTIMENT ─────────────────────────────────────────────────────────────
+    # ── SENTIMENT (solo sobre lo que dice el cliente) ──────────────────────────
+    sentiment, _explicit_rejection_detail = _detect_sentiment_weighted(customer_text)
     pos = sum(1 for k in ["perfecto", "de acuerdo", "vamos", "sí claro", "me interesa",
                            "lo hacemos", "dale", "genial", "excelente", "cerramos",
                            "activamos", "okay", "ok", "buenísimo", "bárbaro",
-                           "confirmado", "listo"] if k in low)
-    neg = sum(1 for k in ["no me interesa", "no quiero", "estoy conforme", "no gracias",
-                           "no puedo", "no tengo presupuesto", "ya no", "lo dejo",
-                           "me retiro", "no voy a"] if k in low)
-    sentiment = "Negative" if (neg >= 2 or (neg > pos and neg > 0)) else ("Positive" if pos >= 2 or pos > neg else "Neutral")
+                           "confirmado", "listo"] if k in customer_text)
 
     # ── INTRODUCCIÓN ──────────────────────────────────────────────────────────
     identified = has(["soy sabas", "soy de rappi", "te llamo de rappi", "mi nombre es",
@@ -16249,9 +16334,15 @@ def _render_followup_form(row, brand_id, name):
             except Exception:
                 pass  # Falla silenciosa — el follow-up ya se guardó
 
-        ok, msg = update_agenda_notes(EXCEL_FILE, brand_id, final_comment, append=True)
-        follow_ok, follow_msg = update_contact_followup_fields(
-            EXCEL_FILE,
+        # ── Apertura única del Excel para todo el flujo de guardado ─────────────
+        commercial_ok, commercial_msg = True, "No commercial change selected."
+        tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
+        backup_path_save = make_backup(EXCEL_FILE)
+        _wb_save = openpyxl.load_workbook(EXCEL_FILE)
+
+        ok, msg = _update_agenda_notes_inner(_wb_save, brand_id, final_comment, append=True)
+        follow_ok, follow_msg = _update_contact_followup_fields_inner(
+            _wb_save,
             brand_id,
             contact_channel=contact_channel,
             opportunity_status=opportunity_status,
@@ -16260,10 +16351,7 @@ def _render_followup_form(row, brand_id, name):
 
         event_ok, event_msg = True, "No calendar event requested."
         if event_required and event_data:
-            event_ok, event_msg = add_event_to_agenda(EXCEL_FILE, event_data)
-
-        commercial_ok, commercial_msg = True, "No commercial change selected."
-        tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
+            event_ok, event_msg = _add_event_to_agenda_inner(_wb_save, event_data)
 
         if opportunity_status == "Deal Closed 🏆" and commercial_action != "No commercial change":
             updates = {}
@@ -16274,7 +16362,9 @@ def _render_followup_form(row, brand_id, name):
                 updates["md"] = "Active 🚀"
                 updates["md_bookings"] = normalize_markdown_discount(md_discount_input)
             if updates:
-                commercial_ok, commercial_msg, _, _, _, _ = update_brand_in_excel(brand_id, updates)
+                commercial_ok, commercial_msg, _, _, _ = _update_brand_in_excel_inner(_wb_save, brand_id, updates)
+                if commercial_ok and "comments" in updates:
+                    _update_agenda_notes_inner(_wb_save, brand_id, updates["comments"], append=False)
             tracker_ok, tracker_msg = save_acquisition_tracker_event(
                 brand_id,
                 name,
@@ -16328,7 +16418,22 @@ def _render_followup_form(row, brand_id, name):
         auto_event_ok = True
         auto_event_msg = ""
         if not event_required:
-            auto_event_ok, auto_event_msg = add_event_to_agenda(EXCEL_FILE, _auto_event_data)
+            auto_event_ok, auto_event_msg = _add_event_to_agenda_inner(_wb_save, _auto_event_data)
+
+        # ── Guardado único + cierre + invalidación de caché una sola vez ────────
+        try:
+            _wb_save.calculation.fullCalcOnLoad = True
+            _wb_save.calculation.forceFullCalc = True
+        except Exception:
+            pass
+        try:
+            _wb_save.save(EXCEL_FILE)
+            _wb_save.close()
+            st.cache_data.clear()
+        except PermissionError:
+            _wb_save.close()
+            ok = False
+            msg = "Excel file is open. Close it before saving."
 
         if ok and follow_ok and event_ok and commercial_ok and tracker_ok:
             _days_label = "7 días (No Answer)" if (_is_no_answer or _is_separator) else "14 días"
