@@ -772,28 +772,14 @@ def get_may_brand_metrics(brand_id, brand_name=""):
     if not os.path.exists(EXCEL_FILE):
         return None
 
-    # Leer MAY GMV directo para no depender del filtro de _id
-    try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=MAY_GMV_SHEET)
-    except Exception:
-        return None
-
-    raw.columns = [normalize(c).replace("_", " ") for c in raw.columns]
-    raw = raw.loc[:, ~raw.columns.duplicated()].copy()
-
-    brand_col = _first_existing_col(raw, ["brand", "brand name", "tienda", "nombre tienda", "code", "id"])
-    if not brand_col:
-        return None
-
-    raw = raw[raw[brand_col].notna()].copy()
+    # Usar el loader cacheado en vez de leer el Excel directamente
+    raw = load_may_gmv_data()
     if raw.empty:
         return None
 
-    # Extraer ID numérico y nombre puro de cada fila
-    raw["_row_id"]   = raw[brand_col].apply(normalize_brand_id)
-    raw["_row_name"] = raw[brand_col].apply(
-        lambda v: normalize(re.sub(r"^\d+[\s\-–]+", "", str(v).strip()))
-    )
+    # load_may_gmv_data ya normaliza columnas y genera _id / _brand_name_norm
+    raw["_row_id"]   = raw["_id"]
+    raw["_row_name"] = raw["_brand_name_norm"]
 
     target_id   = normalize_brand_id(brand_id)
     target_name = normalize(brand_name) if brand_name else ""
@@ -808,7 +794,7 @@ def get_may_brand_metrics(brand_id, brand_name=""):
     if result.empty and target_name:
         result = raw[raw["_row_name"] == target_name]
 
-    # Intento 3: nombre parcial — el nombre de Growth OS contiene el de MAY GMV o viceversa
+    # Intento 3: nombre parcial
     if result.empty and target_name:
         result = raw[raw["_row_name"].str.contains(re.escape(target_name), na=False)]
     if result.empty and target_name:
@@ -1634,6 +1620,7 @@ def get_current_md_metrics(brand_id, pro=False):
     }
 
 
+@st.cache_data(ttl=3000, show_spinner=False)
 def _read_md_totals_from_sheet(pro=False):
     """
     Reads the Total row directly from Current MD or Current MD pro.
@@ -1771,6 +1758,7 @@ def load_seasonal_events_data():
     if df.empty:
         return pd.DataFrame()
     return df
+@st.cache_data(ttl=3000, show_spinner=False)
 def load_coinversion_data():
     """Loads COINVERSION sheet. No header row — data starts at row 0."""
     if not os.path.exists(EXCEL_FILE):
@@ -1992,6 +1980,7 @@ def clean_product_name(value):
     return text.strip()
 
 
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_caba_category_trends(category):
     keywords = get_category_keywords(category)
 
@@ -3071,6 +3060,7 @@ def get_last_comments_map(limit=2):
     return result
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE):
     """
     Reads the Productivity sheet and counts contacts by channel:
@@ -16308,10 +16298,14 @@ def _render_followup_form(row, brand_id, name):
             except Exception:
                 pass  # Falla silenciosa — el follow-up ya se guardó
 
+        # ── Backup async: corre en background, no bloquea el guardado principal ──
+        import threading as _threading
+        _threading.Thread(target=make_backup, args=(EXCEL_FILE,), daemon=True).start()
+
         # ── Apertura única del Excel para todo el flujo de guardado ─────────────
         commercial_ok, commercial_msg = True, "No commercial change selected."
         tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
-        backup_path_save = make_backup(EXCEL_FILE)
+        st.toast("Guardando...", icon="💾")
         _wb_save = openpyxl.load_workbook(EXCEL_FILE)
 
         ok, msg = _update_agenda_notes_inner(_wb_save, brand_id, final_comment, append=True)
