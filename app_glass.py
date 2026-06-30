@@ -356,6 +356,8 @@ def save_brand_changelog(brand_id, brand_name, updates_dict, old_row):
         "md": "MD Status", "md_bookings": "MD Discount / Promo",
         "md_roi": "MD ROI", "manager": "Manager",
         "assistant": "Assistant", "email": "Email", "comments": "Notes",
+        "category": "Category", "contact_number": "Contact Number",
+        "commission_rate": "Commission Rate", "pro_users_pct": "PRO Users %",
     }
     FIELD_COL_MAP = {
         "name":         ["name", "brand name", "restaurant name"],
@@ -373,6 +375,10 @@ def save_brand_changelog(brand_id, brand_name, updates_dict, old_row):
         "assistant":    ["assistant"],
         "email":        ["email", "mail"],
         "comments":     ["comments", "comment"],
+        "category":         ["category"],
+        "contact_number":   ["contact number", "phone", "contact"],
+        "commission_rate":  ["comm. rate", "commission rate", "commission"],
+        "pro_users_pct":    ["pro users %", "pro %"],
     }
     rows_to_append = []
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2563,6 +2569,10 @@ def _update_brand_in_excel_inner(wb, brand_id, updates):
         "email": ["email", "mail", "contact mail"],
         "churn": ["churn", "churn status"],
         "comments": ["comments", "comment"],
+        "category": ["category"],
+        "contact_number": ["contact number", "phone", "contact"],
+        "commission_rate": ["comm. rate", "commission rate", "commission"],
+        "pro_users_pct": ["pro users %", "pro %", "pro users", "prime users %"],
     }
 
     for key, candidates in field_map.items():
@@ -2817,6 +2827,109 @@ def analyze_transcript_locally(transcript):
     )
 
     return result
+
+
+# ── Detección automática de objeciones para el Role Play Trainer ────────────
+_OBJECTION_LEVER_KEYWORDS = {
+    "Ads":   ["ads", "publicidad", "banner", "sponsored", "visibilidad paga", "campaña", "presupuesto", "inversión", "invertir"],
+    "MD":    ["descuento", "promo", "markdown", "porcentaje", "oferta", "promoción", "precio"],
+    "Churn": ["cancelar", "dar de baja", "no quiero seguir", "churn", "me voy", "me retiro", "cerrar cuenta"],
+}
+
+_OBJECTION_REJECTION_PHRASES = [
+    "no me interesa", "no quiero", "no puedo", "no tengo presupuesto", "no tenemos margen",
+    "no me sirve", "ya tengo otro proveedor", "no es el momento", "no estoy interesado",
+    "no estoy interesada", "estamos bien así", "no voy a", "lo dejo", "me retiro",
+    "no me llames más", "no me llame más", "no quiero seguir", "ya dije que no",
+    "no quiero hablar de esto",
+]
+
+
+def _extract_objection_sentence(customer_text, phrase):
+    """
+    Devuelve la oración completa del cliente que contiene `phrase`, recortando
+    por los delimitadores de oración más cercanos (. ! ? o salto de línea).
+    Si no encuentra límites claros, devuelve una ventana de ~140 caracteres
+    centrada en la frase, para que la objeción guardada tenga contexto legible.
+    """
+    idx = customer_text.find(phrase)
+    if idx == -1:
+        return phrase
+    start = idx
+    for sep in [".", "!", "?", "\n"]:
+        p = customer_text.rfind(sep, 0, idx)
+        if p != -1:
+            start = max(start if start != idx else 0, p + 1)
+    start = max(0, min(start, idx))
+    end = idx + len(phrase)
+    for sep in [".", "!", "?", "\n"]:
+        p = customer_text.find(sep, end)
+        if p != -1:
+            end = min(end if end != idx + len(phrase) else len(customer_text), p + 1)
+            break
+    else:
+        end = min(len(customer_text), idx + len(phrase) + 100)
+    sentence = customer_text[start:end].strip()
+    return sentence if sentence else phrase
+
+
+def detect_and_save_objection_from_transcript(transcript, ideal_response_hint=""):
+    """
+    Analiza una transcripción y, si detecta un rechazo explícito a una palanca
+    comercial (Ads / MD / Churn), guarda automáticamente la objeción en el banco
+    del Role Play Trainer (ROLEPLAY_OBJECTIONS_FILE). No requiere ninguna API
+    externa — usa el mismo set de frases de rechazo que ya usa el motor de
+    sentimiento (_OBJECTION_REJECTION_PHRASES).
+
+    Evita duplicados: si ya existe una objeción muy similar (mismo texto
+    normalizado) en el banco, no vuelve a guardarla.
+
+    Devuelve (saved: bool, objection_text: str | None).
+    """
+    if not transcript or not transcript.strip():
+        return False, None
+
+    customer_text, _ = _extract_customer_text(transcript)
+
+    found_phrase = next((p for p in _OBJECTION_REJECTION_PHRASES if p in customer_text), None)
+    if not found_phrase:
+        return False, None
+
+    objection_text = _extract_objection_sentence(customer_text, found_phrase)
+    if len(objection_text.strip()) < 8:
+        return False, None
+
+    # ── Detectar palanca involucrada por las keywords presentes cerca del rechazo ──
+    lever = "General"
+    for lv, kws in _OBJECTION_LEVER_KEYWORDS.items():
+        if any(k in customer_text for k in kws):
+            lever = lv
+            break
+
+    # ── Evitar duplicados: comparar texto normalizado contra el banco existente ──
+    try:
+        if os.path.exists(ROLEPLAY_OBJECTIONS_FILE):
+            existing = pd.read_csv(ROLEPLAY_OBJECTIONS_FILE, dtype=str).fillna("")
+            existing_norm = existing.get("objection_text", pd.Series([], dtype=str)).apply(norm_text)
+            if norm_text(objection_text) in set(existing_norm):
+                return False, objection_text  # ya existe, no duplicar
+        else:
+            existing = pd.DataFrame(columns=["objection_id", "datetime", "objection_text", "lever", "category", "ideal_response", "tags"])
+    except Exception:
+        existing = pd.DataFrame(columns=["objection_id", "datetime", "objection_text", "lever", "category", "ideal_response", "tags"])
+
+    new_row = pd.DataFrame([{
+        "objection_id": str(uuid.uuid4()),
+        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "objection_text": objection_text.strip().capitalize(),
+        "lever": lever,
+        "category": "General",
+        "ideal_response": ideal_response_hint.strip(),
+        "tags": "auto-detectada",
+    }])
+    combined = pd.concat([existing, new_row], ignore_index=True)
+    combined.to_csv(ROLEPLAY_OBJECTIONS_FILE, index=False, encoding="utf-8-sig")
+    return True, objection_text
 
 
 def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email, call_date):
@@ -13727,6 +13840,96 @@ def render_brand_profile(row, brand_id):
 </script>
 """, height=0, scrolling=False)
 
+    # ── Editor inline — reemplaza la página separada "Brand Update" ──────────
+    # Guardado inmediato: abre el Excel solo para esta marca, escribe, guarda y
+    # cierra en el mismo click — pensado para completar marcas nuevas que llegan
+    # al portafolio sin tener que crear nada manualmente en Growth OS.
+    with st.expander("✏️ Editar ficha (guardado inmediato)", expanded=False):
+        _edit_category_current = clean(get_from_row(row, ["category"]), "")
+        _edit_manager_current  = clean(get_from_row(row, ["manager", "restaurant manager", "account manager"]), "")
+        _edit_assistant_current = clean(get_from_row(row, ["assistant"]), "")
+        _edit_email_current    = clean(get_from_row(row, ["email", "mail"]), "")
+        _edit_phone_current    = fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"]))
+        _edit_commission_current = to_number(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0), 0)
+        _edit_pro_current      = to_number(get_from_row(row, ["pro users %", "pro %"], 0), 0)
+        # Normalizar a 0-100 para el number_input — el dato puede venir como 0.27 o 27
+        _edit_commission_pct = round(_edit_commission_current * 100, 1) if _edit_commission_current <= 1 else round(_edit_commission_current, 1)
+        _edit_pro_pct         = round(_edit_pro_current * 100, 1) if _edit_pro_current <= 1 else round(_edit_pro_current, 1)
+
+        with st.form(f"inline_brand_edit_{brand_id}"):
+            ie1, ie2 = st.columns(2)
+            with ie1:
+                _new_category   = st.text_input("Categoría / Stickers", value=_edit_category_current, help="Formato: 'Categoría Principal | Sticker1 | Sticker2'")
+                _new_manager    = st.text_input("Manager", value=_edit_manager_current)
+                _new_assistant  = st.text_input("Assistant", value=_edit_assistant_current)
+            with ie2:
+                _new_email      = st.text_input("Email", value=_edit_email_current)
+                _new_phone      = st.text_input("Teléfono / Contact Number", value=_edit_phone_current)
+                _ie_c1, _ie_c2  = st.columns(2)
+                with _ie_c1:
+                    _new_commission_pct = st.number_input("Comisión %", value=float(_edit_commission_pct), min_value=0.0, max_value=100.0, step=0.5)
+                with _ie_c2:
+                    _new_pro_pct = st.number_input("Usuarios PRO %", value=float(_edit_pro_pct), min_value=0.0, max_value=100.0, step=0.5)
+
+            _inline_submitted = st.form_submit_button("💾 Guardar ahora")
+
+        if _inline_submitted:
+            _inline_updates = {
+                "category":        _new_category.strip(),
+                "manager":         _new_manager.strip(),
+                "assistant":       _new_assistant.strip(),
+                "email":           _new_email.strip(),
+                "contact_number":  _new_phone.strip(),
+                "commission_rate": round(_new_commission_pct / 100, 4),
+                "pro_users_pct":   round(_new_pro_pct / 100, 4),
+            }
+            _old_row_for_changelog = row
+            _ok_inline, _msg_inline, _updated_inline, _locked_inline, _missing_inline, _backup_inline = update_brand_in_excel(brand_id, _inline_updates)
+            if _ok_inline:
+                try:
+                    save_brand_changelog(brand_id, name, _inline_updates, _old_row_for_changelog)
+                except Exception:
+                    pass
+                st.success("✅ Ficha actualizada — guardado inmediato.")
+                if _locked_inline:
+                    st.caption("Algunos campos protegidos por fórmula no se actualizaron: " + ", ".join(_locked_inline))
+                st.rerun()
+            else:
+                st.error(_msg_inline)
+
+    # ── Sticker "New Acquisition" — visible si esta marca cerró un deal reciente ──
+    _acq_tracker_df = None
+    try:
+        if os.path.exists(ACQUISITION_TRACKER_FILE):
+            _acq_tracker_df = pd.read_csv(ACQUISITION_TRACKER_FILE, dtype=str).fillna("")
+    except Exception:
+        _acq_tracker_df = None
+
+    if _acq_tracker_df is not None and not _acq_tracker_df.empty:
+        _acq_brand_rows = _acq_tracker_df[
+            (_acq_tracker_df["brand_id"].apply(normalize_brand_id) == normalize_brand_id(brand_id))
+            & (_acq_tracker_df["movement"] == "Acquisition")
+            & (_acq_tracker_df["pipeline_stage"] == "Closed")
+        ]
+        if not _acq_brand_rows.empty:
+            _acq_latest = _acq_brand_rows.sort_values("datetime", ascending=False).iloc[0]
+            _acq_type = clean(_acq_latest.get("type", ""), "—")
+            _acq_ads_ars = to_number(_acq_latest.get("ads_booking_ars"), 0)
+            _acq_md_disc = clean(_acq_latest.get("md_discount", ""), "")
+            _acq_date = clean(_acq_latest.get("date", ""), "")
+            _acq_detail = (
+                f"{fmt_ars(_acq_ads_ars)}" if _acq_type == "Ads" and _acq_ads_ars
+                else _acq_md_disc if _acq_md_disc
+                else "—"
+            )
+            st.markdown(
+                f'<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(126,211,33,0.10);'
+                f'border:1px solid #7ED321;border-radius:20px;padding:6px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:#5A9E00;">'
+                f'🆕 NEW ACQUISITION · {html.escape(_acq_type)} · {html.escape(_acq_detail)} · {html.escape(_acq_date)}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
     # ── Multibrand: chips interactivos → navegan al Brand Finder de esa marca ──
     _mb_matches = get_multibrand_matches(row, brand_id)
     if _mb_matches:
@@ -16459,6 +16662,12 @@ def _render_followup_form(row, brand_id, name):
             except Exception:
                 pass  # Falla silenciosa — el follow-up ya se guardó
 
+            # ── Detección automática de objeciones para Role Play Trainer ──────
+            try:
+                detect_and_save_objection_from_transcript(call_transcript.strip())
+            except Exception:
+                pass  # Falla silenciosa — no bloquea el guardado del follow-up
+
         # ── Apertura única del Excel para todo el flujo de guardado ─────────────
         commercial_ok, commercial_msg = True, "No commercial change selected."
         tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
@@ -17282,6 +17491,125 @@ def page_brand_update():
 
 
 # =========================
+# ROLE PLAY TRAINER — EVALUADOR LOCAL (sin API)
+# =========================
+
+def _evaluate_objection_response_locally(user_response, ideal_response, objection_text, lever):
+    """
+    Evalúa la respuesta del usuario a una objeción usando reglas de palabras clave
+    100% locales — sin llamadas a ninguna API externa. Mide las mismas 4
+    dimensiones que antes evaluaba un modelo externo:
+      1. Anclaje en datos concretos (números, %, montos, benchmarks)
+      2. Acción propuesta con fecha específica
+      3. Manejo de la resistencia sin perder el pitch
+      4. Cierre con próximo paso claro
+    Devuelve el mismo formato de dict que el flujo anterior, para no romper
+    el render ni el guardado de historial.
+    """
+    text = norm_text(user_response)
+    ideal_norm = norm_text(ideal_response)
+
+    # ── Dimensión 1: Anclaje en datos concretos ───────────────────────────────
+    _data_patterns = [
+        r"\d+\s*%", r"\$\s*\d+", r"\d+\s*(usd|ars|cop|pesos)",
+        r"benchmark", r"promedio", r"categor[ií]a", r"top\s*\d", r"ranking",
+    ]
+    _data_hits = sum(1 for p in _data_patterns if re.search(p, text))
+    score_datos = 5 if _data_hits >= 3 else 4 if _data_hits == 2 else 2 if _data_hits == 1 else 1
+
+    # ── Dimensión 2: Acción propuesta con fecha específica ────────────────────
+    _action_verbs = ["activamos", "arrancamos", "proponemos", "te propongo", "vamos a", "podemos"]
+    _date_markers = [
+        "hoy", "mañana", "esta semana", "el lunes", "el martes", "el miércoles",
+        "el jueves", "el viernes", "la próxima semana", "este mes", "en 48 horas",
+        "en 24 horas",
+    ]
+    _has_action = any(v in text for v in _action_verbs)
+    _has_date = any(d in text for d in _date_markers)
+    if _has_action and _has_date:
+        score_accion = 5
+    elif _has_action or _has_date:
+        score_accion = 3
+    else:
+        score_accion = 1
+
+    # ── Dimensión 3: Manejo de resistencia sin perder el pitch ────────────────
+    _resistance_acknowledge = ["entiendo", "comprendo", "tiene sentido", "es válido", "te escucho"]
+    _pitch_recovery = ["pero", "sin embargo", "aun así", "igual te cuento", "de todas formas", "lo que te propongo"]
+    _gives_up = ["está bien", "no hay problema", "como quieras", "ok entonces no", "te dejo tranquilo"]
+    _ack_hit = any(a in text for a in _resistance_acknowledge)
+    _recovery_hit = any(r in text for r in _pitch_recovery)
+    _giveup_hit = any(g in text for g in _gives_up) and not _recovery_hit
+    if _giveup_hit:
+        score_manejo = 1
+    elif _ack_hit and _recovery_hit:
+        score_manejo = 5
+    elif _ack_hit or _recovery_hit:
+        score_manejo = 3
+    else:
+        score_manejo = 2
+
+    # ── Dimensión 4: Cierre con próximo paso claro ─────────────────────────────
+    _close_patterns = [
+        "¿te parece?", "¿lo hacemos?", "¿avanzamos?", "¿confirmamos?", "¿qué te parece?",
+        "quedamos en", "te confirmo", "te escribo", "te llamo", "coordinamos",
+    ]
+    _close_hits = sum(1 for c in _close_patterns if c in text)
+    score_cierre = 5 if _close_hits >= 2 else 4 if _close_hits == 1 else 1
+
+    # ── Similitud textual con la respuesta ideal (señal de apoyo, no determinante) ──
+    _ideal_words = set(ideal_norm.split())
+    _user_words = set(text.split())
+    _overlap = len(_ideal_words & _user_words) / len(_ideal_words) if _ideal_words else 0
+
+    # ── Texto de feedback generado localmente ─────────────────────────────────
+    _bien_parts = []
+    if score_datos >= 4:
+        _bien_parts.append("ancló la respuesta en datos concretos")
+    if score_accion >= 4:
+        _bien_parts.append("propuso una acción con fecha específica")
+    if score_manejo >= 4:
+        _bien_parts.append("manejó la resistencia sin perder el pitch")
+    if score_cierre >= 4:
+        _bien_parts.append("cerró con un próximo paso claro")
+    que_hizo_bien = (
+        "La respuesta " + ", ".join(_bien_parts) + "." if _bien_parts
+        else "La respuesta tocó la objeción pero sin un punto fuerte claro todavía."
+    )
+
+    _falta_parts = []
+    if score_datos < 4:
+        _falta_parts.append("anclar en un dato concreto (%, monto, benchmark de categoría)")
+    if score_accion < 4:
+        _falta_parts.append("proponer una acción con fecha específica")
+    if score_manejo < 4:
+        _falta_parts.append("reconocer la objeción del aliado antes de retomar el pitch")
+    if score_cierre < 4:
+        _falta_parts.append("cerrar con una pregunta concreta que empuje al siguiente paso")
+    que_falto = (
+        "Para subir el puntaje: " + "; ".join(_falta_parts) + "." if _falta_parts
+        else "Muy completa — esta respuesta está cerca de tu versión ideal."
+    )
+
+    # ── Frase sugerida: usa la respuesta ideal cargada por Sabas como referencia ──
+    if _overlap < 0.3 and ideal_response.strip():
+        _primera_frase_ideal = ideal_response.strip().split(".")[0].strip()
+        frase_sugerida = _primera_frase_ideal if _primera_frase_ideal else ideal_response.strip()[:120]
+    else:
+        frase_sugerida = "Estás cerca de tu respuesta ideal — seguí anclando en datos y cerrando con fecha."
+
+    return {
+        "score_datos":  score_datos,
+        "score_accion": score_accion,
+        "score_manejo": score_manejo,
+        "score_cierre": score_cierre,
+        "que_hizo_bien": que_hizo_bien,
+        "que_falto": que_falto,
+        "frase_que_faltó": frase_sugerida,
+    }
+
+
+# =========================
 # ROLE PLAY TRAINER
 # =========================
 
@@ -17374,12 +17702,29 @@ def page_role_play_trainer():
 
         # ── Banco actual ──────────────────────────────────────────────────────
         obj_df = _load_objections()
-        with st.expander(f"📚 Banco de objeciones ({len(obj_df)} registros)", expanded=False):
+        _n_auto = int((obj_df.get("tags", pd.Series(dtype=str)) == "auto-detectada").sum()) if not obj_df.empty else 0
+        with st.expander(f"📚 Banco de objeciones ({len(obj_df)} registros · {_n_auto} auto-detectadas)", expanded=False):
             if obj_df.empty:
                 st.info("El banco está vacío. Cargá tu primera objeción arriba.")
             else:
-                st.dataframe(obj_df[["datetime", "lever", "category", "objection_text", "tags"]],
+                if _n_auto > 0:
+                    st.caption(f"🤖 {_n_auto} objeción(es) detectadas automáticamente desde transcripciones de llamadas — revisalas y completá la respuesta ideal si quedó vacía.")
+                st.dataframe(obj_df[["datetime", "lever", "category", "objection_text", "ideal_response", "tags"]],
                              use_container_width=True, hide_index=True)
+
+                _pending_ideal = obj_df[(obj_df["tags"] == "auto-detectada") & (obj_df["ideal_response"].str.strip() == "")]
+                if not _pending_ideal.empty:
+                    st.markdown("**Completar respuesta ideal de una objeción auto-detectada:**")
+                    _pending_options = {f"{r['objection_text'][:60]}...": r["objection_id"] for _, r in _pending_ideal.iterrows()}
+                    _chosen_label = st.selectbox("Objeción pendiente", list(_pending_options.keys()), key="rp_pending_ideal_select")
+                    _ideal_fill = st.text_area("Respuesta ideal", height=100, key="rp_pending_ideal_text")
+                    if st.button("💾 Guardar respuesta ideal", key="rp_save_pending_ideal") and _ideal_fill.strip():
+                        _target_id = _pending_options[_chosen_label]
+                        obj_df.loc[obj_df["objection_id"] == _target_id, "ideal_response"] = _ideal_fill.strip()
+                        obj_df.to_csv(ROLEPLAY_OBJECTIONS_FILE, index=False, encoding="utf-8-sig")
+                        st.success("Respuesta ideal guardada.")
+                        st.rerun()
+
                 del_id = st.text_input("ID de objeción a eliminar (pegá el objection_id)", key="del_obj_id")
                 if st.button("🗑️ Eliminar objeción") and del_id.strip():
                     _delete_objection(del_id.strip())
@@ -17425,69 +17770,18 @@ def page_role_play_trainer():
 
             user_response = st.text_area("Tu respuesta", height=140, placeholder="Escribí tu respuesta a esta objeción...", key="rp_user_resp")
 
-            if st.button("🤖 Evaluar con Claude"):
+            if st.button("🤖 Evaluar respuesta"):
                 if not user_response.strip():
                     st.warning("Escribí una respuesta antes de evaluar.")
                 else:
-                    mctx = get_market_context(current_obj.get("category", ""), current_obj.get("lever", ""))
-                    system_prompt = f"""Sos un evaluador de llamadas comerciales de Rappi.
-Tu trabajo es evaluar si la respuesta de un farmer a una objeción de un aliado fue efectiva, usando estos criterios: anclar en datos concretos, proponer acción concreta con fecha, manejar la resistencia sin ceder el pitch, y cerrar con un próximo paso claro.
-
-No evalúes contra un manual genérico de ventas. Evaluá contra la respuesta ideal que el propio Sabas cargó para esta objeción — esa es su mejor versión. Tu trabajo es ayudarlo a acercarse a eso, no a un script corporativo.
-
-Contexto de mercado para esta categoría ({current_obj.get('category','')}):
-- GMV total de la categoría en CABA: {mctx.get('market_gmv_total', 'N/D')}
-- Marcas activas en la categoría: {mctx.get('market_brand_count', 'N/D')}
-- GMV promedio por marca: {mctx.get('market_gmv_avg', 'N/D')}
-- AOV promedio de la categoría: {mctx.get('market_aov_avg', 'N/D')}
-- Top marca de la categoría: {mctx.get('market_top_brand', 'N/D')} con {mctx.get('market_top_gmv', 'N/D')}
-
-La objeción del aliado fue: {current_obj.get('objection_text', '')}
-La palanca que se estaba vendiendo: {current_obj.get('lever', '')}
-La respuesta ideal de Sabas cuando está en modo óptimo: {current_obj.get('ideal_response', '')}
-La respuesta que Sabas dio hoy: {user_response.strip()}
-
-Evaluá en 4 dimensiones (puntaje 1-5 cada una):
-1. Anclaje en datos concretos
-2. Acción propuesta con fecha específica
-3. Manejo de la resistencia sin perder el pitch
-4. Cierre con próximo paso
-
-Respondé SOLO con este formato JSON, sin texto adicional:
-{{
-  "score_datos": <1-5>,
-  "score_accion": <1-5>,
-  "score_manejo": <1-5>,
-  "score_cierre": <1-5>,
-  "que_hizo_bien": "<texto>",
-  "que_falto": "<texto>",
-  "frase_que_faltó": "<la frase exacta que le faltó decir>"
-}}"""
-
-                    with st.spinner("Claude está evaluando tu respuesta..."):
-                        try:
-                            resp = requests.post(
-                                "https://api.anthropic.com/v1/messages",
-                                headers={
-                                    "Content-Type": "application/json",
-                                    "anthropic-version": "2023-06-01",
-                                    "x-api-key": st.secrets["ANTHROPIC_API_KEY"],
-                                },
-                                json={
-                                    "model": "claude-sonnet-4-6",
-                                    "max_tokens": 1000,
-                                    "system": system_prompt,
-                                    "messages": [{"role": "user", "content": "Evaluá la respuesta."}],
-                                },
-                                timeout=30,
-                            )
-                            raw_text = resp.json()["content"][0]["text"]
-                            raw_text = raw_text.replace("```json", "").replace("```", "").strip()
-                            result = json.loads(raw_text)
-                            st.session_state["rp_eval_result"] = result
-                            st.session_state["rp_eval_response"] = user_response.strip()
-                        except Exception as e:
-                            st.error(f"Error al evaluar: {e}")
+                    result = _evaluate_objection_response_locally(
+                        user_response,
+                        current_obj.get("ideal_response", ""),
+                        current_obj.get("objection_text", ""),
+                        current_obj.get("lever", ""),
+                    )
+                    st.session_state["rp_eval_result"] = result
+                    st.session_state["rp_eval_response"] = user_response.strip()
 
             eval_result = st.session_state.get("rp_eval_result")
             if eval_result:
