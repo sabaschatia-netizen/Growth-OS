@@ -4924,7 +4924,7 @@ with st.sidebar:
         # Logo expanded
         st.markdown(f"""
         <div class="nav-logo-full">
-            <div class="nav-logo-icon">🇦🇷</div>
+            <div class="nav-logo-icon">📈</div>
             <div>
                 <div class="nav-logo-text">Growth OS</div>
                 <div class="nav-logo-sub">Commercial Excellence</div>
@@ -4932,7 +4932,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.95);margin-bottom:8px;">🇦🇷</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.95);margin-bottom:8px;">📈</div>', unsafe_allow_html=True)
 
     # Nav groups
     current_page = st.session_state["active_page"]
@@ -4957,11 +4957,18 @@ with st.sidebar:
 
     if not collapsed:
         st.markdown('<div class="nav-divider" style="margin-top:12px;"></div>', unsafe_allow_html=True)
+        if "dark_mode" not in st.session_state:
+            st.session_state["dark_mode"] = False
+        _dm_label = "🌙 Modo oscuro" if not st.session_state["dark_mode"] else "☀️ Modo claro"
+        if st.button(_dm_label, key="nav_dark_mode_toggle", use_container_width=True):
+            st.session_state["dark_mode"] = not st.session_state["dark_mode"]
+            st.rerun()
         st.caption(f"📁 {EXCEL_FILE}")
 
 page = st.session_state["active_page"]
+DARK_MODE = st.session_state.get("dark_mode", False)
 
-LIGHT = False   # dark-only, no toggle
+LIGHT = not DARK_MODE
 
 
 COLORS = {
@@ -5790,6 +5797,87 @@ div[data-testid="stAlert"] {{
 
 </style>
 """, unsafe_allow_html=True)
+
+# ── DARK MODE OVERRIDE ────────────────────────────────────────────────────
+# Mantiene la misma estructura visual, reemplaza el gris claro de fondo por
+# un tono entre negro y azul medianoche, y ajusta texto/bordes/superficies
+# para que sigan siendo legibles sobre ese fondo. Se activa con el toggle
+# del sidebar (st.session_state["dark_mode"]).
+if DARK_MODE:
+    st.markdown("""
+    <style>
+    /* ── Fondo base: negro azulado medianoche ── */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background: #0B0E1A !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        background: #10142480 !important;
+        background: #101424 !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #C7CCDC !important;
+    }
+    .nav-item { color: #9AA3BD !important; }
+    .nav-item:hover { background: rgba(255,255,255,0.06) !important; color: #FFFFFF !important; }
+    .nav-item.active { background: rgba(126,211,33,0.14) !important; color: #FFFFFF !important; }
+    .nav-logo-text, .nav-section-label { color: #C7CCDC !important; }
+    .nav-toggle-btn { background: #161B2E !important; color: #C7CCDC !important; border-color: rgba(255,255,255,0.10) !important; }
+
+    /* ── Superficies / cards: de blanco a azul-noche oscuro ── */
+    .glass-card, .metric-card, .mgmt-card, .mgmt-section, .panel, .kpi-card,
+    .update-card, .agenda-card, .brand-card, .status-card, .hero-card,
+    .stack-card, .wide-info-card, .info-card, .comments-card, .salary-card,
+    .bucket-card, .campaign-mini-card, .multibrand-box, .business-card-grid > div {
+        background: #141A2E !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.25) !important;
+    }
+
+    /* ── Texto principal y secundario sobre fondo oscuro ── */
+    .stApp, .stApp p, .stApp span, .stApp div, .stApp label {
+        color: #E4E7F1;
+    }
+    .stack-label, .sticker-label, .hero-info-label, .info-mini-label,
+    .card-label, .kpi-title, .salary-label, .bucket-title {
+        color: #8C93AC !important;
+    }
+    .hero-name, .hero-info-value, .kpi-value, .salary-value {
+        color: #F2F4F9 !important;
+    }
+    .hero-id, .header-subtitle, .nav-logo-sub {
+        color: #7C84A0 !important;
+    }
+
+    /* ── Inputs / widgets nativos de Streamlit ── */
+    [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+    [data-testid="stTextArea"] textarea, [data-testid="stSelectbox"] div[data-baseweb="select"] {
+        background: #1B2238 !important;
+        color: #E4E7F1 !important;
+        border-color: rgba(255,255,255,0.10) !important;
+    }
+    [data-testid="stDataFrame"] {
+        background: #141A2E !important;
+    }
+    [data-testid="stDataFrame"] tr:nth-child(even) {
+        background: rgba(255,255,255,0.03) !important;
+    }
+
+    /* ── Botones nativos ── */
+    .stButton button {
+        background: #1B2238 !important;
+        color: #E4E7F1 !important;
+        border-color: rgba(255,255,255,0.12) !important;
+    }
+    .stButton button:hover {
+        background: #232B47 !important;
+    }
+
+    /* ── Dividers / bordes sutiles ── */
+    .nav-divider, .hero-divider, hr {
+        background: rgba(255,255,255,0.08) !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # =========================
 # UI HELPERS
@@ -10078,6 +10166,102 @@ def page_productivity_heatmap():
         </div>
         '''
 
+    # ── Heatmap visual real: eje Y = semanas, eje X = palancas, color = intensidad ──
+    # (Complementa la tabla numérica de arriba con una lectura visual rápida
+    # de qué palancas concentran más uso a lo largo del tiempo.)
+    _all_palancas = [(name, freqs) for g in GROUPS for name, freqs in g["palancas"]]
+    _hm_n_cols = len(_all_palancas)
+    _hm_n_rows = len(WEEKS)
+
+    if _hm_n_rows > 0 and _hm_n_cols > 0:
+        _HM_CELL_W, _HM_CELL_H = 78, 28
+        _HM_LABEL_W = 56
+        _HM_TOP_PAD = 70
+        _hm_svg_w = _HM_LABEL_W + _hm_n_cols * _HM_CELL_W
+        _hm_svg_h = _HM_TOP_PAD + _hm_n_rows * _HM_CELL_H
+
+        _hm_parts = [f'<svg width="{_hm_svg_w}" height="{_hm_svg_h}" viewBox="0 0 {_hm_svg_w} {_hm_svg_h}" xmlns="http://www.w3.org/2000/svg">']
+
+        # Headers de palanca — rotados 45° para que entren nombres largos en columnas angostas
+        for ci, (name, freqs) in enumerate(_all_palancas):
+            cx = _HM_LABEL_W + ci * _HM_CELL_W + _HM_CELL_W / 2
+            _hm_parts.append(
+                f'<text x="{cx:.0f}" y="{_HM_TOP_PAD - 8}" text-anchor="start" font-size="9" font-weight="700" '
+                f'fill="#6B7280" transform="rotate(-40 {cx:.0f} {_HM_TOP_PAD - 8})">{html.escape(name)}</text>'
+            )
+
+        # Pre-computar % por palanca (columna) — mismo orden que freqs por semana
+        _hm_pcts_by_col = [
+            [round(c / t * 100) if t else 0 for c, t in freqs]
+            for _, freqs in _all_palancas
+        ]
+
+        for ri, wl in enumerate(WEEKS):
+            row_y = _HM_TOP_PAD + ri * _HM_CELL_H
+            _hm_parts.append(
+                f'<text x="{_HM_LABEL_W - 8}" y="{row_y + _HM_CELL_H/2 + 3:.0f}" text-anchor="end" '
+                f'font-size="10" fill="#1A1A2E" font-weight="600">{wl}</text>'
+            )
+            for ci in range(_hm_n_cols):
+                pct = _hm_pcts_by_col[ci][ri] if ri < len(_hm_pcts_by_col[ci]) else 0
+                cx = _HM_LABEL_W + ci * _HM_CELL_W
+                t = min(pct / 100, 1.0)
+                # Intensidad: de blanco/gris (0%) a azul oscuro (100%)
+                _r = int(241 - t * (241 - 27))
+                _g = int(242 - t * (242 - 63))
+                _b = int(245 - t * (245 - 139))
+                _fill = f"#{_r:02x}{_g:02x}{_b:02x}"
+                _text_color = "#FFFFFF" if t > 0.5 else "#6B7280"
+                _hm_parts.append(
+                    f'<rect x="{cx+2}" y="{row_y+2}" width="{_HM_CELL_W-4}" height="{_HM_CELL_H-4}" '
+                    f'rx="4" fill="{_fill}"/>'
+                    f'<text x="{cx + _HM_CELL_W/2:.0f}" y="{row_y + _HM_CELL_H/2 + 3:.0f}" '
+                    f'text-anchor="middle" font-size="9" font-weight="700" fill="{_text_color}">{pct}%</text>'
+                )
+        _hm_parts.append('</svg>')
+        _heatmap_svg = "".join(_hm_parts)
+
+        st.markdown(
+            f'<div style="margin-top:1.5rem;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;'
+            f'color:{PALETTE["slate_indigo"]};margin-bottom:10px;">🌡️ Mapa de calor · intensidad de uso por palanca</div>'
+            f'<div style="overflow-x:auto;background:rgba(255,255,255,0.92);border-radius:10px;padding:10px;">{_heatmap_svg}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Gráfica: semana de mayor uso por palanca ───────────────────────────
+        _peak_rows = []
+        for name, freqs in _all_palancas:
+            pcts = [round(c / t * 100) if t else 0 for c, t in freqs]
+            if pcts and max(pcts) > 0:
+                _bw = pcts.index(max(pcts))
+                _peak_rows.append((name, WEEKS[_bw], max(pcts)))
+        _peak_rows.sort(key=lambda x: x[2], reverse=True)
+
+        if _peak_rows:
+            _peak_max = max(p[2] for p in _peak_rows)
+            _peak_bars_html = "".join(
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
+                f'<span style="font-size:11px;color:#1A1A2E;min-width:150px;font-weight:600;">{html.escape(p_name)}</span>'
+                f'<div style="flex:1;background:rgba(0,0,0,0.05);border-radius:6px;height:18px;position:relative;overflow:hidden;">'
+                f'<div style="position:absolute;left:0;top:0;height:100%;width:{(p_pct/_peak_max*100) if _peak_max else 0:.0f}%;'
+                f'background:{PALETTE["slate_indigo"]};border-radius:6px;"></div>'
+                f'</div>'
+                f'<span style="font-size:11px;font-weight:700;color:{PALETTE["slate_indigo"]};min-width:36px;">{p_pct}%</span>'
+                f'<span style="font-size:10px;color:#6B7280;min-width:32px;">{p_week}</span>'
+                f'</div>'
+                for p_name, p_week, p_pct in _peak_rows
+            )
+            st.markdown(
+                f'<div style="margin-top:1.2rem;background:rgba(255,255,255,0.92);border-radius:10px;padding:14px 16px;">'
+                f'<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;'
+                f'color:{PALETTE["slate_indigo"]};margin-bottom:10px;">📅 Semana de mayor uso por palanca</div>'
+                f'{_peak_bars_html}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
     # Insight
     # Compute insight signals dynamically
     _dr_freq  = freq("DR")
@@ -10109,190 +10293,6 @@ def page_productivity_heatmap():
         unsafe_allow_html=True,
     )
 
-    # ── Correlación Palanca → GMV ─────────────────────────────────────────────
-    st.markdown(
-        f"""<div style="margin-top:2rem;padding:4px 0 6px 0;border-top:2px solid {PALETTE['slate_indigo']}22;">
-        <span style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-        color:{PALETTE['slate_indigo']};">📊 Correlación Palanca → GMV</span>
-        </div>""",
-        unsafe_allow_html=True,
-    )
-
-    gmv_df = load_current_gmv_data()
-
-    if gmv_df.empty:
-        st.info("No se pudo cargar Current GMV Sheet para calcular la correlación.")
-    else:
-        # Normalise brand IDs in the productivity dataframe
-        _prod_id_col = "Code"
-        if _prod_id_col not in df.columns:
-            _prod_id_col = next((c for c in df.columns if normalize(c) == "code"), None)
-
-        def _build_corr_table(lever_col):
-            """Build correlation rows for a given lever column (e.g. 'Markdown' or 'Ads')."""
-            rows = []
-            if _prod_id_col is None or _prod_id_col not in df.columns:
-                return pd.DataFrame()
-
-            for wl in WEEKS:
-                w = df[df["_wl"] == wl].copy()
-                if w.empty:
-                    continue
-
-                # Brands with lever active this week
-                active_mask = w[lever_col].astype(str).str.upper() == "SI"
-                active_ids  = set(w.loc[active_mask, _prod_id_col].apply(normalize_brand_id))
-                total_ids   = set(w[_prod_id_col].apply(normalize_brand_id)) - {""}
-                active_ids  = active_ids - {""}
-
-                if not active_ids:
-                    continue
-
-                # Match against GMV sheet
-                active_gmv_rows = gmv_df[gmv_df["_id"].isin(active_ids)]
-                all_gmv_rows    = gmv_df[gmv_df["_id"].isin(total_ids)]
-
-                gmv_with    = active_gmv_rows["gmv ars"].mean() if not active_gmv_rows.empty else None
-                gmv_without_ids = total_ids - active_ids
-                gmv_wo_rows = gmv_df[gmv_df["_id"].isin(gmv_without_ids)]
-                gmv_without = gmv_wo_rows["gmv ars"].mean() if not gmv_wo_rows.empty else None
-
-                if gmv_with is None:
-                    continue
-
-                if gmv_without and gmv_without > 0:
-                    delta_pct = round((gmv_with - gmv_without) / gmv_without * 100, 1)
-                else:
-                    delta_pct = None
-
-                rows.append({
-                    "Semana":               wl,
-                    "Marcas c/ palanca":    len(active_ids),
-                    "GMV prom. CON":        gmv_with,
-                    "GMV prom. SIN":        gmv_without,
-                    "Delta %":              delta_pct,
-                })
-            return pd.DataFrame(rows)
-
-        def _render_corr_section(lever_col, lever_label, accent_color, bg_lo):
-            corr_df = _build_corr_table(lever_col)
-
-            if corr_df.empty:
-                st.caption(f"Sin datos suficientes para calcular correlación de {lever_label}.")
-                return
-
-            # ── Build rows as plain Python strings with single-quoted styles ─
-            # Using single quotes inside style= avoids any clash with the
-            # outer f-string double quotes, which caused Streamlit to print
-            # the raw HTML instead of rendering it.
-            rows_html = ""
-            for _, r in corr_df.iterrows():
-                delta_val = r["Delta %"]
-                if delta_val is None or (isinstance(delta_val, float) and pd.isna(delta_val)):
-                    delta_cell = "<span style='color:#6B7280'>—</span>"
-                    delta_bg   = "rgba(255,255,255,0.90)"
-                elif float(delta_val) >= 0:
-                    _lg = PALETTE["laser_green"]
-                    delta_cell = f"<b style='color:{_lg};filter:brightness(.65)'>+{delta_val}%</b>"
-                    delta_bg   = "rgba(111,242,75,0.06)"
-                else:
-                    _nt = PALETTE["neon_tangerine"]
-                    delta_cell = f"<b style='color:{_nt}'>{delta_val}%</b>"
-                    delta_bg   = "rgba(255,113,36,0.08)"
-
-                gmv_con  = fmt_ars(r["GMV prom. CON"])  if r["GMV prom. CON"]  else "—"
-                gmv_sin  = fmt_ars(r["GMV prom. SIN"])  if r["GMV prom. SIN"]  else "—"
-                semana   = r["Semana"]
-                marcas   = int(r["Marcas c/ palanca"])
-
-                rows_html += (
-                    f"<tr style='border-bottom:1px solid rgba(255,255,255,0.95)'>"
-                    f"<td style='padding:5px 10px;color:#1A1A2E;font-weight:600'>{semana}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#6B7280'>{marcas}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#1A1A2E'>{gmv_con}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;color:#1A1A2E'>{gmv_sin}</td>"
-                    f"<td style='padding:5px 10px;text-align:center;background:{delta_bg}'>{delta_cell}</td>"
-                    f"</tr>"
-                )
-
-            th_base  = (
-                f"background:{accent_color};color:#fff;font-size:11px;font-weight:600;"
-                f"padding:6px 10px;text-align:center;letter-spacing:.04em"
-            )
-            th_left  = th_base.replace("text-align:center", "text-align:left")
-
-            tbl = (
-                f"<div style='margin-top:.8rem'>"
-                f"<div style='font-size:12px;font-weight:700;color:{accent_color};"
-                f"margin-bottom:6px;letter-spacing:.04em'>{lever_label}</div>"
-                f"<table style='width:100%;border-collapse:collapse;font-size:12px'>"
-                f"<thead><tr>"
-                f"<th style='{th_left};border-radius:6px 0 0 0'>Semana</th>"
-                f"<th style='{th_base}'>Marcas activas</th>"
-                f"<th style='{th_base}'>GMV prom. CON (ARS)</th>"
-                f"<th style='{th_base}'>GMV prom. SIN (ARS)</th>"
-                f"<th style='{th_base};border-radius:0 6px 0 0'>Delta %</th>"
-                f"</tr></thead>"
-                f"<tbody>{rows_html}</tbody>"
-                f"</table></div>"
-            )
-            st.markdown(tbl, unsafe_allow_html=True)
-
-            # ── Dynamic insight line ──────────────────────────────────────────
-            high_weeks = corr_df[
-                corr_df["Marcas c/ palanca"] / corr_df["Marcas c/ palanca"].replace(0, pd.NA).fillna(1)
-                >= 0  # all weeks qualify; filtered below by portfolio %
-            ].copy()
-
-            # Recalculate portfolio share per week
-            high_weeks["_share"] = high_weeks.apply(
-                lambda r2: (r2["Marcas c/ palanca"] / TOTALS.get(r2["Semana"], 1)) * 100,
-                axis=1,
-            )
-            heavy_weeks = high_weeks[high_weeks["_share"] >= 40]
-
-            if not heavy_weeks.empty and heavy_weeks["Delta %"].notna().any():
-                avg_delta = heavy_weeks["Delta %"].dropna().mean()
-                sign      = "mayor" if avg_delta >= 0 else "menor"
-                abs_delta = abs(round(avg_delta, 1))
-                n_heavy   = len(heavy_weeks)
-                st.markdown(
-                    f"""<div class="hm-insight" style="margin-top:.5rem;border-left:3px solid {accent_color};">
-                    💡 Las semanas donde gestionaste <b>{lever_label}</b> en más del <b>40%</b> de tu cartera
-                    ({n_heavy} semana{"s" if n_heavy != 1 else ""}), el GMV promedio fue
-                    <b style="color:{accent_color};">{abs_delta}% {sign}</b>
-                    respecto a las marcas sin {lever_label} activo.
-                    </div>""",
-                    unsafe_allow_html=True,
-                )
-            elif not corr_df.empty and corr_df["Delta %"].notna().any():
-                avg_delta = corr_df["Delta %"].dropna().mean()
-                sign      = "mayor" if avg_delta >= 0 else "menor"
-                abs_delta = abs(round(avg_delta, 1))
-                st.markdown(
-                    f"""<div class="hm-insight" style="margin-top:.5rem;border-left:3px solid {accent_color};">
-                    💡 En promedio, las semanas con <b>{lever_label}</b> activo mostraron un GMV
-                    <b style="color:{accent_color};">{abs_delta}% {sign}</b>
-                    versus las mismas marcas sin {lever_label}.
-                    </div>""",
-                    unsafe_allow_html=True,
-                )
-
-        _col_md, _col_ads = st.columns(2)
-        with _col_md:
-            _render_corr_section(
-                lever_col="Markdown",
-                lever_label="Markdown (MD)",
-                accent_color=PALETTE["slate_indigo"],
-                bg_lo="rgba(59,72,131,0.15)",
-            )
-        with _col_ads:
-            _render_corr_section(
-                lever_col="Ads",
-                lever_label="Ads",
-                accent_color=PALETTE["neon_tangerine"],
-                bg_lo="rgba(255,113,36,0.08)",
-            )
 
 
 # =========================
@@ -14711,46 +14711,40 @@ def render_brand_profile(row, brand_id):
 
     st.markdown(f"""
 <style>
-  .inf-wrapper {{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    margin-top: 4px;
-  }}
   .inf-card {{
     border-radius: 14px;
-    padding: 18px 20px 16px;
+    padding: 20px 22px 18px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 10px;
+    margin-bottom: 14px;
   }}
   .inf-card.blue {{
-    background: linear-gradient(135deg, rgba(59,72,131,.10), rgba(59,72,131,.18));
+    background: linear-gradient(135deg, rgba(59,72,131,.08), rgba(59,72,131,.14));
     border: 1.5px solid #1B3F8B;
   }}
   .inf-card.orange {{
-    background: linear-gradient(135deg, rgba(255,113,36,.08), rgba(255,113,36,.16));
+    background: linear-gradient(135deg, rgba(255,113,36,.06), rgba(255,113,36,.12));
     border: 1.5px solid #FF7124;
   }}
   .inf-title {{ font-size: 14px; font-weight: 800; color: #1A1A2E; }}
-  .inf-desc  {{ font-size: 11px; color: #6B7280; line-height: 1.5; margin-bottom: 6px; }}
+  .inf-desc  {{ font-size: 11px; color: #6B7280; line-height: 1.5; }}
+  .inf-chart-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
 </style>
 
-<div class="inf-wrapper">
-  <div class="inf-card blue">
-    <div class="inf-title">📈 Brand vs Brand</div>
-    <div class="inf-desc">Evolución de GMV y AOV en los últimos 3 meses.</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      {_dot_line_chart_card("GMV", current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars, fmt_usd(current_gmv_usd))}
-      {_dot_line_chart_card("AOV", current_aov_ars, may_aov_ars, abril_aov_ars, fmt_ars, fmt_usd(current_aov_usd))}
-    </div>
+<div class="inf-card blue">
+  <div class="inf-title">📈 Brand vs Brand</div>
+  <div class="inf-desc">Evolución de GMV y AOV en los últimos 3 meses.</div>
+  <div class="inf-chart-row">
+    {_dot_line_chart_card("GMV", current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars, fmt_usd(current_gmv_usd))}
+    {_dot_line_chart_card("AOV", current_aov_ars, may_aov_ars, abril_aov_ars, fmt_ars, fmt_usd(current_aov_usd))}
   </div>
+</div>
 
-  <div class="inf-card orange">
-    <div class="inf-title">🏪 Brand vs Benchmark</div>
-    <div class="inf-desc">{_bvc_summary}</div>
-    <div>{_funnel_html}</div>
-  </div>
+<div class="inf-card orange">
+  <div class="inf-title">🏪 Brand vs Benchmark</div>
+  <div class="inf-desc">{_bvc_summary}</div>
+  <div>{_funnel_html}</div>
 </div>
 """, unsafe_allow_html=True)
 
