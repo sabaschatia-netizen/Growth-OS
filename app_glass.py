@@ -15023,10 +15023,126 @@ def render_brand_profile(row, brand_id):
   </div>
 </div>"""
 
+    # ── Card unificada: Funnel Traffic/CVR + GMV incremental + diagnóstico ──────
+    # Reemplaza las dos cards separadas (GMV incremental / Diagnóstico Traffic&CVR)
+    # por un único funnel de 3 niveles: benchmark traffic → traffic marca →
+    # conversión marca (con benchmark de conversión al lado). Cada nivel sale
+    # según la data disponible — si falta, queda "s/d" en vez de inventar un valor.
+
+    _fn_bench_traffic_val = _t_bench if _t_bench and _t_bench > 0 else None
+    _fn_brand_traffic_val = _traffic_weekly if _traffic_weekly and _traffic_weekly > 0 else None
+    _fn_brand_cvr_val     = _cr_current_norm if _cr_current_norm > 0 else None
+    _fn_bench_cvr_val     = _cr_benchmark_norm if _cr_benchmark_norm > 0 else None
+
+    _fn_bench_traffic_disp = f"{round(_fn_bench_traffic_val):,}/sem".replace(",", ".") if _fn_bench_traffic_val else "s/d"
+    _fn_brand_traffic_disp = f"{round(_fn_brand_traffic_val):,}/sem".replace(",", ".") if _fn_brand_traffic_val else "s/d"
+    _fn_brand_cvr_disp     = f"{round(_fn_brand_cvr_val*100,1)}%" if _fn_brand_cvr_val else "s/d"
+    _fn_bench_cvr_disp     = f"{round(_fn_bench_cvr_val*100,1)}%" if _fn_bench_cvr_val else "s/d"
+
+    # Anchos relativos del funnel: nivel 1 = 100% siempre (referencia). Los niveles
+    # 2 y 3 escalan proporcional al benchmark de traffic, salvo que la marca lo
+    # supere — en ese caso el nivel 2 puede ser MÁS ANCHO que el nivel 1.
+    _fn_w1 = 100.0
+    if _fn_bench_traffic_val and _fn_brand_traffic_val:
+        _fn_w2 = round(min(max(_fn_brand_traffic_val / _fn_bench_traffic_val * 100, 18), 145), 1)
+    elif _fn_brand_traffic_val:
+        _fn_w2 = 70.0  # solo hay traffic de marca, sin benchmark de referencia
+    else:
+        _fn_w2 = 0.0  # s/d → barra mínima/vacía
+
+    # Nivel 3 (conversión) usa el % real directamente como ancho relativo a un
+    # techo razonable (15%), para que el funnel converse visualmente con CVR
+    # típicos del rubro sin que una categoría de alta conversión se desborde.
+    _fn_cvr_ceiling = max(_fn_bench_cvr_val or 0.06, _fn_brand_cvr_val or 0, 0.06) * 1.6
+    _fn_w3 = round(min((_fn_brand_cvr_val / _fn_cvr_ceiling * 100) if _fn_brand_cvr_val else 0, 145), 1)
+
+    _fn_traffic_brand_above = bool(_fn_bench_traffic_val and _fn_brand_traffic_val and _fn_brand_traffic_val > _fn_bench_traffic_val)
+    _fn_cvr_brand_above     = bool(_fn_bench_cvr_val and _fn_brand_cvr_val and _fn_brand_cvr_val >= _fn_bench_cvr_val)
+
+    # Paleta del funnel: 3 tonos distintos y legibles en light y dark mode —
+    # naranja (benchmark, referencia neutra), azul (traffic de marca), y verde/rojo
+    # condicional para CVR según esté sobre o bajo benchmark.
+    _fn_c1 = "#FF7124"  # benchmark traffic — naranja de marca, siempre neutro
+    _fn_c2 = "#1B6FE0" if not _fn_traffic_brand_above else "#7ED321"  # traffic marca: azul normal, verde si supera benchmark
+    _fn_c3 = "#7ED321" if _fn_cvr_brand_above else ("#FF4D2E" if _fn_brand_cvr_val else "#8C93AC")
+
+    def _funnel_level_html(label, value_disp, width_pct, color, badge_text=None):
+        _badge_html = (
+            f'<span style="font-size:10px;font-weight:800;color:{color};margin-left:8px;">{badge_text}</span>'
+            if badge_text else ""
+        )
+        return f"""
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:rgba(107,114,128,0.75);">{label}</span>
+            <span style="font-size:13px;font-weight:800;color:{color};">{value_disp}{_badge_html}</span>
+          </div>
+          <div style="background:rgba(140,147,172,0.16);border-radius:6px;height:16px;overflow:hidden;">
+            <div style="width:{max(width_pct,3):.1f}%;height:100%;background:{color};border-radius:6px;transition:width .4s;"></div>
+          </div>
+        </div>"""
+
+    _funnel_html = (
+        _funnel_level_html("Traffic benchmark categoría", _fn_bench_traffic_disp, _fn_w1, _fn_c1)
+        + _funnel_level_html(
+            "Traffic de la marca", _fn_brand_traffic_disp, _fn_w2, _fn_c2,
+            badge_text="▲ sobre benchmark" if _fn_traffic_brand_above else None,
+        )
+        + _funnel_level_html(
+            "Conversión de la marca", _fn_brand_cvr_disp, _fn_w3, _fn_c3,
+            badge_text=(f"vs bench {_fn_bench_cvr_disp}" if _fn_bench_cvr_val else None),
+        )
+    )
+
+    # ── Párrafo combinado: funde el diagnóstico de GMV incremental (card 3)
+    # con el diagnóstico de traffic/CVR (card 4 vieja) en una sola lectura. ──
+    if not _has_traffic and not _has_cvr:
+        _fn_combined_text = "No hay traffic ni conversión registrados esta semana. Activá ads para empezar a generar ambas métricas de forma medible."
+        _fn_pitch = "Activá ads para empezar a generar tráfico y CVR medibles — sin eso no podemos calcular dónde está la oportunidad real."
+        _fn_headline = "Sin datos suficientes"
+        _fn_headline_color = "#8C93AC"
+    elif _cr_above_bench and not _has_traffic:
+        _fn_combined_text = f"Tu CR ({_fn_brand_cvr_disp}) ya está sobre el benchmark de tu categoría ({_fn_bench_cvr_disp}), pero no hay traffic registrado esta semana para medir el volumen."
+        _fn_pitch = f"Tu tienda convierte mejor que el promedio ({_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}). El problema no es la tienda — necesitamos activar ads para medir y escalar el tráfico real."
+        _fn_headline = "Conversión fuerte, falta tráfico medible"
+        _fn_headline_color = "#FF7124"
+    elif _d4_diag == "Problema doble":
+        _fn_combined_text = f"Dos frentes abiertos: traffic de {_fn_brand_traffic_disp} vs benchmark {_fn_bench_traffic_disp}, y conversión de {_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}." + (f" Si llegaras al benchmark de conversión con el mismo tráfico, sumarías {fmt_ars(round(_gmv_incremental))}/mes." if _gmv_incremental > 0 else "")
+        _fn_pitch = f"Dos frentes abiertos: traffic de {_fn_brand_traffic_disp} vs benchmark {_fn_bench_traffic_disp} y CVR de {_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}. " + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "") + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
+        _fn_headline = "Problema doble"
+        _fn_headline_color = "#FF4D2E"
+    elif _d4_diag == "Problema: Tráfico":
+        _fn_combined_text = f"Tu conversión ({_fn_brand_cvr_disp}) está sobre el benchmark ({_fn_bench_cvr_disp}), pero el tráfico ({_fn_brand_traffic_disp}) está por debajo del benchmark de categoría ({_fn_bench_traffic_disp})." + (f" Si alcanzaras el benchmark de CVR con más tráfico, el incremental estimado sería {fmt_ars(round(_gmv_incremental))}/mes." if _gmv_incremental > 0 else "")
+        _fn_pitch = _d4_pitch
+        _fn_headline = "Problema: Tráfico"
+        _fn_headline_color = "#FF7124"
+    elif _d4_diag == "Problema: Conversión":
+        _fn_combined_text = f"Tu tráfico ({_fn_brand_traffic_disp}) está en línea con el benchmark ({_fn_bench_traffic_disp}), pero tu conversión ({_fn_brand_cvr_disp}) está por debajo del promedio de categoría ({_fn_bench_cvr_disp})." + (f" Si llegás al benchmark, sumás {fmt_ars(round(_gmv_incremental))}/mes con el mismo tráfico." if _gmv_incremental > 0 else "")
+        _fn_pitch = _d4_pitch
+        _fn_headline = "Problema: Conversión"
+        _fn_headline_color = "#FF7124"
+    else:
+        _fn_combined_text = f"Traffic ({_fn_brand_traffic_disp}) y conversión ({_fn_brand_cvr_disp}) están alineados o por encima del benchmark de categoría ({_fn_bench_traffic_disp} / {_fn_bench_cvr_disp})."
+        _fn_pitch = _d4_pitch
+        _fn_headline = "Ambas métricas OK"
+        _fn_headline_color = "#7ED321"
+
+    _funnel_card_html = f"""
+    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">🔍 Funnel Traffic &amp; Conversión vs Benchmark</div>
+      <div style="font-size:15px;font-weight:900;color:{_fn_headline_color};margin-bottom:10px;">{_fn_headline}</div>
+      <div style="margin-bottom:12px;">{_funnel_html}</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;margin-top:auto;">
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;margin-bottom:10px;">{_fn_combined_text}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_fn_pitch}"</div>
+      </div>
+    </div>"""
+
     st.markdown(f"""
 <div class="wide-info-card">
   <div class="wide-info-title">Analytics</div>
-  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:4px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:14px;margin-top:4px;">
     <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
       <div style="font-size:26px;font-weight:900;color:#7ED321;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
@@ -15050,24 +15166,7 @@ def render_brand_profile(row, brand_id):
         <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
       </div>
     </div>
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">📈 GMV incremental si CR llega al benchmark</div>
-      <div style="font-size:26px;font-weight:900;color:{_inc_color};line-height:1.1;">{_c3_main}</div>
-      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">{_c3_sub}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_c3_pitch}"</div>
-      </div>
-    </div>
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">🔍 Diagnóstico Traffic &amp; CVR</div>
-      <div style="font-size:26px;font-weight:900;color:{_d4_color};line-height:1.1;">{_d4_main}</div>
-      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">{_d4_sub}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_d4_pitch}"</div>
-      </div>
-    </div>
+    {_funnel_card_html}
   </div>
   {_pitch_facts_block}
 </div>
