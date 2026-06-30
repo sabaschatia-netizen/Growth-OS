@@ -15033,65 +15033,106 @@ def render_brand_profile(row, brand_id):
     _fn_brand_cvr_disp     = f"{round(_fn_brand_cvr_val*100,1)}%" if _fn_brand_cvr_val else "s/d"
     _fn_bench_cvr_disp     = f"{round(_fn_bench_cvr_val*100,1)}%" if _fn_bench_cvr_val else "s/d"
 
-    # Anchos relativos del funnel: nivel 1 = 100% siempre (referencia). Los niveles
-    # 2 y 3 escalan proporcional al benchmark de traffic, salvo que la marca lo
-    # supere — en ese caso el nivel 2 puede ser MÁS ANCHO que el nivel 1.
-    _fn_w1 = 100.0
-    if _fn_bench_traffic_val and _fn_brand_traffic_val:
-        _fn_w2 = round(min(max(_fn_brand_traffic_val / _fn_bench_traffic_val * 100, 18), 145), 1)
-    elif _fn_brand_traffic_val:
-        _fn_w2 = 70.0  # solo hay traffic de marca, sin benchmark de referencia
-    else:
-        _fn_w2 = 0.0  # s/d → barra mínima/vacía
+    # ── Anchos del funnel (en % del ancho disponible del SVG, 0-100) ──────────
+    # Regla pedida: las dos barras de tráfico (benchmark y marca) son siempre
+    # más anchas que la de conversión. El ancho del nivel 1 (benchmark) es fijo
+    # como referencia visual; el nivel 2 (marca) escala proporcional al
+    # benchmark y SÍ puede superarlo (desbordar hacia afuera, no solo angostar).
+    # El nivel 3 (conversión) se calcula como fracción del ancho del nivel 2
+    # (tráfico de marca) — no de un techo externo — para que la forma de
+    # embudo sea consistente con "la conversión se angosta sobre el tráfico
+    # que la marca realmente tiene", tal como se pidió.
+    _FN_MAX_W = 100.0   # ancho máximo absoluto permitido (referencia del benchmark)
+    _FN_MIN_W = 22.0    # ancho mínimo visual para que una barra nunca desaparezca
 
-    # Nivel 3 (conversión) usa el % real directamente como ancho relativo a un
-    # techo razonable (15%), para que el funnel converse visualmente con CVR
-    # típicos del rubro sin que una categoría de alta conversión se desborde.
-    _fn_cvr_ceiling = max(_fn_bench_cvr_val or 0.06, _fn_brand_cvr_val or 0, 0.06) * 1.6
-    _fn_w3 = round(min((_fn_brand_cvr_val / _fn_cvr_ceiling * 100) if _fn_brand_cvr_val else 0, 145), 1)
+    if _fn_bench_traffic_val and _fn_brand_traffic_val:
+        _fn_w1 = _FN_MAX_W
+        _fn_w2 = round(min(max(_fn_brand_traffic_val / _fn_bench_traffic_val * _FN_MAX_W, _FN_MIN_W), _FN_MAX_W * 1.35), 1)
+    elif _fn_brand_traffic_val and not _fn_bench_traffic_val:
+        # Solo hay traffic de marca, sin benchmark — el nivel 1 queda en s/d (mínimo)
+        # y el nivel 2 toma el ancho de referencia para no aplastar el embudo.
+        _fn_w1 = _FN_MIN_W
+        _fn_w2 = _FN_MAX_W
+    elif _fn_bench_traffic_val and not _fn_brand_traffic_val:
+        _fn_w1 = _FN_MAX_W
+        _fn_w2 = _FN_MIN_W
+    else:
+        _fn_w1 = _FN_MIN_W
+        _fn_w2 = _FN_MIN_W
+
+    # Conversión: SIEMPRE más angosta que el tráfico de marca (nivel 2), escalada
+    # como fracción del propio nivel 2 según qué tan bien convierte vs su benchmark.
+    # Si convierte igual al benchmark → ~55% del ancho del nivel 2 (referencia visual
+    # de embudo). Si convierte mejor → un poco más ancho; si peor → más angosto.
+    if _fn_brand_cvr_val:
+        _fn_cvr_ratio = (_fn_brand_cvr_val / _fn_bench_cvr_val) if _fn_bench_cvr_val else 1.0
+        _fn_cvr_ratio = max(min(_fn_cvr_ratio, 1.8), 0.35)  # clamp para que no se desborde ni desaparezca
+        _fn_w3 = round(min(_fn_w2 * 0.55 * _fn_cvr_ratio, _fn_w2 * 0.92), 1)  # nunca >92% del nivel 2
+        _fn_w3 = max(_fn_w3, _FN_MIN_W * 0.7)
+    else:
+        _fn_w3 = _FN_MIN_W * 0.5  # s/d → barra mínima casi invisible, sin inventar dato
+
+    # ── Estimado de órdenes según visitas de la marca × su CVR real ──────────
+    # Solo se calcula si hay AMBOS datos reales (traffic de marca y CVR) —
+    # nunca se infiere a partir de un s/d.
+    _fn_orders_est = None
+    if _fn_brand_traffic_val and _fn_brand_cvr_val:
+        _fn_orders_est = round(_fn_brand_traffic_val * _fn_brand_cvr_val, 1)
 
     _fn_traffic_brand_above = bool(_fn_bench_traffic_val and _fn_brand_traffic_val and _fn_brand_traffic_val > _fn_bench_traffic_val)
     _fn_cvr_brand_above     = bool(_fn_bench_cvr_val and _fn_brand_cvr_val and _fn_brand_cvr_val >= _fn_bench_cvr_val)
 
     # Paleta del funnel: 3 tonos distintos y legibles en light y dark mode —
-    # naranja (benchmark, referencia neutra), azul (traffic de marca), y verde/rojo
-    # condicional para CVR según esté sobre o bajo benchmark.
+    # naranja (benchmark, referencia neutra), azul/verde (traffic de marca),
+    # y verde/rojo condicional para CVR según esté sobre o bajo benchmark.
     _fn_c1 = "#FF7124"  # benchmark traffic — naranja de marca, siempre neutro
-    _fn_c2 = "#1B6FE0" if not _fn_traffic_brand_above else "#7ED321"  # traffic marca: azul normal, verde si supera benchmark
+    _fn_c2 = "#7ED321" if _fn_traffic_brand_above else "#1B6FE0"  # traffic marca: verde si supera benchmark, azul si no
     _fn_c3 = "#7ED321" if _fn_cvr_brand_above else ("#FF4D2E" if _fn_brand_cvr_val else "#8C93AC")
 
-    def _funnel_level_html(label, value_disp, width_pct, color, badge_text=None):
-        _badge_html = (
-            f'<span style="font-size:10px;font-weight:800;color:{color};margin-left:8px;">{badge_text}</span>'
-            if badge_text else ""
-        )
-        # NOTA: construido como fragmentos unidos con join(), sin sangría de línea —
-        # un f-string multilínea con 4+ espacios al inicio de línea es interpretado
-        # por el parser de Markdown de Streamlit como bloque de código, mostrando
-        # el HTML crudo en vez de renderizarlo (mismo bug ya resuelto en Pareto Hub).
-        return "".join([
-            '<div style="margin-bottom:10px;">',
-            '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">',
-            f'<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:rgba(107,114,128,0.75);">{label}</span>',
-            f'<span style="font-size:13px;font-weight:800;color:{color};">{value_disp}{_badge_html}</span>',
-            '</div>',
-            '<div style="background:rgba(140,147,172,0.16);border-radius:6px;height:16px;overflow:hidden;">',
-            f'<div style="width:{max(width_pct,3):.1f}%;height:100%;background:{color};border-radius:6px;transition:width .4s;"></div>',
-            '</div>',
-            '</div>',
-        ])
+    # ── Construcción del SVG tipo embudo (trapecios apilados, sin sangría de
+    # línea para evitar el bug de bloque-de-código de Markdown). ──────────────
+    _FN_SVG_W, _FN_SVG_H = 420, 168
+    _FN_LEVEL_H = 46
+    _FN_GAP = 5
+    _fn_cx = _FN_SVG_W / 2
 
-    _funnel_html = (
-        _funnel_level_html("Traffic benchmark categoría", _fn_bench_traffic_disp, _fn_w1, _fn_c1)
-        + _funnel_level_html(
-            "Traffic de la marca", _fn_brand_traffic_disp, _fn_w2, _fn_c2,
-            badge_text="▲ sobre benchmark" if _fn_traffic_brand_above else None,
-        )
-        + _funnel_level_html(
-            "Conversión de la marca", _fn_brand_cvr_disp, _fn_w3, _fn_c3,
-            badge_text=(f"vs bench {_fn_bench_cvr_disp}" if _fn_bench_cvr_val else None),
-        )
-    )
+    def _fn_trapezoid_points(top_w_pct, bot_w_pct, y_top, level_h):
+        top_w = (top_w_pct / 100) * _FN_SVG_W
+        bot_w = (bot_w_pct / 100) * _FN_SVG_W
+        x1, x2 = _fn_cx - top_w / 2, _fn_cx + top_w / 2
+        x3, x4 = _fn_cx + bot_w / 2, _fn_cx - bot_w / 2
+        y_bot = y_top + level_h
+        return f"{x1:.1f},{y_top:.1f} {x2:.1f},{y_top:.1f} {x3:.1f},{y_bot:.1f} {x4:.1f},{y_bot:.1f}"
+
+    _fn_y1 = 0
+    _fn_y2 = _fn_y1 + _FN_LEVEL_H + _FN_GAP
+    _fn_y3 = _fn_y2 + _FN_LEVEL_H + _FN_GAP
+
+    _fn_pts1 = _fn_trapezoid_points(_fn_w1, _fn_w2, _fn_y1, _FN_LEVEL_H)
+    _fn_pts2 = _fn_trapezoid_points(_fn_w2, _fn_w3, _fn_y2, _FN_LEVEL_H)
+    _fn_pts3 = _fn_trapezoid_points(_fn_w3, max(_fn_w3 * 0.78, _FN_MIN_W * 0.4), _fn_y3, _FN_LEVEL_H)
+
+    _fn_orders_badge = f" · ~{_fn_orders_est} ped/sem" if _fn_orders_est is not None else ""
+
+    _fn_label1 = f"Traffic benchmark categoría · {_fn_bench_traffic_disp}"
+    _fn_label2 = f"Traffic de la marca · {_fn_brand_traffic_disp}" + (" ▲" if _fn_traffic_brand_above else "")
+    _fn_label3 = f"Conversión de la marca · {_fn_brand_cvr_disp} (bench {_fn_bench_cvr_disp}){_fn_orders_badge}"
+
+    def _fn_text_y(y_top, level_h):
+        return y_top + level_h / 2 + 4
+
+    _funnel_svg = "".join([
+        f'<svg viewBox="0 0 {_FN_SVG_W} {_fn_y3 + _FN_LEVEL_H + 4}" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">',
+        f'<polygon points="{_fn_pts1}" fill="{_fn_c1}" opacity="0.92"></polygon>',
+        f'<text x="{_fn_cx:.1f}" y="{_fn_text_y(_fn_y1, _FN_LEVEL_H):.1f}" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">{html.escape(_fn_label1)}</text>',
+        f'<polygon points="{_fn_pts2}" fill="{_fn_c2}" opacity="0.92"></polygon>',
+        f'<text x="{_fn_cx:.1f}" y="{_fn_text_y(_fn_y2, _FN_LEVEL_H):.1f}" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">{html.escape(_fn_label2)}</text>',
+        f'<polygon points="{_fn_pts3}" fill="{_fn_c3}" opacity="0.92"></polygon>',
+        f'<text x="{_fn_cx:.1f}" y="{_fn_text_y(_fn_y3, _FN_LEVEL_H):.1f}" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF">{html.escape(_fn_label3)}</text>',
+        '</svg>',
+    ])
+
+    _funnel_html = f'<div style="display:flex;justify-content:center;padding:4px 0;">{_funnel_svg}</div>'
 
     # ── Párrafo combinado: funde el diagnóstico de GMV incremental (card 3)
     # con el diagnóstico de traffic/CVR (card 4 vieja) en una sola lectura. ──
