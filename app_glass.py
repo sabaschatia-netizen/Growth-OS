@@ -15091,14 +15091,14 @@ def render_brand_profile(row, brand_id):
 
     # ── Construcción del SVG tipo embudo (trapecios apilados, sin sangría de
     # línea para evitar el bug de bloque-de-código de Markdown). ──────────────
-    _FN_SVG_W, _FN_SVG_H = 420, 168
+    _FN_SVG_W, _FN_SVG_H = 520, 168
     _FN_LEVEL_H = 46
     _FN_GAP = 5
     _fn_cx = _FN_SVG_W / 2
 
-    def _fn_trapezoid_points(top_w_pct, bot_w_pct, y_top, level_h):
-        top_w = (top_w_pct / 100) * _FN_SVG_W
-        bot_w = (bot_w_pct / 100) * _FN_SVG_W
+    def _fn_trapezoid_points(top_w_pct, bot_w_pct, y_top, level_h, max_shape_w):
+        top_w = (top_w_pct / 100) * max_shape_w
+        bot_w = (bot_w_pct / 100) * max_shape_w
         x1, x2 = _fn_cx - top_w / 2, _fn_cx + top_w / 2
         x3, x4 = _fn_cx + bot_w / 2, _fn_cx - bot_w / 2
         y_bot = y_top + level_h
@@ -15108,27 +15108,61 @@ def render_brand_profile(row, brand_id):
     _fn_y2 = _fn_y1 + _FN_LEVEL_H + _FN_GAP
     _fn_y3 = _fn_y2 + _FN_LEVEL_H + _FN_GAP
 
-    _fn_pts1 = _fn_trapezoid_points(_fn_w1, _fn_w2, _fn_y1, _FN_LEVEL_H)
-    _fn_pts2 = _fn_trapezoid_points(_fn_w2, _fn_w3, _fn_y2, _FN_LEVEL_H)
-    _fn_pts3 = _fn_trapezoid_points(_fn_w3, max(_fn_w3 * 0.78, _FN_MIN_W * 0.4), _fn_y3, _FN_LEVEL_H)
+    # El embudo ocupa solo la mitad izquierda del SVG — la mitad derecha queda
+    # libre para las etiquetas, que ya no van adentro de la forma (eso era lo
+    # que cortaba el texto en niveles angostos como el de tráfico de marca).
+    _FN_SHAPE_MAX_W = _FN_SVG_W * 0.46
+    _fn_cx = _FN_SHAPE_MAX_W / 2 + 6
+
+    _fn_pts1 = _fn_trapezoid_points(_fn_w1, _fn_w2, _fn_y1, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
+    _fn_pts2 = _fn_trapezoid_points(_fn_w2, _fn_w3, _fn_y2, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
+    _fn_pts3 = _fn_trapezoid_points(_fn_w3, max(_fn_w3 * 0.78, _FN_MIN_W * 0.4), _fn_y3, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
 
     _fn_orders_badge = f" · ~{_fn_orders_est} ped/sem" if _fn_orders_est is not None else ""
 
-    _fn_label1 = f"Traffic benchmark categoría · {_fn_bench_traffic_disp}"
-    _fn_label2 = f"Traffic de la marca · {_fn_brand_traffic_disp}" + (" ▲" if _fn_traffic_brand_above else "")
-    _fn_label3 = f"Conversión de la marca · {_fn_brand_cvr_disp} (bench {_fn_bench_cvr_disp}){_fn_orders_badge}"
+    _fn_label1_top = "Traffic benchmark categoría"
+    _fn_label1_val = _fn_bench_traffic_disp
+    _fn_label2_top = "Traffic de la marca" + (" ▲ sobre benchmark" if _fn_traffic_brand_above else "")
+    _fn_label2_val = _fn_brand_traffic_disp
+    _fn_label3_top = "Conversión de la marca"
+    _fn_label3_bench_note = f"bench {_fn_bench_cvr_disp}"
+    _fn_label3_val = f"{_fn_brand_cvr_disp}{_fn_orders_badge}"
 
-    def _fn_text_y(y_top, level_h):
-        return y_top + level_h / 2 + 4
+    def _fn_level_center_y(y_top, level_h):
+        return y_top + level_h / 2
+
+    # ── Etiquetas FUERA de la forma: columna de texto a la derecha + línea
+    # conectora desde el centro del trapecio. Así el ancho de texto nunca
+    # depende de qué tan angosto sea el nivel, eliminando el corte de texto. ──
+    _fn_label_x = _FN_SHAPE_MAX_W + 22
+    _fn_line_x_end = _fn_label_x - 6
+
+    def _fn_label_block(y_top, level_h, color, top_text, val_text, val_size=13, note_text=None):
+        _cy = _fn_level_center_y(y_top, level_h)
+        _note_svg = (
+            f'<text x="{_fn_label_x:.1f}" y="{_cy+22:.1f}" font-size="9" font-weight="600" fill="currentColor" opacity="0.5">{html.escape(note_text)}</text>'
+            if note_text else ""
+        )
+        return "".join([
+            f'<line x1="{_fn_cx:.1f}" y1="{_cy:.1f}" x2="{_fn_line_x_end:.1f}" y2="{_cy:.1f}" stroke="{color}" stroke-width="1.5" stroke-dasharray="2,3" opacity="0.55"></line>',
+            f'<circle cx="{_fn_line_x_end:.1f}" cy="{_cy:.1f}" r="3" fill="{color}"></circle>',
+            f'<text x="{_fn_label_x:.1f}" y="{_cy-7:.1f}" font-size="10" font-weight="700" fill="currentColor" opacity="0.65">{html.escape(top_text)}</text>',
+            f'<text x="{_fn_label_x:.1f}" y="{_cy+9:.1f}" font-size="{val_size}" font-weight="900" fill="{color}">{html.escape(val_text)}</text>',
+            _note_svg,
+        ])
+
+    _fn_labels_svg = (
+        _fn_label_block(_fn_y1, _FN_LEVEL_H, _fn_c1, _fn_label1_top, _fn_label1_val)
+        + _fn_label_block(_fn_y2, _FN_LEVEL_H, _fn_c2, _fn_label2_top, _fn_label2_val)
+        + _fn_label_block(_fn_y3, _FN_LEVEL_H, _fn_c3, _fn_label3_top, _fn_label3_val, val_size=12, note_text=_fn_label3_bench_note)
+    )
 
     _funnel_svg = "".join([
-        f'<svg viewBox="0 0 {_FN_SVG_W} {_fn_y3 + _FN_LEVEL_H + 4}" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">',
+        f'<svg viewBox="0 0 {_FN_SVG_W} {_fn_y3 + _FN_LEVEL_H + 4}" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="color:{"#E4E7F1" if DARK_MODE else "#1A1A2E"};">',
         f'<polygon points="{_fn_pts1}" fill="{_fn_c1}" opacity="0.92"></polygon>',
-        f'<text x="{_fn_cx:.1f}" y="{_fn_text_y(_fn_y1, _FN_LEVEL_H):.1f}" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">{html.escape(_fn_label1)}</text>',
         f'<polygon points="{_fn_pts2}" fill="{_fn_c2}" opacity="0.92"></polygon>',
-        f'<text x="{_fn_cx:.1f}" y="{_fn_text_y(_fn_y2, _FN_LEVEL_H):.1f}" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">{html.escape(_fn_label2)}</text>',
         f'<polygon points="{_fn_pts3}" fill="{_fn_c3}" opacity="0.92"></polygon>',
-        f'<text x="{_fn_cx:.1f}" y="{_fn_text_y(_fn_y3, _FN_LEVEL_H):.1f}" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF">{html.escape(_fn_label3)}</text>',
+        _fn_labels_svg,
         '</svg>',
     ])
 
