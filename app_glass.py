@@ -46,6 +46,10 @@ COP_PER_USD = 3900
 ADS_REVENUE_TARGET_USD = 17574
 CONTACTS_START_DATE = date(2026, 6, 1)
 
+# Growth OS es agnóstico de país. Este filtro define qué país del Excel se carga
+# en el portafolio activo. Dejar en "" desactiva el filtro y carga todas las filas.
+PORTFOLIO_COUNTRY = "Argentina"
+
 # Main visual identity requested by Sabas
 # Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
 # Core: Space Indigo #1D2659 · Slate Indigo #4E63D9 · Neon Tangerine #FF8A3D · Laser Green #7ED321 · Soft Mint #DDFBCF
@@ -133,7 +137,7 @@ ASIGNACION_JUNIO_SHEET = "Asignacion Junio"
 CURRENT_CHURN_SHEET = "Current Churn"
 HEADER_ROW = 3
 
-st.set_page_config(page_title="Growth OS", page_icon="🇦🇷", layout="wide")
+st.set_page_config(page_title="Growth OS", page_icon="📈", layout="wide")
 
 
 # =========================
@@ -415,9 +419,11 @@ def load_growth_data():
     if "id" in df.columns:
         df = df[df["id"].notna()].copy()
 
-    # Filtrar solo marcas AR — reversible, no toca el archivo
-    if "country" in df.columns:
-        df = df[df["country"].astype(str).str.contains("Argentina", case=False, na=False)].copy()
+    # Filtrar por país de operación — configurable vía PORTFOLIO_COUNTRY, no hardcodeado.
+    # Growth OS es agnóstico de país: cambiar PORTFOLIO_COUNTRY adapta el dashboard
+    # a cualquier portafolio sin tocar lógica.
+    if "country" in df.columns and PORTFOLIO_COUNTRY:
+        df = df[df["country"].astype(str).str.contains(PORTFOLIO_COUNTRY, case=False, na=False)].copy()
 
     return df
 
@@ -772,14 +778,28 @@ def get_may_brand_metrics(brand_id, brand_name=""):
     if not os.path.exists(EXCEL_FILE):
         return None
 
-    # Usar el loader cacheado en vez de leer el Excel directamente
-    raw = load_may_gmv_data()
+    # Leer MAY GMV directo para no depender del filtro de _id
+    try:
+        raw = pd.read_excel(EXCEL_FILE, sheet_name=MAY_GMV_SHEET)
+    except Exception:
+        return None
+
+    raw.columns = [normalize(c).replace("_", " ") for c in raw.columns]
+    raw = raw.loc[:, ~raw.columns.duplicated()].copy()
+
+    brand_col = _first_existing_col(raw, ["brand", "brand name", "tienda", "nombre tienda", "code", "id"])
+    if not brand_col:
+        return None
+
+    raw = raw[raw[brand_col].notna()].copy()
     if raw.empty:
         return None
 
-    # load_may_gmv_data ya normaliza columnas y genera _id / _brand_name_norm
-    raw["_row_id"]   = raw["_id"]
-    raw["_row_name"] = raw["_brand_name_norm"]
+    # Extraer ID numérico y nombre puro de cada fila
+    raw["_row_id"]   = raw[brand_col].apply(normalize_brand_id)
+    raw["_row_name"] = raw[brand_col].apply(
+        lambda v: normalize(re.sub(r"^\d+[\s\-–]+", "", str(v).strip()))
+    )
 
     target_id   = normalize_brand_id(brand_id)
     target_name = normalize(brand_name) if brand_name else ""
@@ -794,7 +814,7 @@ def get_may_brand_metrics(brand_id, brand_name=""):
     if result.empty and target_name:
         result = raw[raw["_row_name"] == target_name]
 
-    # Intento 3: nombre parcial
+    # Intento 3: nombre parcial — el nombre de Growth OS contiene el de MAY GMV o viceversa
     if result.empty and target_name:
         result = raw[raw["_row_name"].str.contains(re.escape(target_name), na=False)]
     if result.empty and target_name:
@@ -1188,6 +1208,68 @@ def get_current_brand_metrics(brand_id):
         "aov_cop": current_aov_usd * COP_PER_USD,
         "caba_rank": _format_rank(row.get("_caba_rank", "-")) if "_format_rank" in globals() else f"#{int(row.get('_caba_rank'))}",
     }
+
+
+@st.cache_data(ttl=3000, show_spinner=False)
+def get_pareto_tiers_map():
+    """
+    Calcula el Tier de Pareto de cada marca según su % acumulado de GMV total
+    (Current GMV, ya viene ordenado desc por gmv ars con _caba_rank).
+      Tier A → marcas que en conjunto representan el primer 80% del GMV total
+      Tier B → el siguiente 15% acumulado (80%-95%)
+      Tier C → el 5% final (95%-100%)
+    Devuelve dict {brand_id: "A"|"B"|"C"}.
+    """
+    df = load_current_gmv_data()
+    if df.empty or "gmv ars" not in df.columns:
+        return {}
+
+    d = df[["_id", "gmv ars"]].copy()
+    d["gmv ars"] = pd.to_numeric(d["gmv ars"], errors="coerce").fillna(0)
+    d = d[d["gmv ars"] > 0].sort_values("gmv ars", ascending=False).reset_index(drop=True)
+
+    total_gmv = d["gmv ars"].sum()
+    if total_gmv <= 0:
+        return {}
+
+    d["_cum_pct"] = d["gmv ars"].cumsum() / total_gmv
+
+    def _tier_for(cum_pct):
+        if cum_pct <= 0.80:
+            return "A"
+        elif cum_pct <= 0.95:
+            return "B"
+        return "C"
+
+    d["_tier"] = d["_cum_pct"].apply(_tier_for)
+    return dict(zip(d["_id"], d["_tier"]))
+
+
+def get_pareto_tier(brand_id):
+    """Devuelve 'A', 'B', 'C' o None si la marca no tiene GMV registrado en Current GMV."""
+    bid = normalize_brand_id(brand_id)
+    return get_pareto_tiers_map().get(bid)
+
+
+PARETO_TIER_STYLE = {
+    "A": {"color": "linear-gradient(145deg,#FF7124,#D95A10)", "label": "Pareto Tier A", "icon": "🥇"},
+    "B": {"color": "linear-gradient(145deg,#1B3F8B,#3D64B8)", "label": "Pareto Tier B", "icon": "🥈"},
+    "C": {"color": "linear-gradient(145deg,#6B7280,#4B5563)", "label": "Pareto Tier C", "icon": "🥉"},
+}
+
+
+def render_pareto_badge_html(brand_id):
+    """Sticker circular con el Tier de Pareto, mismo estilo visual que ocupaba el badge Mundialista."""
+    tier = get_pareto_tier(brand_id)
+    if not tier:
+        return ""
+    style = PARETO_TIER_STYLE.get(tier)
+    if not style:
+        return ""
+    return (
+        f"<span class='hero-mundialista-badge' style='background:{style['color']};'>"
+        f"<span class='badge-cup'>{style['icon']}</span> {style['label']}</span>"
+    )
 
 
 def get_current_gmv_totals():
@@ -1620,7 +1702,6 @@ def get_current_md_metrics(brand_id, pro=False):
     }
 
 
-@st.cache_data(ttl=3000, show_spinner=False)
 def _read_md_totals_from_sheet(pro=False):
     """
     Reads the Total row directly from Current MD or Current MD pro.
@@ -1758,7 +1839,6 @@ def load_seasonal_events_data():
     if df.empty:
         return pd.DataFrame()
     return df
-@st.cache_data(ttl=3000, show_spinner=False)
 def load_coinversion_data():
     """Loads COINVERSION sheet. No header row — data starts at row 0."""
     if not os.path.exists(EXCEL_FILE):
@@ -1980,7 +2060,6 @@ def clean_product_name(value):
     return text.strip()
 
 
-@st.cache_data(ttl=3000, show_spinner=False)
 def get_caba_category_trends(category):
     keywords = get_category_keywords(category)
 
@@ -3060,7 +3139,6 @@ def get_last_comments_map(limit=2):
     return result
 
 
-@st.cache_data(ttl=300, show_spinner=False)
 def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE):
     """
     Reads the Productivity sheet and counts contacts by channel:
@@ -3590,7 +3668,6 @@ TEMPLATE_TYPES = [
     "Presentación inicial",
     "Seguimiento",
     "Activar campañas",
-    "Aliado Mundialista en combo",
     "No Contactado",
     "Churn / Chon",
 ]
@@ -3742,8 +3819,6 @@ def _template_subject(template_type, ctx):
         return f"SEGUIMIENTO COMERCIAL RAPPI | {brand}"
     if template_type == "Activar campañas":
         return f"ACTIVACIÓN DE CAMPAÑAS RAPPI | {brand}"
-    if template_type == "Aliado Mundialista en combo":
-        return f"PROPUESTA ALIADO MUNDIALISTA | {brand}"
     if template_type == "No Contactado":
         return f"CONTACTO COMERCIAL RAPPI | {brand}"
     if template_type == "Churn / Chon":
@@ -3863,27 +3938,6 @@ Quedo atento.
 Sabas Ramírez
 Rappi"""
         whatsapp_body = f"""{greeting} Revisando {brand}, veo oportunidad de activar campaña. La lectura 360 sugiere empezar por {campaign_action}: {campaign_reason}. Resumen: {summary}. ¿Lo validamos para avanzar esta semana?"""
-
-    elif template_type == "Aliado Mundialista en combo":
-        booster = ctx.get("booster", {})
-        event = clean(booster.get("event"), "temporada mundialista")
-        email_body = f"""{greeting}
-
-Quiero proponerles trabajar una activación tipo Aliado Mundialista para {brand}, enfocada en combos fuertes, productos principales y mayor visibilidad durante la temporada.
-
-La idea es no hacer una promo aislada, sino una gestión 360: combo atractivo, MD competitivo, posible empuje con Ads y revisión de menú/operación para que la campaña convierta bien.
-
-Lectura 360 actual: {summary}.
-
-Evento o ángulo recomendado: {event}.
-
-¿Revisamos una propuesta de combo y definimos si avanzamos con la activación?
-
-Quedo atento.
-
-Sabas Ramírez
-Rappi"""
-        whatsapp_body = f"""{greeting} Tengo una propuesta para trabajar {brand} como Aliado Mundialista con combo fuerte + promo + visibilidad. La lectura 360 actual es: {summary}. La idea es que no sea solo descuento, sino una activación completa. ¿La revisamos?"""
 
     elif template_type == "No Contactado":
         email_body = f"""{greeting}
@@ -4033,14 +4087,15 @@ def _save_day_queue_cursor(brand_id, brand_name):
 
 def _build_google_search_url(brand_name, category="", contact=""):
     """
-    Arma una URL de búsqueda de Google con nombre + categoría + 'Argentina'
-    (y teléfono si está disponible) para encontrar el local: nombre, dirección,
-    teléfono y mapa.
+    Arma una URL de búsqueda de Google con nombre + categoría + país del portafolio
+    (PORTFOLIO_COUNTRY) y teléfono si está disponible, para encontrar el local:
+    nombre, dirección, teléfono y mapa.
     """
     parts = [strip_brand_id_prefix(brand_name)]
     if category and category not in ["", "-"]:
         parts.append(category)
-    parts.append("Argentina")
+    if PORTFOLIO_COUNTRY:
+        parts.append(PORTFOLIO_COUNTRY)
     if contact and contact not in ["", "-"]:
         parts.append(contact)
     query = " ".join(str(p) for p in parts if p)
@@ -4219,12 +4274,12 @@ def _build_churn_day_queue_message(name, category, churn_status, priority_topics
     if topics_line:
         greeting_wa += f" {topics_line}"
 
-    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n"
+    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi.\n\n"
                       f"{pain_email}\n\n"
                       + (f"{topics_line}\n\n" if topics_line else "")
-                      + (f"¿Tenés un momento hoy para una llamada urgente?\n\nSaludos,\nSabas Ramírez\nRappi Argentina"
+                      + (f"¿Tenés un momento hoy para una llamada urgente?\n\nSaludos,\nSabas Ramírez\nRappi"
                          if urgent else
-                         f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina"))
+                         f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi"))
 
     return subject, greeting_wa, greeting_email
 
@@ -4307,10 +4362,10 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
     if topics_line:
         greeting_wa += f" {topics_line}"
 
-    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi Argentina.\n\n"
+    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi.\n\n"
                       f"{pain_email}\n\n"
                       + (f"{topics_line}\n\n" if topics_line else "")
-                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi Argentina")
+                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi")
 
     return subject, greeting_wa, greeting_email
 
@@ -4387,7 +4442,7 @@ def page_day_queue():
             f"<div style='background:{bg};border:1px solid {border};border-radius:10px;"
             f"padding:8px 14px;display:inline-block;margin-right:8px;margin-bottom:6px;'>"
             f"<div style='font-size:10px;font-weight:700;letter-spacing:.06em;"
-            f"color:rgba(232,223,213,.5);text-transform:uppercase;margin-bottom:2px;'>{label}</div>"
+            f"color:#6B7280;text-transform:uppercase;margin-bottom:2px;'>{label}</div>"
             f"<div style='font-size:15px;font-weight:700;color:{color_val};'>{value}</div>"
             f"</div>"
         )
@@ -4521,9 +4576,9 @@ def page_day_queue():
             top_l, top_r = st.columns([3, 1])
             with top_l:
                 ads_badge_bg  = "rgba(59,72,131,0.20)" if ads_active else "rgba(255,255,255,0.90)"
-                ads_badge_txt = "#1B3F8B" if ads_active else "rgba(232,223,213,.35)"
+                ads_badge_txt = "#1B3F8B" if ads_active else "#6B7280"
                 md_badge_bg   = "rgba(111,242,75,0.10)" if md_active else "rgba(255,255,255,0.90)"
-                md_badge_txt  = "#7ED321" if md_active else "rgba(232,223,213,.35)"
+                md_badge_txt  = "#7ED321" if md_active else "#6B7280"
                 churn_badge_html = ""
                 if show_churn_sticker:
                     _is_urgent_churn = any(c in str(churn_status) for c in ["🆘", "🚨", "☠", "😴"])
@@ -4532,7 +4587,7 @@ def page_day_queue():
                                   else "rgba(255,255,255,0.92)")
                     _churn_txt = ("#FF4D2E" if _is_urgent_churn
                                    else "#FF7124" if "⚠" in str(churn_status)
-                                   else "rgba(232,223,213,.7)")
+                                   else "#6B7280")
                     churn_badge_html = (
                         f"<span style='background:{_churn_bg};color:{_churn_txt};font-size:12px;font-weight:600;"
                         f"padding:3px 10px;border-radius:20px;margin-right:6px;'>"
@@ -4791,7 +4846,7 @@ section[data-testid="stSidebar"] > div:first-child {
     border-radius: 10px;
     font-size: 13px;
     font-weight: 600;
-    color: rgba(232,223,213,0.65);
+    color: #4B5563;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
     white-space: nowrap;
@@ -5740,7 +5795,7 @@ div[data-testid="stAlert"] {{
 # UI HELPERS
 # =========================
 
-def render_header(title="Growth OS", subtitle="Commercial Management System · Rappi · Argentina"):
+def render_header(title="Growth OS", subtitle="Commercial Management System · Rappi"):
     """Renderiza el header glass de cada página."""
     from datetime import date as _date
     today = _date.today()
@@ -5936,7 +5991,7 @@ def fmt_roi2(value):
 # =========================
 
 def page_management_dashboard():
-    render_header("Management Dashboard", "General Overview of Commercial Performance · Rappi · Argentina")
+    render_header("Management Dashboard", "General Overview of Commercial Performance · Rappi")
 
     if not os.path.exists(EXCEL_FILE):
         st.error("Excel data not found. Make sure the workbook is in the same folder as app.py.")
@@ -6957,7 +7012,7 @@ def _prepare_growth_scored_data():
                 synthetic = {
                     "id":              bid,
                     "name":            bname,
-                    "country":         "Argentina",
+                    "country":         PORTFOLIO_COUNTRY or "-",
                     "ltor tier":       "No Priorizado",
                     "churn":           "",
                     "churn status":    "",
@@ -8922,35 +8977,40 @@ def page_follow_up_list():
 
     st.markdown("## Active Account Follow-Ups")
     # ── Contador efectivo: Hoy / Semana / Mes ────────────────────────────────
-    # Fuente: hoja Productivity. "Efectivo" = Fase (col F) != "Aliado no contactado".
-    #   HOY  → col K (Date) == hoy
-    #   MES  → col K (Date) dentro del mes actual
-    #   SEMANA → col J (Week) dentro de la semana actual
+    # Fuente: CSV de comentarios (growth_os_comments.csv) — última tipificación
+    # registrada desde el Brand Finder, filtrando por opportunity_status positivo
+    # (Follow-up, Deal Closed, Negotiation). Reemplaza la fuente anterior (Productivity),
+    # que no reflejaba directamente la tipificación hecha en el dashboard.
+    #   HOY    → datetime del comentario == hoy
+    #   SEMANA → datetime del comentario dentro de la semana actual (lunes-domingo)
+    #   MES    → datetime del comentario dentro del mes actual
     _today      = date.today()
     _week_start = _today - timedelta(days=_today.weekday())
     _week_end   = _week_start + timedelta(days=6)
-    _prod_rows  = get_productivity_effective_rows(EXCEL_FILE)
 
+    _POSITIVE_STATUSES = {"Follow-up ✅", "Deal Closed 🏆", "Negotiation ⏳"}
+
+    _comments_df = _load_comments_df()
     _contacts_today = 0
     _contacts_this_week = 0
     _contacts_this_month = 0
 
-    if not _prod_rows.empty:
-        _eff = _prod_rows[_prod_rows["_effective"]]
+    if not _comments_df.empty and "_dt" in _comments_df.columns:
+        _positive = _comments_df[
+            _comments_df["opportunity_status"].isin(_POSITIVE_STATUSES)
+            & _comments_df["_dt"].notna()
+        ].copy()
 
-        _mask_today = _eff["_date_k"].apply(
-            lambda x: (not pd.isna(x)) and (x.date() == _today)
-        )
-        _mask_month = _eff["_date_k"].apply(
-            lambda x: (not pd.isna(x)) and (x.year == _today.year) and (x.month == _today.month)
-        )
-        _mask_week = _eff["_week_j"].apply(
-            lambda x: (not pd.isna(x)) and (_week_start <= x.date() <= _week_end)
-        )
+        if not _positive.empty:
+            _positive["_date_only"] = _positive["_dt"].dt.date
 
-        _contacts_today      = int(_mask_today.sum())
-        _contacts_this_week  = int(_mask_week.sum())
-        _contacts_this_month = int(_mask_month.sum())
+            _mask_today = _positive["_date_only"] == _today
+            _mask_week  = _positive["_date_only"].apply(lambda d: _week_start <= d <= _week_end)
+            _mask_month = _positive["_date_only"].apply(lambda d: d.year == _today.year and d.month == _today.month)
+
+            _contacts_today      = int(_mask_today.sum())
+            _contacts_this_week  = int(_mask_week.sum())
+            _contacts_this_month = int(_mask_month.sum())
 
     _week_label  = f"{_week_start.strftime('%d %b')} – {_week_end.strftime('%d %b')}"
     _month_label = _today.strftime("%B %Y")
@@ -10240,7 +10300,7 @@ def page_productivity_heatmap():
 # =========================
 
 def page_earnings_calculator():
-    render_header("Earnings Calculator", "Personal KPI Calculator · Rappi · Argentina")
+    render_header("Earnings Calculator", "Personal KPI Calculator · Rappi")
 
     raw = load_earnings_data()
 
@@ -11316,35 +11376,6 @@ def get_availability_readiness_for_brand(name):
     return {"found": True, "rate": None, "lost_hours": 0, "ready": False}
 
 
-def is_aliado_mundialista_ready(name, current_gmv_ars, current_aov_ars, cr_value, actions):
-    """Readiness detector for the Aliado Mundialista sticker.
-
-    Aliado Mundialista is now treated as a permanent promotional standard, not as a temporary booster.
-    Official readiness gates:
-    - Availability >= 90%.
-    - Photos >= 90%.
-    - Active GMV/AOV base.
-    - Promotional capacity to support the Mundialista stack:
-      25% OFF on 2 of the Top 3 products, +5% PRO, 10% combo with a Top 3 product, and Free Shipping capacity.
-
-    Because the dashboard does not have a direct margin-capacity field, the promo capacity is represented by a real GMV/AOV base.
-    """
-    availability = get_availability_readiness_for_brand(name)
-    availability_ok = availability.get("ready", False)
-
-    menu_metrics = get_menu_metrics_for_brand(name)
-    photos_value = to_number(menu_metrics.get("photos"), 0) if menu_metrics.get("found") else 0
-    photos_ok = photos_value >= 0.90
-
-    gmv = to_number(current_gmv_ars, 0)
-    aov = to_number(current_aov_ars, 0)
-    base_ok = gmv > 0 and aov > 0
-
-    cr = _normalize_rate_value(cr_value)
-    cr_ok = (not cr) or (cr >= 0.10)  # CR desconocido = pasa; CR conocido debe ser >= 10%
-
-    return bool(availability_ok and photos_ok and base_ok and cr_ok)
-
 def _format_ars_compact(value):
     try:
         v = float(value)
@@ -11754,25 +11785,12 @@ def design_campaign_for_brand(name, category, current_gmv_ars, current_aov_ars, 
         reasons.append("Comisión baja: hay más espacio para incentivo competitivo")
 
     # Promotional architecture package.
-    # Regular promo / booster recommendations still work for every brand.
-    # Aliado Mundialista, however, is a permanent promotional standard:
-    # 25% OFF on 2 Top Products + mandatory +5% PRO + 10% combo + Free Shipping capacity.
+    # Regular promo / booster recommendations work for every brand.
     hq_reco = f"HQ {discount}% + {pro_extra}% PRO · {hero_product}"
     booster_reco = f"{event} · {product_for_promo}" if event not in ["", "-"] else f"No seasonal booster · {product_for_promo}"
     combo_reco = f"Combo {cross_sell.get('pairing', '-')} · {cross_sell_discount}% OFF"
 
-    mundialista_products = [p for p in [hero_product, backup_product] if p not in ["", "-"]]
-    if len(mundialista_products) < 2 and tactical_product not in ["", "-"]:
-        mundialista_products.append(tactical_product)
-    mundialista_products = mundialista_products[:2]
-    mundialista_products_text = " + ".join(mundialista_products) if mundialista_products else "2 productos del Top 3"
-    mundialista_pro_extra = 5
-    mundialista_hero = mundialista_products[0] if mundialista_products else hero_product
-    mundialista_combo = f"Combo 10% · {cross_sell.get('pairing', mundialista_hero)}"
-    mundialista_shipping = "Free Shipping capacity"
-    mundialista_stack = f"25% +5% PRO · {mundialista_products_text} | {mundialista_combo} | {mundialista_shipping}"
-
-    # Storewide is no longer part of Aliado Mundialista. Keep it only as a regular optional recommendation when needed.
+    # Storewide is the regular optional recommendation when needed.
     storewide_discount = 10 if commission >= 0.20 else 15
     min_purchase_ars = _round_budget_up_ars((aov or 0) * 1.25, step=1000) if aov else 0
     storewide_reco = f"Storewide {storewide_discount}% · Min {fmt_ars(min_purchase_ars)}" if min_purchase_ars else f"Storewide {storewide_discount}% · Define min purchase"
@@ -11833,14 +11851,12 @@ def design_campaign_for_brand(name, category, current_gmv_ars, current_aov_ars, 
     else:
         risk = "Low"
 
-    mundialista_ready = is_aliado_mundialista_ready(name, gmv, aov, cr, actions)
     if not reasons:
         reasons.append("Marca estable: campaña moderada de mantenimiento")
 
     booking_display, booking_note = _ads_booking_display_parts(ads_current)
 
     return {
-        "mundialista_ready": mundialista_ready,
         "following_mode": False,
         "strategy": strategy,
         "focus": focus,
@@ -11879,13 +11895,6 @@ def design_campaign_for_brand(name, category, current_gmv_ars, current_aov_ars, 
         "combo_reco": combo_reco,
         "storewide_reco": storewide_reco,
         "shipping_reco": shipping_reco,
-        "mundialista_products": mundialista_products,
-        "mundialista_products_text": mundialista_products_text,
-        "mundialista_combo": mundialista_combo,
-        "mundialista_shipping": mundialista_shipping,
-        "mundialista_stack": mundialista_stack,
-        "mundialista_pro_extra": mundialista_pro_extra,
-        "campaign_stack_score": "Aliado Mundialista: 3/3" if mundialista_ready else "Regular Campaign Stack",
         "reasons": reasons[:7],
         # Pass-through for GMV estimate in ads plan card
         "_cvr_norm": cr if cr and cr > 0 else 0,
@@ -13251,20 +13260,19 @@ def render_brand_profile(row, brand_id):
     churn = get_churn_status(brand_id)  # Source of truth: Current Churn sheet (On if not listed)
     category_raw = clean(get_from_row(row, ["category"]))
     category, stickers = _split_category_and_stickers(category_raw)
-    ranking = clean(get_from_row(row, ["ranking", "rank", "top gmv", "top gmv ranking", "gmv ranking", "ranking top gmv"]), "-")
-    excel_ranking = get_brand_ranking_from_excel(brand_id)
-    if excel_ranking not in ["", "-", "nan", "None"]:
-        ranking = excel_ranking
-
     current = get_current_brand_metrics(brand_id)
-    caba_ranking = current["caba_rank"] if current else "-"
+    # Ranking: ordenado por GMV mayor a menor, usando el cruce que ya hace Current GMV/Detalle CABA.
+    ranking = current["caba_rank"] if current else "-"
 
     ads_current_raw = get_current_ads_metrics(brand_id)
     md_current_raw = get_current_md_metrics(brand_id, pro=False)
     md_pro_current_raw = get_current_md_metrics(brand_id, pro=True)
     ads_current, md_current, md_pro_current = _merge_growth_manual_status(row, ads_current_raw, md_current_raw, md_pro_current_raw)
 
-    # Aliado Mundialista badge belongs beside the brand name and only appears when the brand truly qualifies.
+    # Pareto Tier badge belongs beside the brand name — replaces the old Mundialista badge slot.
+    mundialista_name_badge_html = render_pareto_badge_html(brand_id)
+
+    # booster/actions se siguen calculando aquí porque el Campaign Designer más abajo los reutiliza
     current_gmv_ars_badge = current["gmv_ars"] if current else 0
     current_aov_ars_badge = current["aov_ars"] if current else 0
     cr_for_badge = get_from_row(row, ["cr %", "conversion rate", "conversion"], 0)
@@ -13278,13 +13286,6 @@ def render_brand_profile(row, brand_id):
         md_current,
     )
     actions_for_badge = build_360_actions(name, category, ads_current, md_current, md_pro_current, booster_for_badge)
-    mundialista_ready_badge = is_aliado_mundialista_ready(
-        name, current_gmv_ars_badge, current_aov_ars_badge, _normalize_rate_value(cr_for_badge), actions_for_badge
-    )
-    mundialista_name_badge_html = (
-        "<span class='hero-mundialista-badge'><span class='badge-cup'>🏆</span> Aliado Mundialista</span>"
-        if mundialista_ready_badge else ""
-    )
 
     turbo_badge_html = (
         "<span class='hero-mundialista-badge' style='background:linear-gradient(145deg,#FF7124,#D95A10);margin-left:8px;'>⚡ STORE TURBO</span>"
@@ -13358,7 +13359,6 @@ def render_brand_profile(row, brand_id):
             <div class="sticker"><div class="sticker-label">LTOR Tier</div><div class="sticker-value">{ltor}</div></div>
             <div class="sticker"><div class="sticker-label">Churn Status</div><div class="sticker-value">{churn}</div></div>
             <div class="sticker"><div class="sticker-label">Ranking</div><div class="sticker-value">{ranking}</div></div>
-            <div class="sticker"><div class="sticker-label">CABA Ranking</div><div class="sticker-value">{caba_ranking}</div></div>
         </div>
     </div>
     <hr class="hero-divider"/>
@@ -13743,7 +13743,7 @@ def render_brand_profile(row, brand_id):
         pending_html = ""
         if pending_signals:
             items = "".join(f'<li style="margin-bottom:3px;">{s.capitalize()}</li>' for s in pending_signals)
-            pending_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;font-size:11px;color:rgba(232,223,213,.65);">{items}</ul>'
+            pending_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;font-size:11px;color:#6B7280;">{items}</ul>'
 
         return (
             f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
@@ -13822,7 +13822,7 @@ def render_brand_profile(row, brand_id):
     pro_users_raw = _normalize_rate_value(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"], 0))
     conversion_raw = _normalize_rate_value(get_from_row(row, ["cr %", "conversion rate", "conversion"], 0))
     commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
-    def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current):
+    def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None):
         """
         Gráfico de línea con puntos mostrando hasta 3 meses:
           Abril (Growth OS) → Mayo (MAY GMV) → Actual (Current GMV)
@@ -13920,11 +13920,16 @@ def render_brand_profile(row, brand_id):
         _change_sign  = "+" if (change_pct or 0) >= 0 else ""
         _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
 
+        _orders_inline_html = (
+            f'<span style="color:rgba(107,114,128,0.65);font-weight:600;margin-left:6px;">📦 {int(orders_inline):,}</span>'.replace(",", ".")
+            if orders_inline is not None else ""
+        )
+
         return (
             '<div class="stack-card" style="position:relative;overflow:hidden;min-height:140px;padding:22px 24px 18px;">'
             f'<div class="stack-label" style="margin-bottom:6px;">{label}</div>'
             f'<div style="font-size:30px;font-weight:900;color:#1A1A2E;letter-spacing:-0.02em;line-height:1.1;">{fmt_fn(val_current)}</div>'
-            f'<div style="font-size:12px;font-weight:600;color:#6B7280;margin-top:5px;">{sub_current}</div>'
+            f'<div style="font-size:12px;font-weight:600;color:#6B7280;margin-top:5px;">{sub_current}{_orders_inline_html}</div>'
             f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_change_color};">{_change_text} vs mes anterior</div>'
             f'<div style="position:absolute;bottom:12px;right:12px;opacity:0.95">{svg}</div>'
             '</div>'
@@ -13941,21 +13946,14 @@ def render_brand_profile(row, brand_id):
 
     gmv_col, aov_col = st.columns(2)
     with gmv_col:
+        _orders_from_caba = get_orders_from_detalle_caba(brand_id, brand_name=name)
         _gmv_card = _dot_line_chart_card(
             "📈 GMV · Este mes vs Anterior",
             current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars,
             f"{fmt_usd(current_gmv_usd)} · {fmt_cop(current_gmv_usd * COP_PER_USD)}",
+            orders_inline=_orders_from_caba,
         )
         st.markdown(_gmv_card, unsafe_allow_html=True)
-        _orders_from_caba = get_orders_from_detalle_caba(brand_id, brand_name=name)
-        st.markdown(
-            f"""<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.1);
-            border-radius:10px;padding:8px 14px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:11px;color:rgba(232,223,213,.6);font-weight:700;letter-spacing:.04em;">📦 ÓRDENES · DETALLE CABA</span>
-                <span style="font-size:16px;font-weight:800;color:#1A1A2E;">{int(_orders_from_caba):,}</span>
-            </div>""".replace(",", "."),
-            unsafe_allow_html=True
-        )
     with aov_col:
         _aov_card = _dot_line_chart_card(
             "🛒 AOV · Este mes vs Anterior",
@@ -15876,7 +15874,7 @@ def page_brand_finder():
             synthetic = {
                 "id":              brand_id,
                 "name":            bname,
-                "country":         "Argentina",
+                "country":         PORTFOLIO_COUNTRY or "-",
                 "ltor tier":       "No Priorizado",
                 "churn":           "",
                 "churn status":    "",
@@ -15981,31 +15979,45 @@ def _render_followup_form(row, brand_id, name):
             st.session_state[_transcript_text_key] = call_transcript
         transcript_analysis = st.session_state.get(_transcript_cache_key)
         if transcript_analysis:
-            sentiment_color = {"Positive": "#7ED321", "Neutral": "#FF7124", "Negative": "#D95A10"}.get(transcript_analysis["sentiment"], "#FF7124")
+            sentiment_color = {"Positive": "#7ED321", "Neutral": "#FF7124", "Negative": "#FF4D2E"}.get(transcript_analysis["sentiment"], "#FF7124")
             levers_str = " · ".join(transcript_analysis["levers"]) if transcript_analysis["levers"] else "Ninguna detectada"
             actions_str = "\n".join(f"• {a}" for a in transcript_analysis["action_items"]) if transcript_analysis["action_items"] else "• Ninguna detectada"
+            _topic_states = transcript_analysis.get("topic_states", {})
+            _topic_states_html = (
+                "".join(
+                    f'<span style="display:inline-block;background:rgba(27,63,139,0.08);border-radius:6px;'
+                    f'padding:3px 9px;margin:2px 4px 2px 0;font-size:11px;font-weight:600;color:#1A1A2E;">'
+                    f'{html.escape(k)}: {html.escape(v)}</span>'
+                    for k, v in _topic_states.items()
+                )
+                if _topic_states else '<span style="font-size:11px;color:#6B7280;">Sin temas detectados</span>'
+            )
             st.markdown(f"""
             <div style="background:rgba(111,242,75,0.08);border:1px solid rgba(111,242,75,0.25);border-radius:10px;padding:14px 18px;margin:12px 0;">
-                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#7ED321;margin-bottom:10px;">🤖 ANÁLISIS LOCAL DE TRANSCRIPCIÓN</div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#5A9E00;margin-bottom:10px;">🤖 ANÁLISIS LOCAL DE TRANSCRIPCIÓN</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                     <div>
-                        <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">SENTIMIENTO</div>
+                        <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">SENTIMIENTO</div>
                         <div style="font-weight:700;color:{sentiment_color};">{transcript_analysis["sentiment"]}</div>
                     </div>
                     <div>
-                        <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">STATUS SUGERIDO</div>
+                        <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">STATUS SUGERIDO</div>
                         <div style="font-weight:700;color:#1A1A2E;">{transcript_analysis["suggested_status"]}</div>
                     </div>
                     <div>
-                        <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">PALANCAS</div>
+                        <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">PALANCAS</div>
                         <div style="font-weight:600;color:#1A1A2E;">{levers_str}</div>
                     </div>
                 </div>
                 <div style="margin-top:10px;">
-                    <div style="font-size:10px;color:rgba(232,223,213,.55);margin-bottom:4px;">PRÓXIMOS PASOS DETECTADOS</div>
+                    <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">ESTADO POR TEMA</div>
+                    <div>{_topic_states_html}</div>
+                </div>
+                <div style="margin-top:10px;">
+                    <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">PRÓXIMOS PASOS DETECTADOS</div>
                     <div style="font-size:13px;white-space:pre-line;color:#1A1A2E;">{actions_str}</div>
                 </div>
-                <div style="margin-top:8px;font-size:10px;color:rgba(232,223,213,.4);">Este análisis se guardará como nota automática. Seleccioná el Status correcto arriba si difiere del sugerido.</div>
+                <div style="margin-top:8px;font-size:10px;color:#6B7280;">Este análisis se guardará como nota automática. Seleccioná el Status correcto arriba si difiere del sugerido.</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -16298,14 +16310,10 @@ def _render_followup_form(row, brand_id, name):
             except Exception:
                 pass  # Falla silenciosa — el follow-up ya se guardó
 
-        # ── Backup async: corre en background, no bloquea el guardado principal ──
-        import threading as _threading
-        _threading.Thread(target=make_backup, args=(EXCEL_FILE,), daemon=True).start()
-
         # ── Apertura única del Excel para todo el flujo de guardado ─────────────
         commercial_ok, commercial_msg = True, "No commercial change selected."
         tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
-        st.toast("Guardando...", icon="💾")
+        backup_path_save = make_backup(EXCEL_FILE)
         _wb_save = openpyxl.load_workbook(EXCEL_FILE)
 
         ok, msg = _update_agenda_notes_inner(_wb_save, brand_id, final_comment, append=True)
@@ -16581,8 +16589,8 @@ def page_weekly_calendar():
     _tomorrow_count = int((active_agenda["_parsed_date"] == today + timedelta(days=1)).sum()) if not active_agenda.empty else 0
     _overdue_count  = int((active_agenda["_parsed_date"] < today).sum()) if not active_agenda.empty else 0
     _today_color    = "#FF4D2E" if _today_count >= 5 else ("#D95A10" if _today_count >= 3 else "#7ED321")
-    _tmrw_color     = "#D95A10" if _tomorrow_count >= 5 else "rgba(232,223,213,.45)"
-    _overdue_color  = "#FF4D2E" if _overdue_count > 0 else "rgba(232,223,213,.3)"
+    _tmrw_color     = "#D95A10" if _tomorrow_count >= 5 else "#6B7280"
+    _overdue_color  = "#FF4D2E" if _overdue_count > 0 else "#6B7280"
 
     st.markdown(
         f'''<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
@@ -16602,7 +16610,7 @@ def page_weekly_calendar():
     # ── Leyenda ───────────────────────────────────────────────────────────────
     st.markdown(f"""
     <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);">TASK TYPES</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B7280;">TASK TYPES</span>
         <span style="font-size:12px;color:#1B3F8B;">● Campaign Follow Up</span>
         <span style="font-size:12px;color:#FF7124;">● Campaign Negotiation</span>
         <span style="font-size:12px;color:#1D9E75;">● Contractual Changes</span>
@@ -16621,10 +16629,10 @@ def page_weekly_calendar():
         border_b = "2px solid #1B3F8B" if is_today else "1px solid rgba(255,255,255,0.95)"
         num_color = "#FFFFFF" if is_today else "#1A1A2E"
         num_bg = "#1B3F8B" if is_today else "transparent"
-        count_color = "#7ED321" if day_count > 0 else "rgba(232,223,213,.3)"
+        count_color = "#7ED321" if day_count > 0 else "#6B7280"
         header_html += f'''
         <div style="background:{bg};border-bottom:{border_b};padding:8px 4px 8px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.92);">
-            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.5);">{d.strftime("%a").upper()}</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:#6B7280;">{d.strftime("%a").upper()}</div>
             <div style="display:inline-block;background:{num_bg};border-radius:50%;width:28px;height:28px;line-height:28px;font-size:16px;font-weight:700;color:{num_color};margin:2px 0;">{d.strftime("%d")}</div>
             <div style="font-size:10px;color:{count_color};font-weight:600;">{day_count} task{"s" if day_count != 1 else ""}</div>
         </div>'''
@@ -16698,7 +16706,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
             label = "12:00 PM"
         else:
             label = f"{h-12}:00 PM"
-        hour_labels_html += f'<div style="position:absolute;top:{top}px;left:0;width:48px;font-size:10px;color:rgba(232,223,213,.4);text-align:right;padding-right:6px;line-height:1;">{label}</div>'
+        hour_labels_html += f'<div style="position:absolute;top:{top}px;left:0;width:48px;font-size:10px;color:#6B7280;font-weight:600;text-align:right;padding-right:6px;line-height:1;">{label}</div>'
 
     total_height = (HOUR_END - HOUR_START) * SLOT_HEIGHT
 
@@ -16803,7 +16811,8 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
         position: absolute;
         left: 0; width: 48px;
         font-size: 10px;
-        color: rgba(232,223,213,0.4);
+        color: #6B7280;
+        font-weight: 600;
         text-align: right;
         padding-right: 6px;
         line-height: 1;
@@ -16870,7 +16879,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
     # ── Botones Done (Streamlit nativo, fuera del HTML) ───────────────────────
     if done_buttons:
         st.markdown(
-            "<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);margin:8px 0 6px 0;'>MARK AS DONE</div>",
+            "<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B7280;margin:8px 0 6px 0;'>MARK AS DONE</div>",
             unsafe_allow_html=True
         )
         btn_cols = st.columns(min(len(done_buttons), 4))
@@ -16890,7 +16899,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
         undated = active_agenda[active_agenda["_parsed_date"].isna()]
         if not undated.empty:
             st.markdown("---")
-            st.markdown("<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:rgba(232,223,213,.45);margin-bottom:10px;'>WITHOUT DATE</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B7280;margin-bottom:10px;'>WITHOUT DATE</div>", unsafe_allow_html=True)
             for idx, row in undated.iterrows():
                 excel_row = row.get("_excel_row", None)
                 if excel_row in done_rows:
@@ -17272,7 +17281,7 @@ def page_role_play_trainer():
                     st.warning("Escribí una respuesta antes de evaluar.")
                 else:
                     mctx = get_market_context(current_obj.get("category", ""), current_obj.get("lever", ""))
-                    system_prompt = f"""Sos un evaluador de llamadas comerciales de Rappi Argentina.
+                    system_prompt = f"""Sos un evaluador de llamadas comerciales de Rappi.
 Tu trabajo es evaluar si la respuesta de un farmer a una objeción de un aliado fue efectiva, usando estos criterios: anclar en datos concretos, proponer acción concreta con fecha, manejar la resistencia sin ceder el pitch, y cerrar con un próximo paso claro.
 
 No evalúes contra un manual genérico de ventas. Evaluá contra la respuesta ideal que el propio Sabas cargó para esta objeción — esa es su mejor versión. Tu trabajo es ayudarlo a acercarse a eso, no a un script corporativo.
