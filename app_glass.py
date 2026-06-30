@@ -1278,6 +1278,7 @@ def render_pareto_badge_html(brand_id):
     )
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_current_gmv_totals():
     """
     Reads totals directly from the 'Total' summary row in the Current GMV sheet.
@@ -1708,6 +1709,7 @@ def get_current_md_metrics(brand_id, pro=False):
     }
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _read_md_totals_from_sheet(pro=False):
     """
     Reads the Total row directly from Current MD or Current MD pro.
@@ -1778,6 +1780,7 @@ def get_markdown_dollar_total():
     return _read_md_totals_from_sheet(pro=False)["markdown_usd"]
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _read_md_roi_from_j290(pro=False):
     """
     Reads the ROI value directly from cell J290 of Current MD or Current MD pro.
@@ -1845,6 +1848,7 @@ def load_seasonal_events_data():
     if df.empty:
         return pd.DataFrame()
     return df
+@st.cache_data(ttl=300, show_spinner=False)
 def load_coinversion_data():
     """Loads COINVERSION sheet. No header row — data starts at row 0."""
     if not os.path.exists(EXCEL_FILE):
@@ -2066,6 +2070,7 @@ def clean_product_name(value):
     return text.strip()
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_caba_category_trends(category):
     keywords = get_category_keywords(category)
 
@@ -2589,35 +2594,47 @@ def _update_brand_in_excel_inner(wb, brand_id, updates):
 
 
 def update_brand_in_excel(brand_id, updates):
-    """Wrapper público sin cambios de comportamiento: abre, aplica, guarda, cierra, limpia caché."""
+    """Wrapper público: abre una sola vez, aplica todos los cambios (incluido
+    Agenda notes si corresponde), guarda, cierra. Backup corre en background
+    para no bloquear el guardado. Invalida solo el caché de Growth OS/Agenda,
+    no el archivo entero (CVR%, Traffic, Detalle CABA, etc. no cambiaron aquí)."""
     if not os.path.exists(EXCEL_FILE):
         return False, "Excel file not found.", [], [], [], None
 
-    backup_path = make_backup(EXCEL_FILE)
+    import threading as _threading_ub
+    _threading_ub.Thread(target=make_backup, args=(EXCEL_FILE,), daemon=True).start()
+
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ok, msg, updated, locked, missing = _update_brand_in_excel_inner(wb, brand_id, updates)
 
     if not ok:
         wb.close()
-        return False, msg, updated, locked, missing, backup_path
+        return False, msg, updated, locked, missing, None
+
+    if "comments" in updates:
+        try:
+            _update_agenda_notes_inner(wb, brand_id, updates["comments"], append=False)
+        except Exception:
+            pass
 
     try:
         wb.save(EXCEL_FILE)
         wb.close()
     except PermissionError:
         wb.close()
-        return False, "Excel file is open. Close it before saving changes.", updated, locked, missing, backup_path
+        return False, "Excel file is open. Close it before saving changes.", updated, locked, missing, None
 
-    if "comments" in updates:
-        try:
-            update_agenda_notes(EXCEL_FILE, brand_id, updates["comments"], append=False)
-        except Exception:
-            pass
+    # Invalidar solo lo que pudo haber cambiado — Growth OS y Agenda.
+    # st.cache_data.clear() completo forzaba releer las ~40 funciones cacheadas
+    # del archivo (CVR%, Traffic, Detalle CABA, Priority Data, etc.) que no
+    # tienen nada que ver con un cambio de manager/email/categoría de una marca.
+    try:
+        load_growth_data.clear()
+        load_agenda_data.clear()
+    except Exception:
+        st.cache_data.clear()  # fallback de seguridad si los nombres cambiaron
 
-    # Invalidate all cached Excel reads so the next page load reflects the new data.
-    st.cache_data.clear()
-
-    return True, "Changes saved successfully.", updated, locked, missing, backup_path
+    return True, "Changes saved successfully.", updated, locked, missing, None
 
 
 # =========================
@@ -2932,11 +2949,16 @@ def detect_and_save_objection_from_transcript(transcript, ideal_response_hint=""
     return True, objection_text
 
 
-def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email, call_date):
+def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email, call_date, wb=None):
     """
     Evaluates a call transcript using pure Python keyword/regex logic (no API),
     then writes the full Call Detail matrix row to the Excel file.
     Runs silently — no UI output.
+
+    If `wb` (an already-open openpyxl Workbook) is provided, reuses it and does
+    NOT save/close — the caller owns the save/close lifecycle. This avoids
+    opening the entire Excel file a second time when called right before the
+    main Save Follow-up flow, which already opens its own workbook.
     """
     if not transcript or not transcript.strip():
         return
@@ -3171,8 +3193,10 @@ def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email
     }
 
     # ── WRITE TO EXCEL ────────────────────────────────────────────────────────
+    _wb_was_injected = wb is not None
     try:
-        wb = openpyxl.load_workbook(EXCEL_FILE)
+        if wb is None:
+            wb = openpyxl.load_workbook(EXCEL_FILE)
         if "Call Detail" not in wb.sheetnames:
             return
         ws = wb["Call Detail"]
@@ -3199,7 +3223,8 @@ def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email
         }
 
         ws.append([new_row_data.get(h, None) for h in headers])
-        wb.save(EXCEL_FILE)
+        if not _wb_was_injected:
+            wb.save(EXCEL_FILE)
     except Exception:
         return  # Falla silenciosamente
 
@@ -3252,6 +3277,26 @@ def get_last_comments_map(limit=2):
     return result
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_productivity_sheet_raw(excel_path):
+    """
+    Loader único y cacheado de la hoja 'Productivity' completa.
+    Las 5 funciones que antes leían esta hoja por separado (contact stats,
+    last contact map, levers por marca, productivity heatmap) ahora reutilizan
+    este DataFrame en vez de volver a golpear el disco cada vez. TTL de 5 min:
+    suficiente para reflejar cambios recientes sin releer en cada rerun de
+    Streamlit (que ocurre en cada click, filtro o tipificación).
+    """
+    if not os.path.exists(excel_path):
+        return pd.DataFrame()
+    try:
+        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
+    except Exception:
+        return pd.DataFrame()
+    raw.columns = [str(c).strip() for c in raw.columns]
+    return raw
+
+
 def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE):
     """
     Reads the Productivity sheet and counts contacts by channel:
@@ -3263,10 +3308,10 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
     """
     if not os.path.exists(excel_path):
         return None
-    try:
-        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
-    except Exception:
+    raw = _load_productivity_sheet_raw(excel_path)
+    if raw.empty:
         return None
+    raw = raw.copy()  # evita mutar el DataFrame cacheado compartido
 
     # Keep original column names (stripped) for positional access
     raw.columns = [str(c).strip() for c in raw.columns]
@@ -6305,6 +6350,92 @@ def fmt_roi2(value):
 # MANAGEMENT DASHBOARD
 # =========================
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _read_growth_summary_values():
+    """Reads the Growth OS General KPIs block. This is the last-month/baseline reference.
+    Cacheado: esta página es la de aterrizaje del dashboard, se visita en cada
+    sesión — sin caché abría el workbook completo en cada rerun (cada click,
+    filtro o navegación de vuelta a esta página)."""
+    wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
+    ws = wb[GROWTH_SHEET]
+    values = {
+        "gmv_ars": to_number(ws["AU4"].value, 0),
+        "gmv_usd": to_number(ws["AU6"].value, 0),
+        "gmv_cop": to_number(ws["AU8"].value, 0),
+        "aov_ars": to_number(ws["AV4"].value, 0),
+        "aov_usd": to_number(ws["AV6"].value, 0),
+        "aov_cop": to_number(ws["AV8"].value, 0),
+        "brands_ads": to_number(ws["AW4"].value, 0),
+        "pct_brands_ads": to_number(ws["AX4"].value, 0),
+        "brands_md": to_number(ws["AW6"].value, 0),
+        "pct_brands_md": to_number(ws["AX6"].value, 0),
+        "total_pro": to_number(ws["AY6"].value, 0),
+        "total_cr": to_number(ws["AX8"].value, 0),
+        "gross_bookings_ars": to_number(ws["AU10"].value, 0),
+        "gross_bookings_usd": to_number(ws["AV10"].value, 0),
+        "gross_bookings_cop": to_number(ws["AW10"].value, 0),
+        "effective_contacts": to_number(ws["AX10"].value, 0),
+        "total_comm": to_number(ws["AY10"].value, 0),
+    }
+    wb.close()
+    return values
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _compute_growth_summary_fallback():
+    raw = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=None)
+    portfolio = raw.iloc[3:253].copy()
+
+    # Total de marcas desde Asignacion Junio (fuente de verdad del portafolio)
+    try:
+        _aj_df = load_asignacion_junio()
+        total_brands = len(_aj_df) if not _aj_df.empty else 250
+    except Exception:
+        total_brands = 250
+
+    def col_sum(idx):
+        if idx >= portfolio.shape[1]:
+            return 0
+        return pd.to_numeric(portfolio.iloc[:, idx], errors="coerce").fillna(0).sum()
+
+    def count_exact(idx, expected):
+        if idx >= portfolio.shape[1]:
+            return 0
+        s = portfolio.iloc[:, idx].astype(str).str.strip().str.lower()
+        return int((s == str(expected).strip().lower()).sum())
+
+    gmv_ars = col_sum(20)
+    gmv_usd = gmv_ars / ARS_PER_USD
+    gmv_cop = gmv_usd * COP_PER_USD
+    aov_ars = col_sum(23) / total_brands
+    aov_usd = aov_ars / ARS_PER_USD
+    aov_cop = aov_usd * COP_PER_USD
+    brands_ads = count_exact(29, "Active 🚀")
+    brands_md = count_exact(34, "Active 🚀")
+    gross_bookings_ars = col_sum(30) * 4
+    gross_bookings_usd = gross_bookings_ars / ARS_PER_USD
+    gross_bookings_cop = gross_bookings_usd * COP_PER_USD
+    return {
+        "gmv_ars": gmv_ars,
+        "gmv_usd": gmv_usd,
+        "gmv_cop": gmv_cop,
+        "aov_ars": aov_ars,
+        "aov_usd": aov_usd,
+        "aov_cop": aov_cop,
+        "brands_ads": brands_ads,
+        "pct_brands_ads": brands_ads / total_brands,
+        "brands_md": brands_md,
+        "pct_brands_md": brands_md / total_brands,
+        "total_pro": col_sum(27) / total_brands,
+        "total_cr": col_sum(28) / total_brands,
+        "gross_bookings_ars": gross_bookings_ars,
+        "gross_bookings_usd": gross_bookings_usd,
+        "gross_bookings_cop": gross_bookings_cop,
+        "effective_contacts": 0,
+        "total_comm": col_sum(17) / total_brands,
+    }
+
+
 def page_management_dashboard():
     render_header("Management Dashboard", "General Overview of Commercial Performance · Rappi")
 
@@ -6312,84 +6443,10 @@ def page_management_dashboard():
         st.error("Excel data not found. Make sure the workbook is in the same folder as app.py.")
         return
 
-    def read_summary_values():
-        """Reads the Growth OS General KPIs block. This is the last-month/baseline reference."""
-        wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
-        ws = wb[GROWTH_SHEET]
-        values = {
-            "gmv_ars": to_number(ws["AU4"].value, 0),
-            "gmv_usd": to_number(ws["AU6"].value, 0),
-            "gmv_cop": to_number(ws["AU8"].value, 0),
-            "aov_ars": to_number(ws["AV4"].value, 0),
-            "aov_usd": to_number(ws["AV6"].value, 0),
-            "aov_cop": to_number(ws["AV8"].value, 0),
-            "brands_ads": to_number(ws["AW4"].value, 0),
-            "pct_brands_ads": to_number(ws["AX4"].value, 0),
-            "brands_md": to_number(ws["AW6"].value, 0),
-            "pct_brands_md": to_number(ws["AX6"].value, 0),
-            "total_pro": to_number(ws["AY6"].value, 0),
-            "total_cr": to_number(ws["AX8"].value, 0),
-            "gross_bookings_ars": to_number(ws["AU10"].value, 0),
-            "gross_bookings_usd": to_number(ws["AV10"].value, 0),
-            "gross_bookings_cop": to_number(ws["AW10"].value, 0),
-            "effective_contacts": to_number(ws["AX10"].value, 0),
-            "total_comm": to_number(ws["AY10"].value, 0),
-        }
-        wb.close()
-        return values
-
-    def compute_summary_fallback():
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=None)
-        portfolio = raw.iloc[3:253].copy()
-
-        # Total de marcas desde Asignacion Junio (fuente de verdad del portafolio)
-        try:
-            _aj_df = load_asignacion_junio()
-            total_brands = len(_aj_df) if not _aj_df.empty else 250
-        except Exception:
-            total_brands = 250
-
-        def col_sum(idx):
-            if idx >= portfolio.shape[1]:
-                return 0
-            return pd.to_numeric(portfolio.iloc[:, idx], errors="coerce").fillna(0).sum()
-
-        def count_exact(idx, expected):
-            if idx >= portfolio.shape[1]:
-                return 0
-            s = portfolio.iloc[:, idx].astype(str).str.strip().str.lower()
-            return int((s == str(expected).strip().lower()).sum())
-
-        gmv_ars = col_sum(20)
-        gmv_usd = gmv_ars / ARS_PER_USD
-        gmv_cop = gmv_usd * COP_PER_USD
-        aov_ars = col_sum(23) / total_brands
-        aov_usd = aov_ars / ARS_PER_USD
-        aov_cop = aov_usd * COP_PER_USD
-        brands_ads = count_exact(29, "Active 🚀")
-        brands_md = count_exact(34, "Active 🚀")
-        gross_bookings_ars = col_sum(30) * 4
-        gross_bookings_usd = gross_bookings_ars / ARS_PER_USD
-        gross_bookings_cop = gross_bookings_usd * COP_PER_USD
-        return {
-            "gmv_ars": gmv_ars,
-            "gmv_usd": gmv_usd,
-            "gmv_cop": gmv_cop,
-            "aov_ars": aov_ars,
-            "aov_usd": aov_usd,
-            "aov_cop": aov_cop,
-            "brands_ads": brands_ads,
-            "pct_brands_ads": brands_ads / total_brands,
-            "brands_md": brands_md,
-            "pct_brands_md": brands_md / total_brands,
-            "total_pro": col_sum(27) / total_brands,
-            "total_cr": col_sum(28) / total_brands,
-            "gross_bookings_ars": gross_bookings_ars,
-            "gross_bookings_usd": gross_bookings_usd,
-            "gross_bookings_cop": gross_bookings_cop,
-            "effective_contacts": 0,
-            "total_comm": col_sum(17) / total_brands,
-        }
+    # Wrappers locales — preservan los nombres usados más abajo en esta función
+    # sin duplicar la lógica; la lectura real ya está cacheada a nivel de módulo.
+    read_summary_values = _read_growth_summary_values
+    compute_summary_fallback = _compute_growth_summary_fallback
 
     try:
         baseline_vals = read_summary_values()
@@ -8809,10 +8866,10 @@ def get_productivity_effective_rows(excel_path):
     """
     if not os.path.exists(excel_path):
         return pd.DataFrame(columns=["_date_k", "_week_j", "_effective"])
-    try:
-        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
-    except Exception:
+    raw = _load_productivity_sheet_raw(excel_path)
+    if raw.empty:
         return pd.DataFrame(columns=["_date_k", "_week_j", "_effective"])
+    raw = raw.copy()
 
     raw.columns = [str(c).strip() for c in raw.columns]
     cols_lower = [c.lower() for c in raw.columns]
@@ -8851,10 +8908,10 @@ def get_productivity_last_contact_map(excel_path):
     """
     if not os.path.exists(excel_path):
         return {}
-    try:
-        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
-    except Exception:
+    raw = _load_productivity_sheet_raw(excel_path)
+    if raw.empty:
         return {}
+    raw = raw.copy()
 
     cols = list(raw.columns)
     if len(cols) < 17:
@@ -8900,10 +8957,10 @@ def get_productivity_levers_for_brand(excel_path, brand_name, month=None):
     """
     if not os.path.exists(excel_path):
         return None
-    try:
-        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
-    except Exception:
+    raw = _load_productivity_sheet_raw(excel_path)
+    if raw.empty:
         return None
+    raw = raw.copy()
 
     raw.columns = [str(c).strip() for c in raw.columns]
     cols = list(raw.columns)
@@ -16534,6 +16591,17 @@ def _render_followup_form(row, brand_id, name):
             commercial_action=comment_commercial_action,
         )
 
+        # ── Backup async: corre en background, no bloquea el guardado principal ──
+        import threading as _threading
+        _threading.Thread(target=make_backup, args=(EXCEL_FILE,), daemon=True).start()
+
+        # ── Apertura única del Excel para TODO el flujo de guardado, incluido
+        # Call Detail — evita abrir el workbook completo dos veces en el mismo click. ──
+        commercial_ok, commercial_msg = True, "No commercial change selected."
+        tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
+        st.toast("Guardando...", icon="💾")
+        _wb_save = openpyxl.load_workbook(EXCEL_FILE)
+
         # ── Evaluación IA de transcripción en Call Detail (silenciosa) ─────────
         if contact_channel == "Call" and call_transcript.strip():
             try:
@@ -16543,6 +16611,7 @@ def _render_followup_form(row, brand_id, name):
                     brand_name=name,
                     farmer_email="sabas.ramirez@rappi.com",
                     call_date=date.today(),
+                    wb=_wb_save,
                 )
             except Exception:
                 pass  # Falla silenciosa — el follow-up ya se guardó
@@ -16552,12 +16621,6 @@ def _render_followup_form(row, brand_id, name):
                 detect_and_save_objection_from_transcript(call_transcript.strip())
             except Exception:
                 pass  # Falla silenciosa — no bloquea el guardado del follow-up
-
-        # ── Apertura única del Excel para todo el flujo de guardado ─────────────
-        commercial_ok, commercial_msg = True, "No commercial change selected."
-        tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
-        backup_path_save = make_backup(EXCEL_FILE)
-        _wb_save = openpyxl.load_workbook(EXCEL_FILE)
 
         ok, msg = _update_agenda_notes_inner(_wb_save, brand_id, final_comment, append=True)
         follow_ok, follow_msg = _update_contact_followup_fields_inner(
@@ -16654,6 +16717,7 @@ def _render_followup_form(row, brand_id, name):
             _wb_save.close()
             load_growth_data.clear()
             load_agenda_data.clear()
+            _read_growth_summary_values.clear()
         except PermissionError:
             _wb_save.close()
             ok = False
@@ -16726,8 +16790,12 @@ def mark_agenda_row_done(excel_path, excel_row):
     try:
         wb.save(excel_path)
         wb.close()
-        # Invalidate cached reads so Weekly Calendar reflects the Done status immediately.
-        st.cache_data.clear()
+        # Invalidate only Agenda cache — Weekly Calendar reflects Done status
+        # immediately without forcing every other cached sheet to re-read.
+        try:
+            load_agenda_data.clear()
+        except Exception:
+            st.cache_data.clear()  # fallback de seguridad
         return True, "Task marked as Done."
     except PermissionError:
         wb.close()
@@ -17362,7 +17430,7 @@ def page_brand_update():
             # Persist badge timestamp in session state
             st.session_state[_last_saved_key] = datetime.now()
             st.success(msg)
-            st.info(f"Backup created: {backup_path}")
+            st.caption("📦 Backup guardándose en segundo plano.")
             if locked:
                 st.warning("Some formula-protected fields were not updated: " + ", ".join(locked))
             if missing:
@@ -17370,8 +17438,6 @@ def page_brand_update():
             st.rerun()
         else:
             st.error(msg)
-            if backup_path:
-                st.info(f"Backup created before attempting save: {backup_path}")
 
 
 
