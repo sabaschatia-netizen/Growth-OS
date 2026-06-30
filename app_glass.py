@@ -1223,14 +1223,31 @@ def get_pareto_tiers_map():
     (Current GMV, ya viene ordenado desc por gmv ars con _caba_rank).
       Tier A → marcas que en conjunto representan el primer 80% del GMV total
       Tier B → el siguiente 15% acumulado (80%-95%)
-      Tier C → el 5% final (95%-100%)
-    Devuelve dict {brand_id: "A"|"B"|"C"}.
+      Tier C → el 5% final (95%-100%), e incluye también las marcas del
+               portafolio vigente sin GMV registrado todavía (recién asignadas)
+    El universo de GMV se restringe al portafolio vigente (Asignacion Junio) antes
+    de calcular el acumulado, así el corte 80/15/5 es el Pareto del mes actual y no
+    arrastra GMV de marcas ya reasignadas a otro Farmer.
+    Devuelve dict {brand_id: "A"|"B"|"C"} — toda marca del portafolio vigente
+    queda clasificada, igual que en el Pareto de referencia (Excel).
     """
     df = load_current_gmv_data()
     if df.empty or "gmv ars" not in df.columns:
         return {}
 
     d = df[["_id", "gmv ars"]].copy()
+
+    aj_ids = set()
+    try:
+        _aj_tiers = load_asignacion_junio()
+        if not _aj_tiers.empty:
+            aj_ids = set(_aj_tiers["brand_id"].dropna().astype(str))
+            aj_ids.discard("")
+            if aj_ids:
+                d = d[d["_id"].isin(aj_ids)].copy()
+    except Exception:
+        pass
+
     d["gmv ars"] = pd.to_numeric(d["gmv ars"], errors="coerce").fillna(0)
     d = d[d["gmv ars"] > 0].sort_values("gmv ars", ascending=False).reset_index(drop=True)
 
@@ -1248,7 +1265,15 @@ def get_pareto_tiers_map():
         return "C"
 
     d["_tier"] = d["_cum_pct"].apply(_tier_for)
-    return dict(zip(d["_id"], d["_tier"]))
+    tiers_map = dict(zip(d["_id"], d["_tier"]))
+
+    # Marcas del portafolio vigente sin GMV en Current GMV (recién asignadas,
+    # sin historial todavía) -> Tier C por defecto, igual criterio que el Excel.
+    for bid in aj_ids:
+        if bid and bid not in tiers_map:
+            tiers_map[bid] = "C"
+
+    return tiers_map
 
 
 def get_pareto_tier(brand_id):
