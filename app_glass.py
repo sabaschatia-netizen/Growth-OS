@@ -10170,6 +10170,10 @@ def page_productivity_heatmap():
     # ── Heatmap visual real: eje Y = semanas, eje X = palancas, color = intensidad ──
     # (Complementa la tabla numérica de arriba con una lectura visual rápida
     # de qué palancas concentran más uso a lo largo del tiempo.)
+    # NOTA: la variable local 'html' de esta función (acumulador de strings HTML,
+    # más arriba) shadowea el módulo html importado globalmente — por eso acá
+    # se usa un import explícito con alias seguro en vez de html.escape().
+    import html as _html_mod
     _all_palancas = [(name, freqs) for g in GROUPS for name, freqs in g["palancas"]]
     _hm_n_cols = len(_all_palancas)
     _hm_n_rows = len(WEEKS)
@@ -10188,7 +10192,7 @@ def page_productivity_heatmap():
             cx = _HM_LABEL_W + ci * _HM_CELL_W + _HM_CELL_W / 2
             _hm_parts.append(
                 f'<text x="{cx:.0f}" y="{_HM_TOP_PAD - 8}" text-anchor="start" font-size="9" font-weight="700" '
-                f'fill="#6B7280" transform="rotate(-40 {cx:.0f} {_HM_TOP_PAD - 8})">{html.escape(name)}</text>'
+                f'fill="#6B7280" transform="rotate(-40 {cx:.0f} {_HM_TOP_PAD - 8})">{_html_mod.escape(name)}</text>'
             )
 
         # Pre-computar % por palanca (columna) — mismo orden que freqs por semana
@@ -10244,7 +10248,7 @@ def page_productivity_heatmap():
             _peak_max = max(p[2] for p in _peak_rows)
             _peak_bars_html = "".join(
                 f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
-                f'<span style="font-size:11px;color:#1A1A2E;min-width:150px;font-weight:600;">{html.escape(p_name)}</span>'
+                f'<span style="font-size:11px;color:#1A1A2E;min-width:150px;font-weight:600;">{_html_mod.escape(p_name)}</span>'
                 f'<div style="flex:1;background:rgba(0,0,0,0.05);border-radius:6px;height:18px;position:relative;overflow:hidden;">'
                 f'<div style="position:absolute;left:0;top:0;height:100%;width:{(p_pct/_peak_max*100) if _peak_max else 0:.0f}%;'
                 f'background:{PALETTE["slate_indigo"]};border-radius:6px;"></div>'
@@ -13484,36 +13488,44 @@ def page_pareto_hub():
 
     _sorted_data = sorted(data, key=lambda d: (d["health"] != "tangerine", d["health"] != "blue", d["name"]))
 
+    def _build_pareto_card_html(d):
+        style = _HEALTH_STYLE[d["health"]]
+        _days_lbl = f"{d['last_contact_days']}d" if d["last_contact_days"] is not None else "Sin contacto"
+        _ps_lbl = (
+            f'{d["perfect_store_pct"]}%' + (' · requiere PDF' if d["requires_pdf"] else '')
+            if d["perfect_store_pct"] is not None else "s/d"
+        )
+        _acq_note = (
+            f'<div class="pareto-badge" style="background:{style["bg"]};color:{style["border"]};">'
+            f'Falta: {", ".join(d["acq_missing"])}</div>'
+        ) if d["health"] == "tangerine" and d["acq_missing"] else ""
+
+        # NOTA: cada línea sin indentación inicial — un f-string multilínea con
+        # 4+ espacios al comienzo de línea es interpretado por el parser de
+        # Markdown de Streamlit como bloque de código, mostrando el HTML crudo
+        # en vez de renderizarlo. Por eso este builder concatena con join() en
+        # una sola línea lógica por fragmento, sin sangría.
+        parts = [
+            f'<div class="pareto-card" style="background:{style["bg"]};border:1.5px solid {style["border"]};">',
+            f'<div class="pareto-name">{html.escape(d["name"])}</div>',
+            f'<div class="pareto-meta">AR-{d["brand_id"]} · {html.escape(d["category"])}</div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">Last Contact</span><span class="pareto-row-value">{_days_lbl}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">Ads</span><span class="pareto-row-value">{_fmt_roi_cell(d["ads_active"], d["ads_roi"])}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">MD</span><span class="pareto-row-value">{_fmt_roi_cell(d["md_active"], d["md_roi"])}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">MD PRO</span><span class="pareto-row-value">{_fmt_roi_cell(d["mdpro_active"], d["mdpro_roi"])}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">Perfect Store</span><span class="pareto-row-value">{_ps_lbl}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">Churn</span><span class="pareto-row-value">{html.escape(d["churn_label"])}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">CVR vs bench</span><span class="pareto-row-value">{_fmt_cvr_cell(d["cvr_brand"], d["cvr_bench"])}</span></div>',
+            f'<div class="pareto-row"><span class="pareto-row-label">Traffic vs bench</span><span class="pareto-row-value">{_fmt_traffic_cell(d["traffic_brand"], d["traffic_bench"])}</span></div>',
+            f'<div class="pareto-badge" style="background:{style["bg"]};color:{style["border"]};">{style["label"]}</div>',
+            _acq_note,
+            '</div>',
+        ]
+        return "".join(parts)
+
     for i in range(0, len(_sorted_data), 4):
         chunk = _sorted_data[i:i+4]
-        cards_html = ""
-        for d in chunk:
-            style = _HEALTH_STYLE[d["health"]]
-            _days_lbl = f"{d['last_contact_days']}d" if d["last_contact_days"] is not None else "Sin contacto"
-            _ps_lbl = (
-                f'{d["perfect_store_pct"]}%' + (' · requiere PDF' if d["requires_pdf"] else '')
-                if d["perfect_store_pct"] is not None else "s/d"
-            )
-            _acq_note = (
-                f'<div class="pareto-badge" style="background:{style["bg"]};color:{style["border"]};">'
-                f'Falta: {", ".join(d["acq_missing"])}</div>' if d["health"] == "tangerine" and d["acq_missing"] else ""
-            )
-
-            cards_html += f"""
-            <div class="pareto-card" style="background:{style['bg']};border:1.5px solid {style['border']};">
-                <div class="pareto-name">{html.escape(d['name'])}</div>
-                <div class="pareto-meta">AR-{d['brand_id']} · {html.escape(d['category'])}</div>
-                <div class="pareto-row"><span class="pareto-row-label">Last Contact</span><span class="pareto-row-value">{_days_lbl}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">Ads</span><span class="pareto-row-value">{_fmt_roi_cell(d['ads_active'], d['ads_roi'])}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">MD</span><span class="pareto-row-value">{_fmt_roi_cell(d['md_active'], d['md_roi'])}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">MD PRO</span><span class="pareto-row-value">{_fmt_roi_cell(d['mdpro_active'], d['mdpro_roi'])}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">Perfect Store</span><span class="pareto-row-value">{_ps_lbl}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">Churn</span><span class="pareto-row-value">{html.escape(d['churn_label'])}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">CVR vs bench</span><span class="pareto-row-value">{_fmt_cvr_cell(d['cvr_brand'], d['cvr_bench'])}</span></div>
-                <div class="pareto-row"><span class="pareto-row-label">Traffic vs bench</span><span class="pareto-row-value">{_fmt_traffic_cell(d['traffic_brand'], d['traffic_bench'])}</span></div>
-                <div class="pareto-badge" style="background:{style['bg']};color:{style['border']};">{style['label']}</div>
-                {_acq_note}
-            </div>"""
+        cards_html = "".join(_build_pareto_card_html(d) for d in chunk)
 
         st.markdown(f'<div class="pareto-grid">{cards_html}</div>', unsafe_allow_html=True)
 
@@ -13523,7 +13535,7 @@ def page_pareto_hub():
         btn_cols = st.columns(4)
         for ci, d in enumerate(chunk):
             with btn_cols[ci]:
-                if st.button(f"Ver ficha →", key=f"pareto_goto_{d['brand_id']}", use_container_width=True):
+                if st.button("Ver ficha →", key=f"pareto_goto_{i+ci}_{d['brand_id']}", use_container_width=True):
                     st.session_state["_bf_goto_brand_id"] = d["brand_id"]
                     st.session_state["active_page"] = "Brand Finder"
                     st.rerun()
