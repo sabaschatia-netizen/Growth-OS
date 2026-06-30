@@ -7300,9 +7300,12 @@ def _prepare_growth_scored_data():
     # También construimos lookup de turbo e is_new para enriquecer TODAS las filas.
     _aj_turbo_ids = set()
     _aj_new_ids   = set()
+    _aj_all_ids   = set()
     try:
         aj = load_asignacion_junio()
         if not aj.empty:
+            _aj_all_ids = set(aj["brand_id"].dropna().astype(str))
+            _aj_all_ids.discard("")
             if "turbo" in aj.columns:
                 _aj_turbo_ids = set(aj.loc[aj["turbo"] == True, "brand_id"].astype(str))
             if "is_new" in aj.columns:
@@ -7434,6 +7437,13 @@ def _prepare_growth_scored_data():
     data = df.copy()
 
     data["_id"] = data[id_col].apply(normalize_brand_id)
+    # ── Portafolio vigente = Asignacion Junio (fuente de verdad) ───────────────
+    # Si la asignación cambió de mes, Growth OS puede conservar filas de marcas
+    # que ya no son del portafolio actual (reasignadas a otro Farmer). Se filtran
+    # acá para que Day Queue, Opportunity List, Follow-Up List y Brand Finder
+    # reflejen únicamente el portafolio vigente, igual que el resto del dashboard.
+    if _aj_all_ids:
+        data = data[data["_id"].isin(_aj_all_ids)].copy()
     # ── Flags de Asignacion Junio disponibles en toda la app ──────────────────
     data["_is_new"]   = data["_id"].isin(_aj_new_ids)    # marca nueva (rojo en Excel)
     data["_is_turbo"] = data["_id"].isin(_aj_turbo_ids)  # tiene Store Turbo asignado
@@ -13331,6 +13341,20 @@ def _build_pareto_hub_data():
 
     tiers_map = get_pareto_tiers_map()
     tier_a_ids = {bid for bid, t in tiers_map.items() if t == "A"}
+    if not tier_a_ids:
+        return []
+
+    # Restringir al portafolio vigente (Asignacion Junio) por si Current GMV
+    # todavía trae marcas que ya fueron reasignadas a otro Farmer.
+    try:
+        _aj_pareto = load_asignacion_junio()
+        if not _aj_pareto.empty:
+            _aj_pareto_ids = set(_aj_pareto["brand_id"].dropna().astype(str))
+            _aj_pareto_ids.discard("")
+            if _aj_pareto_ids:
+                tier_a_ids = tier_a_ids & _aj_pareto_ids
+    except Exception:
+        pass
     if not tier_a_ids:
         return []
 
