@@ -7703,9 +7703,9 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         return
 
     color_projected = "#4B9CF2"
-    color_muted     = COLORS["muted"]
-    color_card      = COLORS["card"]
-    color_border    = COLORS["border"]
+    color_muted     = "#8C93AC" if DARK_MODE else COLORS["muted"]
+    color_card      = "#141A2E" if DARK_MODE else COLORS["card"]
+    color_border    = "rgba(255,255,255,0.10)" if DARK_MODE else COLORS["border"]
     target_120      = target_usd * 1.2
     base_covered    = active_usd + projected_usd
 
@@ -7777,19 +7777,25 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         marker_html     = ""
         scale_html      = '<div style="margin-bottom:8px;"></div>'
 
+    color_track     = "rgba(255,255,255,0.08)" if DARK_MODE else "rgba(255,255,255,0.95)"
+    color_badge_bg  = "rgba(255,255,255,0.06)" if DARK_MODE else "rgba(255,255,255,.06)"
+    color_rest      = "rgba(255,255,255,0.10)" if DARK_MODE else "rgba(255,255,255,.04)"
+    color_gap_seg   = "rgba(255,255,255,0.14)" if DARK_MODE else "rgba(255,255,255,.07)"
+    color_gap_dot   = "rgba(255,255,255,0.30)" if DARK_MODE else "rgba(255,255,255,.25)"
+
     html = """
 <div style="background:{card};border:1px solid {border};border-radius:16px;padding:18px 22px 16px;margin-bottom:18px;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
     <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:{muted};">{label}</div>
-    <div style="font-size:12px;font-weight:700;color:{sc};background:rgba(255,255,255,.06);border-radius:20px;padding:3px 12px;border:1px solid {sc}40;">{sl}</div>
+    <div style="font-size:12px;font-weight:700;color:{sc};background:{badge_bg};border-radius:20px;padding:3px 12px;border:1px solid {sc}40;">{sl}</div>
   </div>
   <div style="position:relative;margin-bottom:4px;">
-    <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.95);">
+    <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:{track};">
       <div style="width:{pa:.1f}%;background:{ca};border-radius:8px 0 0 8px;transition:width .4s;"></div>
       <div style="width:{pp:.1f}%;background:{cp};transition:width .4s;"></div>
       <div style="width:{ppl:.1f}%;background:{cpl};transition:width .4s;"></div>
-      <div style="width:{pg:.1f}%;background:rgba(255,255,255,.07);transition:width .4s;"></div>
-      <div style="flex:1;background:rgba(255,255,255,.04);border-radius:0 8px 8px 0;"></div>
+      <div style="width:{pg:.1f}%;background:{gap_seg};transition:width .4s;"></div>
+      <div style="flex:1;background:{rest};border-radius:0 8px 8px 0;"></div>
     </div>
     {marker}
   </div>
@@ -7808,7 +7814,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
       <b style="color:{cpl};">Pipeline (Opp List)</b>&nbsp; {v_pipe}
     </div>
     <div style="font-size:12px;color:{muted};">
-      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.25);margin-right:5px;"></span>
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{gap_dot};margin-right:5px;"></span>
       <b>{gl}</b>&nbsp; {v_gap}
     </div>
     <div style="font-size:12px;color:{muted};margin-left:auto;">
@@ -7818,6 +7824,8 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
   </div>
 </div>""".format(
         card=color_card, border=color_border, muted=color_muted,
+        track=color_track, badge_bg=color_badge_bg, rest=color_rest,
+        gap_seg=color_gap_seg, gap_dot=color_gap_dot,
         label=label,
         sc=status_color, sl=status_label,
         pa=pct_active, ca=color_active,
@@ -7843,9 +7851,11 @@ def _render_churn_distribution_bar(counts, total):
     if total <= 0:
         return
 
-    color_card   = COLORS["card"]
-    color_border = COLORS["border"]
-    color_muted  = COLORS["muted"]
+    color_border = "rgba(255,255,255,0.10)" if DARK_MODE else COLORS["border"]
+    color_muted  = "#8C93AC" if DARK_MODE else COLORS["muted"]
+    color_card   = "#141A2E" if DARK_MODE else COLORS["card"]
+    color_track  = "rgba(255,255,255,0.08)" if DARK_MODE else "rgba(255,255,255,0.95)"
+    color_badge_bg = "rgba(255,255,255,0.06)"
 
     segments = [
         ("On",  "✅ On",  "#7ED321"),
@@ -7886,7 +7896,7 @@ def _render_churn_distribution_bar(counts, total):
       {n_churned} en riesgo ({pct_churned:.1f}%)
     </div>
   </div>
-  <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.95);margin-bottom:12px;">
+  <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:{color_track};margin-bottom:12px;">
     {bars_html}
   </div>
   <div style="display:flex;gap:24px;flex-wrap:wrap;">
@@ -7909,19 +7919,23 @@ def _render_target_input_block(ads_target_default, md_target_default):
     weeks_left      = max(remaining_days / 7, 0.5)   # at least half a week
     week_of_month   = math.ceil(elapsed_days / 7)
 
+    _tib_card   = "#141A2E" if DARK_MODE else COLORS['card']
+    _tib_border = "rgba(255,255,255,0.10)" if DARK_MODE else COLORS['border']
+    _tib_muted  = "#8C93AC" if DARK_MODE else COLORS['muted']
+
     st.markdown(f"""
     <div style="
-        background: {COLORS['card']};
-        border: 1px solid {COLORS['border']};
+        background: {_tib_card};
+        border: 1px solid {_tib_border};
         border-radius: 14px;
         padding: 14px 20px 12px;
         margin-bottom: 16px;
         display:flex; align-items:center; gap:12px; flex-wrap:wrap;
     ">
-        <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:{COLORS['muted']};">
+        <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:{_tib_muted};">
             🎯 Target Engine
         </div>
-        <div style="font-size:12px; color:{COLORS['muted']}; margin-left:auto;">
+        <div style="font-size:12px; color:{_tib_muted}; margin-left:auto;">
             Semana <b>{week_of_month}</b> del mes &nbsp;·&nbsp;
             Quedan <b>{remaining_days} días</b> &nbsp;(<b>{weeks_left:.1f} semanas</b>)
         </div>
