@@ -4783,6 +4783,7 @@ NAV_GROUPS = [
         ("Follow-Up List",       "🔁"),
         ("Brand Finder",         "🔍"),
         ("Day Queue",            "📋"),
+        ("Pareto Hub",           "🧭"),
     ]),
     ("Tracking", [
         ("Acquisition Tracker",      "🚀"),
@@ -13273,6 +13274,263 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     cards.append(comm_card)
     return f"<div class='wide-info-card'><div class='wide-info-title'>Business Information + Portfolio Metrics</div><div class='business-card-grid'>{''.join(cards)}</div></div>"
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _build_pareto_hub_data():
+    """
+    Construye los datos completos de todas las marcas Tier A (80% de GMV)
+    para el Pareto Hub: cruza Growth OS, Current GMV/ADS/MD/MD PRO/Churn,
+    Perfect Store, CVR%/Traffic, y Priority Data (requerimiento de PDF).
+    Devuelve lista de dicts, uno por marca, ya con la clasificación de salud.
+    """
+    growth_df = load_growth_data()
+    if growth_df.empty:
+        return []
+
+    id_col = get_id_column_name(growth_df)
+    if not id_col:
+        return []
+
+    tiers_map = get_pareto_tiers_map()
+    tier_a_ids = {bid for bid, t in tiers_map.items() if t == "A"}
+    if not tier_a_ids:
+        return []
+
+    prod_map = get_productivity_last_contact_map(EXCEL_FILE)
+    meta_map = get_last_comment_meta_map(limit=1)
+    priority_df = load_priority_data()
+
+    # Set de brand_ids que tienen una fila "PDF Menu" pendiente en Priority Data
+    _pdf_required_ids = set()
+    if not priority_df.empty and "_metric_norm" in priority_df.columns:
+        _pdf_rows = priority_df[priority_df["_metric_norm"] == norm_text("PDF Menu")]
+        _pdf_required_ids = set(_pdf_rows["_id"].apply(normalize_brand_id))
+
+    rows = []
+    for _, row in growth_df.iterrows():
+        bid = normalize_brand_id(row.get(id_col))
+        if bid not in tier_a_ids:
+            continue
+
+        name = clean(get_from_row(row, ["name", "brand name", "restaurant name"]), "-")
+        category = clean(get_from_row(row, ["category"]), "-")
+        category_main, _ = _split_category_and_stickers(category)
+
+        ads_m    = get_current_ads_metrics(bid)
+        md_m     = get_current_md_metrics(bid, pro=False)
+        mdpro_m  = get_current_md_metrics(bid, pro=True)
+        churn_lbl = get_churn_status(bid)
+
+        menu_metrics = get_menu_metrics_for_brand(name)
+        perfect_store_pct = round(menu_metrics.get("health_score", 0)) if menu_metrics.get("found") else None
+        requires_pdf = bid in _pdf_required_ids
+
+        cvr_raw, _ = get_cvr_for_brand(name, cr_fallback=get_from_row(row, ["cr %", "conversion rate"], 0))
+        cvr_bench  = get_cvr_category_benchmark(category_main)
+        traffic_raw   = get_traffic_for_brand(name)
+        traffic_bench = get_traffic_category_benchmark(category_main)
+
+        last_dt = get_last_contact_dt(bid, name, prod_map=prod_map, meta_map=meta_map)
+        days_since = _days_since_timestamp(last_dt)
+
+        ads_active   = bool(ads_m.get("active", False))
+        md_active    = bool(md_m.get("active", False))
+        mdpro_active = bool(mdpro_m.get("active", False))
+        ads_roi   = to_number(ads_m.get("roi"), 0)
+        md_roi    = to_number(md_m.get("roi"), 0)
+        mdpro_roi = to_number(mdpro_m.get("roi"), 0)
+
+        # ── Clasificación de salud (verde / azul / tangerine) ──────────────────
+        _is_recent_contact = (days_since is not None and days_since <= 21)
+        _perfect_store_ok  = (perfect_store_pct is not None and perfect_store_pct > 90 and not requires_pdf)
+        _has_good_roi_lever = (
+            (ads_active and ads_roi >= 2.0) or (md_active and md_roi >= 2.0) or (mdpro_active and mdpro_roi >= 2.0)
+        )
+        _has_upsell_opportunity = (
+            (ads_active and ads_roi > 3.5) or (md_active and md_roi > 3.5) or (mdpro_active and mdpro_roi > 3.5)
+        )
+        _needs_acquisition = not ads_active or not md_active or not mdpro_active
+
+        if _needs_acquisition:
+            health = "tangerine"
+        elif _has_upsell_opportunity:
+            health = "blue"
+        elif _has_good_roi_lever and _is_recent_contact and _perfect_store_ok:
+            health = "green"
+        else:
+            health = "tangerine"
+
+        _acq_missing = []
+        if not ads_active:
+            _acq_missing.append("Ads")
+        if not md_active:
+            _acq_missing.append("MD")
+        if not mdpro_active:
+            _acq_missing.append("MD PRO")
+
+        rows.append({
+            "brand_id":    bid,
+            "name":        name,
+            "category":    category_main,
+            "last_contact_days": days_since,
+            "ads_active":  ads_active,  "ads_roi":  ads_roi,
+            "md_active":   md_active,   "md_roi":   md_roi,
+            "mdpro_active": mdpro_active, "mdpro_roi": mdpro_roi,
+            "perfect_store_pct": perfect_store_pct,
+            "requires_pdf": requires_pdf,
+            "churn_label": churn_lbl,
+            "cvr_brand":   cvr_raw,
+            "cvr_bench":   cvr_bench,
+            "traffic_brand": traffic_raw,
+            "traffic_bench": traffic_bench,
+            "health":      health,
+            "acq_missing": _acq_missing,
+        })
+
+    return rows
+
+
+def page_pareto_hub():
+    render_header("Pareto Hub", "Marcas que representan el 80% del GMV total · Tier A")
+
+    data = _build_pareto_hub_data()
+    if not data:
+        st.info("No se pudo construir el Pareto Hub — verificá que Current GMV y Growth OS tengan datos cargados.")
+        return
+
+    _HEALTH_STYLE = {
+        "green":     {"border": "#7ED321", "bg": "rgba(126,211,33,0.06)",  "label": "🟢 Sana"},
+        "blue":      {"border": "#1B3F8B", "bg": "rgba(27,63,139,0.06)",   "label": "🔵 Upselling"},
+        "tangerine": {"border": "#FF7124", "bg": "rgba(255,113,36,0.06)",  "label": "🟠 Acquisition"},
+    }
+
+    _n_green = sum(1 for d in data if d["health"] == "green")
+    _n_blue  = sum(1 for d in data if d["health"] == "blue")
+    _n_tang  = sum(1 for d in data if d["health"] == "tangerine")
+
+    st.markdown(
+        f'<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;">'
+        f'<div style="background:rgba(126,211,33,0.08);border:1px solid #7ED321;border-radius:10px;padding:8px 16px;font-size:13px;">'
+        f'🟢 <b>Sanas:</b> {_n_green}</div>'
+        f'<div style="background:rgba(27,63,139,0.08);border:1px solid #1B3F8B;border-radius:10px;padding:8px 16px;font-size:13px;">'
+        f'🔵 <b>Upselling:</b> {_n_blue}</div>'
+        f'<div style="background:rgba(255,113,36,0.08);border:1px solid #FF7124;border-radius:10px;padding:8px 16px;font-size:13px;">'
+        f'🟠 <b>Acquisition:</b> {_n_tang}</div>'
+        f'<div style="background:rgba(0,0,0,0.03);border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:8px 16px;font-size:13px;">'
+        f'📊 <b>Total Tier A:</b> {len(data)}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("""
+    <style>
+    .pareto-scroll {
+        max-height: 760px;
+        overflow-y: auto;
+        padding-right: 6px;
+    }
+    .pareto-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+    .pareto-card {
+        border-radius: 14px;
+        padding: 14px 16px;
+        transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease;
+        cursor: pointer;
+    }
+    .pareto-card:hover {
+        transform: translateY(-4px) scale(1.03);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+    }
+    .pareto-name { font-size: 14px; font-weight: 800; color: #1A1A2E; line-height: 1.2; }
+    .pareto-meta { font-size: 11px; color: #6B7280; margin-top: 2px; margin-bottom: 8px; }
+    .pareto-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+    .pareto-row-label { color: #6B7280; }
+    .pareto-row-value { font-weight: 700; color: #1A1A2E; }
+    .pareto-badge {
+        display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .04em;
+        text-transform: uppercase; padding: 2px 8px; border-radius: 10px; margin-top: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    def _fmt_roi_cell(active, roi):
+        if not active:
+            return '<span style="color:#FF7124;">No</span>'
+        return f'<span style="color:#7ED321;">Sí ({fmt_ratio(roi)})</span>'
+
+    def _fmt_cvr_cell(brand, bench):
+        if not brand or brand <= 0:
+            return '<span style="color:#aaa;">s/d</span>'
+        brand_pct = brand if brand <= 1 else brand / 100
+        bench_pct = bench if bench and bench > 0 else None
+        if bench_pct:
+            color = "#7ED321" if brand_pct >= bench_pct else "#FF4D2E"
+            return f'<span style="color:{color};">{round(brand_pct*100,1)}% (bench {round(bench_pct*100,1)}%)</span>'
+        return f'{round(brand_pct*100,1)}%'
+
+    def _fmt_traffic_cell(brand, bench):
+        if not brand or brand <= 0:
+            return '<span style="color:#aaa;">s/d</span>'
+        if bench and bench > 0:
+            color = "#7ED321" if brand >= bench else "#FF4D2E"
+            return f'<span style="color:{color};">{round(brand):,}/sem (bench {round(bench):,})</span>'.replace(",", ".")
+        return f'{round(brand):,}/sem'.replace(",", ".")
+
+    # ── Render en filas de 4 cards con scroll ──────────────────────────────────
+    st.markdown('<div class="pareto-scroll">', unsafe_allow_html=True)
+
+    _sorted_data = sorted(data, key=lambda d: (d["health"] != "tangerine", d["health"] != "blue", d["name"]))
+
+    for i in range(0, len(_sorted_data), 4):
+        chunk = _sorted_data[i:i+4]
+        cards_html = ""
+        for d in chunk:
+            style = _HEALTH_STYLE[d["health"]]
+            _days_lbl = f"{d['last_contact_days']}d" if d["last_contact_days"] is not None else "Sin contacto"
+            _ps_lbl = (
+                f'{d["perfect_store_pct"]}%' + (' · requiere PDF' if d["requires_pdf"] else '')
+                if d["perfect_store_pct"] is not None else "s/d"
+            )
+            _acq_note = (
+                f'<div class="pareto-badge" style="background:{style["bg"]};color:{style["border"]};">'
+                f'Falta: {", ".join(d["acq_missing"])}</div>' if d["health"] == "tangerine" and d["acq_missing"] else ""
+            )
+
+            cards_html += f"""
+            <div class="pareto-card" style="background:{style['bg']};border:1.5px solid {style['border']};">
+                <div class="pareto-name">{html.escape(d['name'])}</div>
+                <div class="pareto-meta">AR-{d['brand_id']} · {html.escape(d['category'])}</div>
+                <div class="pareto-row"><span class="pareto-row-label">Last Contact</span><span class="pareto-row-value">{_days_lbl}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">Ads</span><span class="pareto-row-value">{_fmt_roi_cell(d['ads_active'], d['ads_roi'])}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">MD</span><span class="pareto-row-value">{_fmt_roi_cell(d['md_active'], d['md_roi'])}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">MD PRO</span><span class="pareto-row-value">{_fmt_roi_cell(d['mdpro_active'], d['mdpro_roi'])}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">Perfect Store</span><span class="pareto-row-value">{_ps_lbl}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">Churn</span><span class="pareto-row-value">{html.escape(d['churn_label'])}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">CVR vs bench</span><span class="pareto-row-value">{_fmt_cvr_cell(d['cvr_brand'], d['cvr_bench'])}</span></div>
+                <div class="pareto-row"><span class="pareto-row-label">Traffic vs bench</span><span class="pareto-row-value">{_fmt_traffic_cell(d['traffic_brand'], d['traffic_bench'])}</span></div>
+                <div class="pareto-badge" style="background:{style['bg']};color:{style['border']};">{style['label']}</div>
+                {_acq_note}
+            </div>"""
+
+        st.markdown(f'<div class="pareto-grid">{cards_html}</div>', unsafe_allow_html=True)
+
+        # Botones reales de Streamlit para navegar al Brand Finder (debajo de cada fila,
+        # ya que el onclick de arriba es solo decorativo — Streamlit no puede recibir
+        # postMessage sin un listener adicional, así que usamos botones nativos).
+        btn_cols = st.columns(4)
+        for ci, d in enumerate(chunk):
+            with btn_cols[ci]:
+                if st.button(f"Ver ficha →", key=f"pareto_goto_{d['brand_id']}", use_container_width=True):
+                    st.session_state["_bf_goto_brand_id"] = d["brand_id"]
+                    st.session_state["active_page"] = "Brand Finder"
+                    st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 def render_brand_profile(row, brand_id):
     name = clean(get_from_row(row, ["name", "brand name", "restaurant name"]))
     ltor = clean(get_from_row(row, ["ltor tier", "ltor"]))
@@ -17315,6 +17573,8 @@ elif page == "Brand Finder":
     page_brand_finder()
 elif page == "Day Queue":
     page_day_queue()
+elif page == "Pareto Hub":
+    page_pareto_hub()
 elif page == "Acquisition Tracker":
     page_acquisition_tracker()
 elif page == "Campaign Weekly Tracker":
