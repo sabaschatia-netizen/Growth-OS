@@ -10304,38 +10304,55 @@ def page_earnings_calculator():
 
     raw = load_earnings_data()
 
-    if raw.empty:
-        st.error("Earnings sheet not found.")
-        return
+    # ── Valores iniciales desde Excel (si existe), editables desde el dash ────
+    _ads_target_xl    = to_number(cell(raw, 2, 1)) if not raw.empty else 0
+    _ads_result_xl    = to_number(cell(raw, 2, 2)) if not raw.empty else 0
+    _churn_target_xl  = to_number(cell(raw, 2, 3)) if not raw.empty else 0
+    _churn_result_xl  = to_number(cell(raw, 2, 4)) if not raw.empty else 0
+    _md_target_xl     = to_number(cell(raw, 2, 5)) if not raw.empty else 0
+    _md_result_xl     = to_number(cell(raw, 2, 6)) if not raw.empty else 0
+    _mdpro_target_xl  = to_number(cell(raw, 2, 7)) if not raw.empty else 0
+    _mdpro_result_xl  = to_number(cell(raw, 2, 8)) if not raw.empty else 0
+    _prod_target_xl   = to_number(cell(raw, 2, 9)) if not raw.empty else 0
+    _prod_result_xl   = to_number(cell(raw, 2, 10)) if not raw.empty else 0
+    _transport_xl     = to_number(cell(raw, 8, 2)) if not raw.empty else 0
 
-    ads_target = to_number(cell(raw, 2, 1))
-    ads_result = to_number(cell(raw, 2, 2))
+    with st.expander("✏️ Editar resultados del mes", expanded=False):
+        ec1, ec2 = st.columns(2)
+        with ec1:
+            ads_target = st.number_input("ADS Target (USD)", value=float(_ads_target_xl), step=100.0, key="ec_ads_target")
+            ads_result = st.number_input("ADS Result (USD)", value=float(_ads_result_xl), step=100.0, key="ec_ads_result")
+            md_target  = st.number_input("MD Target (%)", value=float(_md_target_xl), step=0.001, format="%.4f", key="ec_md_target")
+            md_result  = st.number_input("MD Result (%)", value=float(_md_result_xl), step=0.001, format="%.4f", key="ec_md_result")
+            mdpro_target = st.number_input("MD PRO Target (%)", value=float(_mdpro_target_xl), step=0.001, format="%.4f", key="ec_mdpro_target")
+            mdpro_result = st.number_input("MD PRO Result (%)", value=float(_mdpro_result_xl), step=0.001, format="%.4f", key="ec_mdpro_result")
+        with ec2:
+            churn_target = st.number_input("Churn Target (tasa)", value=float(_churn_target_xl), step=0.001, format="%.4f", key="ec_churn_target")
+            churn_result = st.number_input("Churn Result (tasa)", value=float(_churn_result_xl), step=0.001, format="%.4f", key="ec_churn_result")
+            prod_target  = st.number_input("Productividad Target", value=float(_prod_target_xl), step=1.0, key="ec_prod_target")
+            prod_result  = st.number_input("Productividad Result", value=float(_prod_result_xl), step=1.0, key="ec_prod_result")
+            transport    = st.number_input("Transporte + Conexión (COP)", value=float(_transport_xl), step=1000.0, key="ec_transport")
 
-    churn_target = to_number(cell(raw, 2, 3))
-    churn_result = to_number(cell(raw, 2, 4))
-
-    md_target = to_number(cell(raw, 2, 5))
-    md_result = to_number(cell(raw, 2, 6))
-
-    mdpro_target = to_number(cell(raw, 2, 7))
-    mdpro_result = to_number(cell(raw, 2, 8))
-
-    prod_target = to_number(cell(raw, 2, 9))
-    prod_result = to_number(cell(raw, 2, 10))
-
-    ads_ach = ads_result / ads_target if ads_target else 0
-    churn_ach = churn_target / churn_result if churn_result else 0
-    md_ach = md_result / md_target if md_target else 0
+    ads_ach   = ads_result / ads_target if ads_target else 0
+    churn_ach = churn_target / churn_result if churn_result else 0   # tasa de churn: menos es mejor
+    md_ach    = md_result / md_target if md_target else 0
     mdpro_ach = mdpro_result / mdpro_target if mdpro_target else 0
-    prod_ach = prod_result / prod_target if prod_target else 0
+    prod_ach  = prod_result / prod_target if prod_target else 0
+
+    # ── Caps por KPI según plan de incentivos: ADS tope 100%, MD/MD PRO/Churn tope 150% ──
+    _ads_ach_capped   = min(ads_ach, 1.0)
+    _md_ach_capped    = min(md_ach, 1.5)
+    _mdpro_ach_capped = min(mdpro_ach, 1.5)
+    _churn_ach_capped = min(churn_ach, 1.5)
 
     variable_percent = 0
-    if prod_ach >= 0.9:
+    _prod_qualifies = prod_ach >= 0.9
+    if _prod_qualifies:
         variable_percent = (
-            min(ads_ach, 1) * 0.35
-            + min(churn_ach, 1.0) * 0.25
-            + md_ach * 0.20
-            + mdpro_ach * 0.20
+            _ads_ach_capped   * 0.35
+            + _churn_ach_capped * 0.25
+            + _md_ach_capped    * 0.20
+            + _mdpro_ach_capped * 0.20
         )
 
     def render_kpi_card(name, target, result, achievement, target_formatter, result_formatter):
@@ -10437,12 +10454,25 @@ def page_earnings_calculator():
     with bottom3:
         render_variable_card(variable_percent)
 
-    st.markdown("## Commission Buckets")
+    if not _prod_qualifies:
+        st.warning(f"⚠️ Productividad en {fmt_percent0(prod_ach)} — por debajo del mínimo de 90%. No se gana variable este mes (Variable % = 0).")
 
+    st.markdown("## Revenue Share ADS")
+    st.caption("Bono adicional a tu variable · se gana cuando tu cumplimiento de ADS supera 90% Y tu cumplimiento de Markdown es ≥ 90%. Cap: 2.000 USD mensuales.")
+
+    _rs_md_qualifies = md_ach >= 0.90
     bucket1 = max(min(ads_result, ads_target) - ads_target * 0.9, 0) * 0.10
     bucket2 = max(min(ads_result, ads_target * 1.2) - ads_target, 0) * 0.20
     bucket3 = max(ads_result - ads_target * 1.2, 0) * 0.30
-    total_comm_usd = bucket1 + bucket2 + bucket3
+    total_comm_usd_uncapped = bucket1 + bucket2 + bucket3
+    total_comm_usd = min(total_comm_usd_uncapped, 2000.0) if _rs_md_qualifies else 0.0
+    _rs_capped_by_md   = not _rs_md_qualifies and total_comm_usd_uncapped > 0
+    _rs_capped_by_cap  = _rs_md_qualifies and total_comm_usd_uncapped > 2000.0
+
+    if not _rs_md_qualifies:
+        st.warning(f"⚠️ Markdown en {fmt_percent0(md_ach)} — por debajo del 90% requerido. Revenue Share ADS no se desbloquea este mes aunque ADS esté en {fmt_percent0(ads_ach)}.")
+    elif _rs_capped_by_cap:
+        st.info(f"ℹ️ Revenue Share ADS calculado: {fmt_usd(total_comm_usd_uncapped)} — topeado al máximo mensual de {fmt_usd(2000)}.")
 
     # ── Proyección: cuánto falta para el siguiente bucket ─────────────────────
     _b1_threshold   = ads_target * 0.90  # entrada bucket 1
@@ -10452,26 +10482,23 @@ def page_earnings_calculator():
     if ads_result < _b1_threshold:
         _next_bucket_name  = "Bucket 1 (90% del target)"
         _gap_to_next        = _b1_threshold - ads_result
-        _comm_unlock        = (_b1_threshold - _b1_threshold) * 0.10  # = 0 (solo se empieza a acumular)
         _next_color         = "#FF4D2E"
         _next_note          = f"Todavía no entraste al rango comisionado. Necesitás cerrar {fmt_usd(_gap_to_next)} más."
     elif ads_result < _b2_threshold:
         _next_bucket_name  = "Bucket 2 (100% del target)"
         _gap_to_next        = _b2_threshold - ads_result
-        _comm_at_next       = (_b2_threshold - _b1_threshold) * 0.10
         _next_color         = "#FF7124"
         _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 20% de comisión. Bucket 1 acumulado: {fmt_usd(bucket1)}."
     elif ads_result < _b3_threshold:
         _next_bucket_name  = "Bucket 3 (120% del target)"
         _gap_to_next        = _b3_threshold - ads_result
-        _comm_at_next       = (_b3_threshold - _b2_threshold) * 0.20
         _next_color         = "#FF7124"
         _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 30% de comisión. Buckets 1+2 acumulados: {fmt_usd(bucket1 + bucket2)}."
     else:
         _next_bucket_name  = "Superaste los 3 buckets 🏆"
         _gap_to_next        = 0
         _next_color         = "#7ED321"
-        _next_note          = f"Estás en el máximo tier. Cada USD adicional genera 0.30 de comisión. Total acumulado: {fmt_usd(total_comm_usd)}."
+        _next_note          = f"Estás en el máximo tier de ADS. Total Revenue Share (antes de cap): {fmt_usd(total_comm_usd_uncapped)}."
 
     # Barra de progreso hacia el siguiente bucket
     if _gap_to_next > 0:
@@ -10505,10 +10532,10 @@ def page_earnings_calculator():
     """, unsafe_allow_html=True)
 
     buckets = [
-        ("Bucket 1: 90% to 100%", bucket1),
-        ("Bucket 2: 100% to 120%", bucket2),
-        ("Bucket 3: More than 120%", bucket3),
-        ("Total Commission USD", total_comm_usd),
+        ("Bucket 1: 90% to 100% (10%)", bucket1 if _rs_md_qualifies else 0),
+        ("Bucket 2: 100% to 120% (20%)", bucket2 if _rs_md_qualifies else 0),
+        ("Bucket 3: More than 120% (30%)", bucket3 if _rs_md_qualifies else 0),
+        ("Total Revenue Share USD (cap 2k)", total_comm_usd),
     ]
 
     bcols = st.columns(4)
@@ -10526,84 +10553,46 @@ def page_earnings_calculator():
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("## Deal Simulator — ¿Cuánto me genera este deal?")
+    st.markdown("## Compiled Result")
 
-    sim_col1, sim_col2 = st.columns([1, 1])
-    with sim_col1:
-        sim_deal_usd = st.number_input(
-            "ADS Revenue adicional a cerrar (USD)",
-            min_value=0.0, max_value=50000.0, value=0.0, step=100.0,
-            key="sim_deal_usd",
-            help="Ingresá el revenue de Ads que cerrarías con este deal específico."
-        )
+    _PERFORMANCE_TIERS = [
+        (1.0,  "LEGEND",       "#7ED321", "Top Performer, superando las metas y destacándose por su excelencia."),
+        (0.8,  "PROFESSIONAL", "#3D64B8", "Cumple con las expectativas y mantiene un rendimiento constante."),
+        (0.6,  "ROOKIE",       "#FF7124", "Resultados por debajo del nivel óptimo con un potencial claro de mejora."),
+        (0.0,  "RED FLAG",     "#FF4D2E", "Resultados por debajo de las expectativas que necesitan atención inmediata."),
+    ]
+    _tier_name, _tier_color, _tier_desc = next(
+        (name, color, desc) for threshold, name, color, desc in _PERFORMANCE_TIERS
+        if variable_percent >= threshold
+    )
 
-    if sim_deal_usd > 0:
-        sim_new_result = ads_result + sim_deal_usd
-        sim_b1 = max(min(sim_new_result, ads_target) - ads_target * 0.9, 0) * 0.10
-        sim_b2 = max(min(sim_new_result, ads_target * 1.2) - ads_target, 0) * 0.20
-        sim_b3 = max(sim_new_result - ads_target * 1.2, 0) * 0.30
-        sim_total = sim_b1 + sim_b2 + sim_b3
-        sim_delta = sim_total - total_comm_usd
-        sim_delta_cop = sim_delta * COP_PER_USD
-
-        # Determinar en qué bucket cae el deal
-        if ads_result < ads_target * 0.9:
-            if sim_new_result <= ads_target * 0.9:
-                sim_bucket_label = "Bucket 1 (10%)"
-            elif sim_new_result <= ads_target:
-                sim_bucket_label = "Bucket 1 → Bucket 2"
-            elif sim_new_result <= ads_target * 1.2:
-                sim_bucket_label = "Bucket 1 → Bucket 2 → Bucket 3"
-            else:
-                sim_bucket_label = "Cruza todos los buckets"
-        elif ads_result < ads_target:
-            sim_bucket_label = "Bucket 2 (20%)" if sim_new_result <= ads_target * 1.2 else "Bucket 2 → Bucket 3"
-        elif ads_result < ads_target * 1.2:
-            sim_bucket_label = "Bucket 3 (30%)"
-        else:
-            sim_bucket_label = "Bucket 3 (30%) — ya en máximo tier"
-
-        st.markdown(f"""
-<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:20px 24px;margin-top:12px;margin-bottom:16px;">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:12px;">
-        💡 Si cerrás este deal
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-        <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(107,114,128,0.60);text-transform:uppercase;margin-bottom:4px;">Deal</div>
-            <div style="font-size:22px;font-weight:900;color:#1B3F8B;">{fmt_usd(sim_deal_usd)}</div>
-            <div style="font-size:11px;color:rgba(107,114,128,0.60);">ADS Revenue</div>
-        </div>
-        <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(107,114,128,0.60);text-transform:uppercase;margin-bottom:4px;">Comisión extra</div>
-            <div style="font-size:22px;font-weight:900;color:#7ED321;">+{fmt_usd(sim_delta)}</div>
-            <div style="font-size:11px;color:rgba(107,114,128,0.60);">≈ {fmt_cop(sim_delta_cop)} COP</div>
-        </div>
-        <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(107,114,128,0.60);text-transform:uppercase;margin-bottom:4px;">Bucket</div>
-            <div style="font-size:15px;font-weight:900;color:#FF7124;">{sim_bucket_label}</div>
-            <div style="font-size:11px;color:rgba(107,114,128,0.60);">Total comisión: {fmt_usd(sim_total)}</div>
-        </div>
+    st.markdown(f"""
+<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:20px;padding:22px 26px;margin-bottom:16px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.05);display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+    <div style="background:{_tier_color};color:#FFFFFF;font-weight:900;font-size:13px;letter-spacing:.06em;
+        padding:8px 18px;border-radius:30px;text-transform:uppercase;">{_tier_name}</div>
+    <div style="flex:1;min-width:200px;">
+        <div style="font-size:26px;font-weight:900;color:{_tier_color};">{fmt_percent0(variable_percent)}</div>
+        <div style="font-size:12px;color:#6B7280;margin-top:2px;">{_tier_desc}</div>
     </div>
 </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.caption("Ingresá un monto de deal para ver el impacto en tu comisión.")
+    """, unsafe_allow_html=True)
 
     st.markdown("## Salary Summary")
 
-    salary = to_number(cell(raw, 7, 2))
-    transport = to_number(cell(raw, 8, 2))
-    variable_cop = variable_percent * 510000
+    _BASE_SALARY_COP = 2_000_000
+    _HEALTH_PENSION_DEDUCTION_COP = 244_000
+    salary = _BASE_SALARY_COP - _HEALTH_PENSION_DEDUCTION_COP
+    variable_cop = variable_percent * salary
     commission_cop = total_comm_usd * COP_PER_USD
     gross_total = salary + transport + variable_cop + commission_cop
-    net_total = gross_total - 199800
+    net_total = gross_total
 
     salary_items = [
-        ("Salary", salary, False),
+        ("Salary (neto de salud/pensión)", salary, False),
         ("Transport + Connection", transport, False),
         ("Variable", variable_cop, False),
-        ("Commission", commission_cop, False),
+        ("Revenue Share ADS", commission_cop, False),
         ("Gross Total", gross_total, False),
         ("Net Total", net_total, True),
     ]
@@ -10620,9 +10609,11 @@ def page_earnings_calculator():
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
     <div class="legend-box">
-        Targets are shown in coral/gold · Results are shown in electric blue · Variable % is a compiled result
+        Salario base: {fmt_cop(_BASE_SALARY_COP)} − {fmt_cop(_HEALTH_PENSION_DEDUCTION_COP)} (salud + pensión) = {fmt_cop(salary)} neto ·
+        Variable cap: ADS 100% / MD, MD PRO y Churn 150% · Qualifier productividad mínimo 90% ·
+        Revenue Share ADS requiere MD ≥ 90%, cap {fmt_usd(2000)}/mes
     </div>
     """, unsafe_allow_html=True)
 
@@ -12604,6 +12595,30 @@ def _ops_cross_context(ops_metrics, menu_metrics, ads_current, md_current):
     return " ".join([p for p in pieces if p]) or "Sin dato numérico directo visible; conviértelo en pregunta de validación y freno comercial."
 
 
+def _extract_priority_pct_rate(descr):
+    """
+    Extrae el % de cancelación/reclamación desde la descripción de Priority Data.
+    Formato real: ' 219453: 25%' o con múltiples stores ' 261576: 3,79%; 259327: 6,1%'.
+    Si hay varios stores, promedia los porcentajes encontrados.
+    Devuelve la tasa como float 0-1 (ej: 0.25), o 0 si no encuentra nada.
+    """
+    if not descr:
+        return 0.0
+    matches = re.findall(r"(\d+(?:[.,]\d+)?)\s*%", str(descr))
+    if not matches:
+        return 0.0
+    vals = []
+    for m in matches:
+        try:
+            vals.append(float(m.replace(",", ".")))
+        except (TypeError, ValueError):
+            continue
+    if not vals:
+        return 0.0
+    avg_pct = sum(vals) / len(vals)
+    return avg_pct / 100.0
+
+
 def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_current, md_current, aov_ars=0, orders_monthly=0, current_gmv_ars=0):
     metric = clean(record.get("metric"), "OPS signal")
     kind = record.get("kind", "ops_other")
@@ -12622,9 +12637,13 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
         cue_parts = []
         if descr:
             cue_parts.append(f"SP: {descr}.")
-        if aov_ars > 0:
-            _claim_cost_aliado = round(aov_ars * 0.50)
-            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_cost_aliado)} por reclamo (aliado absorbe ~50%).")
+        _claim_rate = _extract_priority_pct_rate(descr)
+        if _claim_rate > 0 and orders_monthly > 0 and aov_ars > 0:
+            _claim_orders_mes = round(orders_monthly * _claim_rate)
+            _claim_gmv_riesgo = round(_claim_orders_mes * aov_ars * 0.50 / 1000) * 1000
+            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(_claim_gmv_riesgo)}/mes ({_claim_orders_mes} reclamos · {fmt_percent0(_claim_rate)} tasa · aliado absorbe 50%).")
+        elif aov_ars > 0:
+            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(round(aov_ars * 0.50))} por reclamo (aliado absorbe ~50%).")
         cue = " ".join(cue_parts)
         cls = "health-orange"
     elif kind == "ops_cancellations":
@@ -12632,15 +12651,13 @@ def _build_ops_tactical_card(record, name, ops_metrics, menu_metrics, ads_curren
         cue_parts = []
         if descr:
             cue_parts.append(f"SP: {descr}.")
-        _cancel_rate = 0
-        if aov_ars > 0:
-            _cancel_cost_orden = round(aov_ars * 0.65)
-            if _cancel_rate > 0 and orders_monthly > 0:
-                _cancel_orders_mes = round(orders_monthly * _cancel_rate)
-                _cancel_gmv_perdido = round(_cancel_orders_mes * aov_ars * 0.65 / 1000) * 1000
-                cue_parts.append(f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes ({_cancel_orders_mes} cancelaciones · aliado absorbe 65%).")
-            else:
-                cue_parts.append(f"GMV en riesgo: ~{fmt_ars(round(aov_ars * 0.65))} por cancelación (aliado absorbe 65%).")
+        _cancel_rate = _extract_priority_pct_rate(descr)
+        if _cancel_rate > 0 and orders_monthly > 0 and aov_ars > 0:
+            _cancel_orders_mes = round(orders_monthly * _cancel_rate)
+            _cancel_gmv_perdido = round(_cancel_orders_mes * aov_ars / 1000) * 1000
+            cue_parts.append(f"GMV perdido: ~{fmt_ars(_cancel_gmv_perdido)}/mes ({_cancel_orders_mes} cancelaciones · {fmt_percent0(_cancel_rate)} tasa · aliado absorbe el 100%).")
+        elif aov_ars > 0:
+            cue_parts.append(f"GMV en riesgo: ~{fmt_ars(round(aov_ars))} por cancelación (aliado absorbe el 100%).")
         cue = " ".join(cue_parts)
         cls = "health-orange"
     elif kind == "ops_defects":
@@ -13996,6 +14013,18 @@ def render_brand_profile(row, brand_id):
     _margin_per_order = _aov * (1 - _comm_rate) * (1 - _food_cost_rate) if _aov > 0 else 0
     _margin_pct_display = round((1 - _comm_rate) * (1 - _food_cost_rate) * 100, 1)
 
+    # ── 1b. GMV neto total potencial a día de hoy ────────────────────────────
+    # Margen por orden × órdenes del mes = margen bruto total del período.
+    # Si hay campaña de Ads activa, se descuenta el presupuesto — los bookings
+    # de Current ADS ya vienen normalizados a base semanal, por eso se
+    # mensualizan ×4 antes de restar.
+    _margin_total_bruto = _margin_per_order * _orders if _margin_per_order > 0 and _orders > 0 else 0
+    _ads_is_active = bool(ads_current.get("active", False))
+    _ads_weekly_budget = to_number(ads_current.get("bookings_usd"), 0) if _ads_is_active else 0
+    _ads_monthly_budget_usd = _ads_weekly_budget * 4
+    _ads_monthly_budget_ars = _ads_monthly_budget_usd * ARS_PER_USD
+    _margin_total_neto = max(_margin_total_bruto - _ads_monthly_budget_ars, 0) if _ads_is_active else _margin_total_bruto
+
     # ── 2. Punto de equilibrio MD ────────────────────────────────────────────
     # Lógica basada en AOV: el costo del descuento se calcula por orden,
     # no sobre el GMV total histórico (que mezcla coberturas pasadas).
@@ -14584,10 +14613,15 @@ def render_brand_profile(row, brand_id):
     <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
       <div style="font-size:26px;font-weight:900;color:#7ED321;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
-      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:8px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
+      <div style="background:rgba(126,211,33,0.08);border-radius:8px;padding:8px 10px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;color:#5A9E00;text-transform:uppercase;margin-bottom:2px;">GMV neto total · este mes</div>
+        <div style="font-size:16px;font-weight:900;color:#1A1A2E;">{fmt_ars(round(_margin_total_neto))}</div>
+        <div style="font-size:10px;color:#6B7280;margin-top:2px;">{f"Bruto {fmt_ars(round(_margin_total_bruto))} − Ads {fmt_ars(round(_ads_monthly_budget_ars))}/mes (booking semanal ×4)" if _ads_is_active else f"Sin descuento de Ads · campaña no activa"}</div>
+      </div>
       <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Cuantos más pedidos, más rápido empieza la ganancia real."</div>
+        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Con tu volumen del mes, eso son {fmt_ars(round(_margin_total_neto))} de margen real{' después de descontar tu inversión en Ads' if _ads_is_active else ''}."</div>
       </div>
     </div>
     <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
