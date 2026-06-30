@@ -5971,6 +5971,20 @@ if DARK_MODE:
     .nav-logo-text, .nav-section-label { color: #C7CCDC !important; }
     .nav-toggle-btn { background: #161B2E !important; color: #C7CCDC !important; border-color: rgba(255,255,255,0.10) !important; }
 
+    /* ── Vencer la regla base de mayor especificidad que fuerza texto oscuro
+       en th/td de tablas HTML (Opportunity List, ADS/MD tables, etc.) — debe
+       tener especificidad igual (mismo selector compuesto) para ganar. ── */
+    [data-testid="stMarkdownContainer"] table td,
+    [data-testid="stMarkdownContainer"] table th {
+        color: #E4E7F1 !important;
+        border-color: rgba(255,255,255,0.10) !important;
+    }
+    span[style*="color: white"],
+    span[style*="color:#FFFFFF"],
+    span[style*="color: #FFFFFF"] {
+        color: #F2F4F9 !important;
+    }
+
     /* ── TODAS las superficies blancas conocidas → azul-noche oscuro ──
        Cubre cards, headers, boxes, stickers, tablas y widgets nativos.
        Sin esto, cualquier clase fuera de esta lista se queda blanca. */
@@ -6037,6 +6051,13 @@ if DARK_MODE:
     [style*="background:rgba(255,255,255,0.95)"],
     [style*="background:rgba(255,255,255,0.97)"] {
         background: #1B2238 !important;
+    }
+    /* Hex blanco sólido inline — viene de COLORS["card"] insertado vía f-string
+       (Opportunity List ADS/MD/Churn target bars, entre otras). */
+    [style*="background:#FFFFFF;border:1px solid"],
+    [style*="background: #FFFFFF;border:1px solid"],
+    [style*="background:#FFFFFF; border:1px solid"] {
+        background: #141A2E !important;
     }
 
     /* ── Inputs / widgets nativos de Streamlit ── */
@@ -9341,11 +9362,13 @@ def page_follow_up_list():
         "Churn":            follow_df_filtered["Churn"],
         "Last Notes":       follow_df_filtered["Last Notes"],
     })
+    _hm_track_color = "#141A2E" if DARK_MODE else "#FFFFFF"
+    _hm_card_bg     = "#141A2E" if DARK_MODE else "#FFFFFF"
     st.markdown(f"""
     <style>
     .hm-card {{
-        background: #FFFFFF;
-        border: 1px solid #FFFFFF;
+        background: {_hm_card_bg};
+        border: 1px solid {_hm_card_bg};
         border-radius: 16px;
         padding: 20px 24px 16px 24px;
         margin-bottom: 18px;
@@ -9368,7 +9391,7 @@ def page_follow_up_list():
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        background: conic-gradient({score_color} {health_score}%, #FFFFFF {health_score}%);
+        background: conic-gradient({score_color} {health_score}%, {_hm_track_color} {health_score}%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -9379,7 +9402,7 @@ def page_follow_up_list():
         width: 58px;
         height: 58px;
         border-radius: 50%;
-        background: #FFFFFF;
+        background: {_hm_card_bg};
         display: flex;
         flex-direction: column;
         align-items: center;
