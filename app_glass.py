@@ -14994,34 +14994,28 @@ def render_brand_profile(row, brand_id):
             _pf_pitch_body = "MD activo. Revisá el ROI para definir la próxima acción."
             _pf_pitch_color = "#FF7124"
 
-    _pitch_facts_block = f"""
-<div style="margin-top:16px;">
-  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
-    letter-spacing:.06em;margin-bottom:10px;">📋 Pitch Facts · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);
-      border-radius:12px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
-        letter-spacing:.06em;margin-bottom:8px;">{_pf_ancla_label}</div>
-      <div style="font-size:22px;font-weight:900;color:{_pf_ancla_color};line-height:1.1;margin-bottom:8px;">{_pf_ancla_main}</div>
-      <div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_ancla_body}</div>
-    </div>
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);
-      border-radius:12px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
-        letter-spacing:.06em;margin-bottom:8px;">{_pf_bench_label}</div>
-      <div style="font-size:22px;font-weight:900;color:{_pf_bench_color};line-height:1.1;margin-bottom:8px;">{_pf_bench_main}</div>
-      <div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_bench_body}</div>
-    </div>
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);
-      border-radius:12px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);
-        letter-spacing:.06em;margin-bottom:8px;">{_pf_pitch_label}</div>
-      <div style="font-size:22px;font-weight:900;color:{_pf_pitch_color};line-height:1.1;margin-bottom:8px;">{_pf_pitch_main}</div>
-      <div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_pitch_body}</div>
-    </div>
-  </div>
-</div>"""
+    _pitch_facts_block = "".join([
+        '<div style="margin-top:16px;">',
+        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">📋 Pitch Facts · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>',
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">',
+        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
+        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_ancla_label}</div>',
+        f'<div style="font-size:22px;font-weight:900;color:{_pf_ancla_color};line-height:1.1;margin-bottom:8px;">{_pf_ancla_main}</div>',
+        f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_ancla_body}</div>',
+        '</div>',
+        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
+        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_bench_label}</div>',
+        f'<div style="font-size:22px;font-weight:900;color:{_pf_bench_color};line-height:1.1;margin-bottom:8px;">{_pf_bench_main}</div>',
+        f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_bench_body}</div>',
+        '</div>',
+        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
+        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_pitch_label}</div>',
+        f'<div style="font-size:22px;font-weight:900;color:{_pf_pitch_color};line-height:1.1;margin-bottom:8px;">{_pf_pitch_main}</div>',
+        f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_pitch_body}</div>',
+        '</div>',
+        '</div>',
+        '</div>',
+    ])
 
     # ── Card unificada: Funnel Traffic/CVR + GMV incremental + diagnóstico ──────
     # Reemplaza las dos cards separadas (GMV incremental / Diagnóstico Traffic&CVR)
@@ -15071,16 +15065,21 @@ def render_brand_profile(row, brand_id):
             f'<span style="font-size:10px;font-weight:800;color:{color};margin-left:8px;">{badge_text}</span>'
             if badge_text else ""
         )
-        return f"""
-        <div style="margin-bottom:10px;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:rgba(107,114,128,0.75);">{label}</span>
-            <span style="font-size:13px;font-weight:800;color:{color};">{value_disp}{_badge_html}</span>
-          </div>
-          <div style="background:rgba(140,147,172,0.16);border-radius:6px;height:16px;overflow:hidden;">
-            <div style="width:{max(width_pct,3):.1f}%;height:100%;background:{color};border-radius:6px;transition:width .4s;"></div>
-          </div>
-        </div>"""
+        # NOTA: construido como fragmentos unidos con join(), sin sangría de línea —
+        # un f-string multilínea con 4+ espacios al inicio de línea es interpretado
+        # por el parser de Markdown de Streamlit como bloque de código, mostrando
+        # el HTML crudo en vez de renderizarlo (mismo bug ya resuelto en Pareto Hub).
+        return "".join([
+            '<div style="margin-bottom:10px;">',
+            '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">',
+            f'<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:rgba(107,114,128,0.75);">{label}</span>',
+            f'<span style="font-size:13px;font-weight:800;color:{color};">{value_disp}{_badge_html}</span>',
+            '</div>',
+            '<div style="background:rgba(140,147,172,0.16);border-radius:6px;height:16px;overflow:hidden;">',
+            f'<div style="width:{max(width_pct,3):.1f}%;height:100%;background:{color};border-radius:6px;transition:width .4s;"></div>',
+            '</div>',
+            '</div>',
+        ])
 
     _funnel_html = (
         _funnel_level_html("Traffic benchmark categoría", _fn_bench_traffic_disp, _fn_w1, _fn_c1)
@@ -15127,50 +15126,55 @@ def render_brand_profile(row, brand_id):
         _fn_headline = "Ambas métricas OK"
         _fn_headline_color = "#7ED321"
 
-    _funnel_card_html = f"""
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">🔍 Funnel Traffic &amp; Conversión vs Benchmark</div>
-      <div style="font-size:15px;font-weight:900;color:{_fn_headline_color};margin-bottom:10px;">{_fn_headline}</div>
-      <div style="margin-bottom:12px;">{_funnel_html}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;margin-top:auto;">
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;margin-bottom:10px;">{_fn_combined_text}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_fn_pitch}"</div>
-      </div>
-    </div>"""
+    # NOTA: mismo fix — fragmentos sin sangría de línea, unidos con join().
+    _funnel_card_html = "".join([
+        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">',
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">🔍 Funnel Traffic &amp; Conversión vs Benchmark</div>',
+        f'<div style="font-size:15px;font-weight:900;color:{_fn_headline_color};margin-bottom:10px;">{_fn_headline}</div>',
+        f'<div style="margin-bottom:12px;">{_funnel_html}</div>',
+        '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;margin-top:auto;">',
+        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;margin-bottom:10px;">{_fn_combined_text}</div>',
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
+        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_fn_pitch}"</div>',
+        '</div>',
+        '</div>',
+    ])
 
-    st.markdown(f"""
-<div class="wide-info-card">
-  <div class="wide-info-title">Analytics</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:14px;margin-top:4px;">
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>
-      <div style="font-size:26px;font-weight:900;color:#7ED321;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>
-      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:8px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>
-      <div style="background:rgba(126,211,33,0.08);border-radius:8px;padding:8px 10px;margin-bottom:12px;">
-        <div style="font-size:10px;font-weight:700;color:#5A9E00;text-transform:uppercase;margin-bottom:2px;">GMV neto total · este mes</div>
-        <div style="font-size:16px;font-weight:900;color:#1A1A2E;">{fmt_ars(round(_margin_total_neto))}</div>
-        <div style="font-size:10px;color:#6B7280;margin-top:2px;">{f"Bruto {fmt_ars(round(_margin_total_bruto))} − Ads {fmt_ars(round(_ads_monthly_budget_ars))}/mes (booking semanal ×4)" if _ads_is_active else f"Sin descuento de Ads · campaña no activa"}</div>
-      </div>
-      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Con tu volumen del mes, eso son {fmt_ars(round(_margin_total_neto))} de margen real{' después de descontar tu inversión en Ads' if _ads_is_active else ''}."</div>
-      </div>
-    </div>
-    <div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>
-      <div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{'es' if _be_orders != 1 else ''}</div>
-      <div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>
-      <div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>
-        <div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>
-      </div>
-    </div>
-    {_funnel_card_html}
-  </div>
-  {_pitch_facts_block}
-</div>
-""", unsafe_allow_html=True)
+    # NOTA: mismo fix aplicado a todo el bloque Analytics — sin sangría de línea,
+    # construido con join() de fragmentos en vez de f-string multilínea indentado.
+    _analytics_html = "".join([
+        '<div class="wide-info-card">',
+        '<div class="wide-info-title">Analytics</div>',
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:14px;margin-top:4px;">',
+        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">',
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>',
+        f'<div style="font-size:26px;font-weight:900;color:#7ED321;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>',
+        f'<div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:8px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>',
+        '<div style="background:rgba(126,211,33,0.08);border-radius:8px;padding:8px 10px;margin-bottom:12px;">',
+        '<div style="font-size:10px;font-weight:700;color:#5A9E00;text-transform:uppercase;margin-bottom:2px;">GMV neto total · este mes</div>',
+        f'<div style="font-size:16px;font-weight:900;color:#1A1A2E;">{fmt_ars(round(_margin_total_neto))}</div>',
+        f'<div style="font-size:10px;color:#6B7280;margin-top:2px;">{f"Bruto {fmt_ars(round(_margin_total_bruto))} − Ads {fmt_ars(round(_ads_monthly_budget_ars))}/mes (booking semanal ×4)" if _ads_is_active else "Sin descuento de Ads · campaña no activa"}</div>',
+        '</div>',
+        '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">',
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
+        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Con tu volumen del mes, eso son {fmt_ars(round(_margin_total_neto))} de margen real{" después de descontar tu inversión en Ads" if _ads_is_active else ""}."</div>',
+        '</div>',
+        '</div>',
+        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">',
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>',
+        f'<div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{"es" if _be_orders != 1 else ""}</div>',
+        f'<div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>',
+        '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">',
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
+        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>',
+        '</div>',
+        '</div>',
+        _funnel_card_html,
+        '</div>',
+        _pitch_facts_block,
+        '</div>',
+    ])
+    st.markdown(_analytics_html, unsafe_allow_html=True)
 
     # ── Campaign Designer (after Analytics) ───────────────────────────────────
     st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
