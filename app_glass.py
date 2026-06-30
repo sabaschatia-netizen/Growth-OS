@@ -5341,6 +5341,11 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     border-radius: 20px !important;
     box-shadow: 0 4px 20px rgba(27,63,139,0.08), 0 1px 4px rgba(0,0,0,0.05) !important;
     transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease !important;
+    padding: 20px 22px 18px !important;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }}
 
 /* ── WIDE INFO CARD: padding for section containers ── */
@@ -5470,15 +5475,45 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 }}
 
 /* ── TEXT COLORS INSIDE CARDS ── */
-.metric-label, .mgmt-label, .kpi-label, .salary-label,
+.metric-label, .mgmt-label, .kpi-label,
 .stack-label, .sticker-label, .hero-info-label, .info-mini-label,
-.update-title, .small-muted, .wide-info-title, .bucket-title {{
+.update-title, .small-muted, .wide-info-title {{
     color: rgba(107,114,128,0.7) !important;
 }}
 
-.metric-value, .mgmt-value, .kpi-value, .salary-value,
+.metric-value, .mgmt-value, .kpi-value,
 .stack-main, .brand-name, .hero-name, .status-value,
 .metric-title, .mgmt-section-title {{
+    color: #1A1A2E !important;
+}}
+
+/* ── SALARY / BUCKET CARDS: jerarquía tipográfica explícita ── */
+.salary-label, .bucket-title {{
+    color: rgba(107,114,128,0.75) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}}
+.salary-value {{
+    color: #1A1A2E !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    line-height: 1.15;
+}}
+.bucket-card .kpi-label {{
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: rgba(107,114,128,0.6) !important;
+    margin-bottom: 4px;
+}}
+.bucket-card .kpi-value {{
+    font-size: 22px !important;
+    font-weight: 800 !important;
     color: #1A1A2E !important;
 }}
 
@@ -10280,6 +10315,9 @@ def page_productivity_heatmap():
         </div>
         '''
 
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
+
     # ── Heatmap visual real: eje Y = semanas, eje X = palancas, color = intensidad ──
     # (Complementa la tabla numérica de arriba con una lectura visual rápida
     # de qué palancas concentran más uso a lo largo del tiempo.)
@@ -10379,37 +10417,6 @@ def page_productivity_heatmap():
                 f'</div>',
                 unsafe_allow_html=True,
             )
-
-    # Insight
-    # Compute insight signals dynamically
-    _dr_freq  = freq("DR")
-    _con_freq = freq("Conectividad")
-    dr_w1  = round(_dr_freq[0][0]  / TOTALS[WEEKS[0]] * 100) if len(WEEKS) >= 1 and TOTALS.get(WEEKS[0]) else 0
-    dr_w4  = round(_dr_freq[-1][0] / TOTALS[WEEKS[-1]] * 100) if len(WEEKS) >= 1 and TOTALS.get(WEEKS[-1]) else 0
-    con_w1 = round(_con_freq[0][0]  / TOTALS[WEEKS[0]] * 100) if len(WEEKS) >= 1 and TOTALS.get(WEEKS[0]) else 0
-    con_w4 = round(_con_freq[-1][0] / TOTALS[WEEKS[-1]] * 100) if len(WEEKS) >= 1 and TOTALS.get(WEEKS[-1]) else 0
-    md_vals = md_conv()
-    _n_weeks = len(WEEKS)
-    if _n_weeks > 0 and md_vals:
-        best_md_wk  = WEEKS[max(range(_n_weeks), key=lambda i: md_vals[i][0] or 0)]
-        best_md_pct = md_vals[WEEKS.index(best_md_wk)][0]
-    else:
-        best_md_wk  = "-"
-        best_md_pct = None
-
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
-
-    # ── Insight — rendered separately to avoid markdown parse issues ──────────
-    _best_md_pct_str = f"{best_md_pct}%" if best_md_pct is not None else "—"
-    st.markdown(
-        f"""<div class="hm-insight">
-        <b>Conectividad</b> bajó de {con_w1}% → {con_w4}% — sigue siendo tu apertura de conversación, no el cierre.&nbsp;
-        <b>DR</b> escaló de {dr_w1}% → {dr_w4}%: los incendios operativos están compitiendo con el pitch comercial.&nbsp;
-        <b>Mejor semana MD</b>: {best_md_wk} con {_best_md_pct_str} de conversión.
-        </div>""",
-        unsafe_allow_html=True,
-    )
 
 
 
@@ -13456,25 +13463,30 @@ def _build_pareto_hub_data():
         md_roi    = to_number(md_m.get("roi"), 0)
         mdpro_roi = to_number(mdpro_m.get("roi"), 0)
 
-        # ── Clasificación de salud (verde / azul / tangerine) ──────────────────
+        # ── Clasificación de salud (verde / azul / review / tangerine) ──────────
+        # Regla: Acquisition = le falta activar al menos UNA de las 3 palancas
+        # (0, 1 o 2 activas). Si tiene las TRES activas:
+        #   - alguna con ROI/ROAS por debajo de 3.5x -> Review (color distinto, no Acquisition)
+        #   - las tres por encima de 3.5x -> Sana (verde) si hay contacto reciente
+        #     y Perfect Store ok, sino Upselling (azul) como reconocimiento del buen ROI
+        #     sin las otras condiciones de salud cumplidas todavía
         _is_recent_contact = (days_since is not None and days_since <= 21)
         _perfect_store_ok  = (perfect_store_pct is not None and perfect_store_pct > 90 and not requires_pdf)
-        _has_good_roi_lever = (
-            (ads_active and ads_roi >= 2.0) or (md_active and md_roi >= 2.0) or (mdpro_active and mdpro_roi >= 2.0)
-        )
-        _has_upsell_opportunity = (
-            (ads_active and ads_roi > 3.5) or (md_active and md_roi > 3.5) or (mdpro_active and mdpro_roi > 3.5)
-        )
-        _needs_acquisition = not ads_active or not md_active or not mdpro_active
+        _has_all_three = ads_active and md_active and mdpro_active
+        _needs_acquisition = not _has_all_three
 
         if _needs_acquisition:
             health = "tangerine"
-        elif _has_upsell_opportunity:
-            health = "blue"
-        elif _has_good_roi_lever and _is_recent_contact and _perfect_store_ok:
-            health = "green"
         else:
-            health = "tangerine"
+            _all_rois = [ads_roi, md_roi, mdpro_roi]
+            _below_review_threshold = any(r < 3.5 for r in _all_rois)
+
+            if _below_review_threshold:
+                health = "review"
+            elif _is_recent_contact and _perfect_store_ok:
+                health = "green"
+            else:
+                health = "blue"
 
         _acq_missing = []
         if not ads_active:
@@ -13517,12 +13529,14 @@ def page_pareto_hub():
     _HEALTH_STYLE = {
         "green":     {"border": "#7ED321", "bg": "rgba(126,211,33,0.06)",  "label": "🟢 Sana"},
         "blue":      {"border": "#1B3F8B", "bg": "rgba(27,63,139,0.06)",   "label": "🔵 Upselling"},
+        "review":    {"border": "#D9A300", "bg": "rgba(217,163,0,0.08)",   "label": "🟡 Review"},
         "tangerine": {"border": "#FF7124", "bg": "rgba(255,113,36,0.06)",  "label": "🟠 Acquisition"},
     }
 
-    _n_green = sum(1 for d in data if d["health"] == "green")
-    _n_blue  = sum(1 for d in data if d["health"] == "blue")
-    _n_tang  = sum(1 for d in data if d["health"] == "tangerine")
+    _n_green  = sum(1 for d in data if d["health"] == "green")
+    _n_blue   = sum(1 for d in data if d["health"] == "blue")
+    _n_review = sum(1 for d in data if d["health"] == "review")
+    _n_tang   = sum(1 for d in data if d["health"] == "tangerine")
 
     st.markdown(
         f'<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;">'
@@ -13530,6 +13544,8 @@ def page_pareto_hub():
         f'🟢 <b>Sanas:</b> {_n_green}</div>'
         f'<div style="background:rgba(27,63,139,0.08);border:1px solid #1B3F8B;border-radius:10px;padding:8px 16px;font-size:13px;">'
         f'🔵 <b>Upselling:</b> {_n_blue}</div>'
+        f'<div style="background:rgba(217,163,0,0.10);border:1px solid #D9A300;border-radius:10px;padding:8px 16px;font-size:13px;">'
+        f'🟡 <b>Review:</b> {_n_review}</div>'
         f'<div style="background:rgba(255,113,36,0.08);border:1px solid #FF7124;border-radius:10px;padding:8px 16px;font-size:13px;">'
         f'🟠 <b>Acquisition:</b> {_n_tang}</div>'
         f'<div style="background:rgba(0,0,0,0.03);border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:8px 16px;font-size:13px;">'
@@ -13599,7 +13615,7 @@ def page_pareto_hub():
     # ── Render en filas de 4 cards con scroll ──────────────────────────────────
     st.markdown('<div class="pareto-scroll">', unsafe_allow_html=True)
 
-    _sorted_data = sorted(data, key=lambda d: (d["health"] != "tangerine", d["health"] != "blue", d["name"]))
+    _sorted_data = sorted(data, key=lambda d: (d["health"] != "tangerine", d["health"] != "review", d["health"] != "blue", d["name"]))
 
     def _build_pareto_card_html(d):
         style = _HEALTH_STYLE[d["health"]]
