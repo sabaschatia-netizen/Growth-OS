@@ -5073,7 +5073,7 @@ with st.sidebar:
         st.markdown('<div class="nav-divider" style="margin-top:12px;"></div>', unsafe_allow_html=True)
         if "dark_mode" not in st.session_state:
             st.session_state["dark_mode"] = False
-        _dm_label = "🌙 Modo oscuro" if not st.session_state["dark_mode"] else "☀️ Modo claro"
+        _dm_label = "🌙 Dark mode" if not st.session_state["dark_mode"] else "☀️ Light mode"
         if st.button(_dm_label, key="nav_dark_mode_toggle", use_container_width=True):
             st.session_state["dark_mode"] = not st.session_state["dark_mode"]
             st.rerun()
@@ -5774,7 +5774,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 .hero-info-item {{ display: flex; flex-direction: column; gap: 4px; }}
 .hero-info-label {{ font-size: 10px; text-transform: uppercase; font-weight: 800; color: rgba(107,114,128,0.5); }}
 
-/* ── BUTTONS ── */
+/* ── BUTTONS (incluye sidebar — el naranja es el estilo de marca en ambos modos) ── */
 .stButton > button {{
     background: #FF7124 !important;
     color: #FFFFFF !important;
@@ -6023,11 +6023,36 @@ if DARK_MODE:
         color: #8C93AC !important;
     }
 
+    /* ── Superficies con background blanco translúcido INLINE (no clase CSS) ──
+       Decenas de cards en Analytics, Day Queue, Opportunity List, Pitch Facts,
+       Brand vs Brand, etc. usan style="background:rgba(255,255,255,0.9X)" directo
+       en el HTML en vez de una clase — sin esto se quedan blancas en dark mode. */
+    [style*="background:rgba(255,255,255,0.9"],
+    [style*="background: rgba(255,255,255,0.9"],
+    [style*="background:rgba(255, 255, 255, 0.9"],
+    [style*="background: rgba(255, 255, 255, 0.9"] {
+        background: #141A2E !important;
+    }
+    [style*="background:rgba(255,255,255,0.92)"],
+    [style*="background:rgba(255,255,255,0.95)"],
+    [style*="background:rgba(255,255,255,0.97)"] {
+        background: #1B2238 !important;
+    }
+
     /* ── Inputs / widgets nativos de Streamlit ── */
     [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
-    [data-testid="stTextArea"] textarea, [data-testid="stSelectbox"] div[data-baseweb="select"] {
+    [data-testid="stTextArea"] textarea, [data-testid="stSelectbox"] div[data-baseweb="select"],
+    [data-testid="stDateInput"] input, [data-testid="stTimeInput"] input,
+    [data-testid="stDateInput"] div[data-baseweb], [data-testid="stTimeInput"] div[data-baseweb] {
         background: #1B2238 !important;
         color: #E4E7F1 !important;
+        border-color: rgba(255,255,255,0.10) !important;
+    }
+    [data-testid="stCheckbox"] label {
+        color: #E4E7F1 !important;
+    }
+    [data-testid="stExpander"] {
+        background: #141A2E !important;
         border-color: rgba(255,255,255,0.10) !important;
     }
     [data-testid="stDataFrame"] {
@@ -6042,15 +6067,8 @@ if DARK_MODE:
         background: rgba(255,255,255,0.03) !important;
     }
 
-    /* ── Botones nativos ── */
-    .stButton button {
-        background: #1B2238 !important;
-        color: #E4E7F1 !important;
-        border-color: rgba(255,255,255,0.12) !important;
-    }
-    .stButton button:hover {
-        background: #232B47 !important;
-    }
+    /* ── Botones: el naranja de marca (#FF7124) se mantiene igual en dark mode —
+       no se sobreescribe aquí. Solo se ajusta el resto del chrome alrededor. ── */
 
     /* ── Dividers / bordes sutiles ── */
     .nav-divider, .hero-divider, hr {
@@ -13330,10 +13348,10 @@ def page_pareto_hub():
         return
 
     _HEALTH_STYLE = {
-        "green":     {"border": "#7ED321", "bg": "rgba(126,211,33,0.06)",  "label": "🟢 Sana"},
-        "blue":      {"border": "#1B3F8B", "bg": "rgba(27,63,139,0.06)",   "label": "🔵 Upselling"},
-        "review":    {"border": "#D9A300", "bg": "rgba(217,163,0,0.08)",   "label": "🟡 Review"},
-        "tangerine": {"border": "#FF7124", "bg": "rgba(255,113,36,0.06)",  "label": "🟠 Acquisition"},
+        "green":     {"border": "#7ED321", "bg": "rgba(126,211,33,0.14)",  "label": "🟢 Sana"},
+        "blue":      {"border": "#1B3F8B", "bg": "rgba(46,107,255,0.14)",  "label": "🔵 Upselling"},
+        "review":    {"border": "#D9A300", "bg": "rgba(255,196,0,0.16)",   "label": "🟡 Review"},
+        "tangerine": {"border": "#FF7124", "bg": "rgba(255,113,36,0.14)",  "label": "🟠 Acquisition"},
     }
 
     _n_green  = sum(1 for d in data if d["health"] == "green")
@@ -13341,21 +13359,32 @@ def page_pareto_hub():
     _n_review = sum(1 for d in data if d["health"] == "review")
     _n_tang   = sum(1 for d in data if d["health"] == "tangerine")
 
-    st.markdown(
-        f'<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;">'
-        f'<div style="background:rgba(126,211,33,0.08);border:1px solid #7ED321;border-radius:10px;padding:8px 16px;font-size:13px;">'
-        f'🟢 <b>Sanas:</b> {_n_green}</div>'
-        f'<div style="background:rgba(27,63,139,0.08);border:1px solid #1B3F8B;border-radius:10px;padding:8px 16px;font-size:13px;">'
-        f'🔵 <b>Upselling:</b> {_n_blue}</div>'
-        f'<div style="background:rgba(217,163,0,0.10);border:1px solid #D9A300;border-radius:10px;padding:8px 16px;font-size:13px;">'
-        f'🟡 <b>Review:</b> {_n_review}</div>'
-        f'<div style="background:rgba(255,113,36,0.08);border:1px solid #FF7124;border-radius:10px;padding:8px 16px;font-size:13px;">'
-        f'🟠 <b>Acquisition:</b> {_n_tang}</div>'
-        f'<div style="background:rgba(0,0,0,0.03);border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:8px 16px;font-size:13px;">'
-        f'📊 <b>Total Tier A:</b> {len(data)}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    if "_pareto_health_filter" not in st.session_state:
+        st.session_state["_pareto_health_filter"] = "all"
+
+    _filter_cols = st.columns(5)
+    _filter_specs = [
+        ("all",       f"📊 Todas ({len(data)})",        _filter_cols[0]),
+        ("green",     f"🟢 Sanas ({_n_green})",          _filter_cols[1]),
+        ("blue",      f"🔵 Upselling ({_n_blue})",       _filter_cols[2]),
+        ("review",    f"🟡 Review ({_n_review})",        _filter_cols[3]),
+        ("tangerine", f"🟠 Acquisition ({_n_tang})",     _filter_cols[4]),
+    ]
+    for _health_key, _btn_label, _col in _filter_specs:
+        with _col:
+            _is_selected = st.session_state["_pareto_health_filter"] == _health_key
+            if st.button(_btn_label, key=f"pareto_filter_{_health_key}", use_container_width=True,
+                         type="primary" if _is_selected else "secondary"):
+                st.session_state["_pareto_health_filter"] = _health_key
+                st.rerun()
+
+    _active_filter = st.session_state["_pareto_health_filter"]
+    if _active_filter != "all":
+        data = [d for d in data if d["health"] == _active_filter]
+        if not data:
+            st.info(f"No hay marcas en el filtro seleccionado. Volviendo a 'Todas'.")
+            st.session_state["_pareto_health_filter"] = "all"
+            st.rerun()
 
     st.markdown("""
     <style>
@@ -13438,7 +13467,7 @@ def page_pareto_hub():
         # en vez de renderizarlo. Por eso este builder concatena con join() en
         # una sola línea lógica por fragmento, sin sangría.
         parts = [
-            f'<div class="pareto-card" style="background:{style["bg"]};border:1.5px solid {style["border"]};">',
+            f'<div class="pareto-card" style="background:{style["bg"]};border:2px solid {style["border"]};">',
             f'<div class="pareto-name">{html.escape(d["name"])}</div>',
             f'<div class="pareto-meta">AR-{d["brand_id"]} · {html.escape(d["category"])}</div>',
             f'<div class="pareto-row"><span class="pareto-row-label">Last Contact</span><span class="pareto-row-value">{_days_lbl}</span></div>',
