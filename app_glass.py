@@ -5960,7 +5960,6 @@ if DARK_MODE:
         background: #0B0E1A !important;
     }
     section[data-testid="stSidebar"] > div:first-child {
-        background: #10142480 !important;
         background: #101424 !important;
     }
     section[data-testid="stSidebar"] * {
@@ -5972,28 +5971,56 @@ if DARK_MODE:
     .nav-logo-text, .nav-section-label { color: #C7CCDC !important; }
     .nav-toggle-btn { background: #161B2E !important; color: #C7CCDC !important; border-color: rgba(255,255,255,0.10) !important; }
 
-    /* ── Superficies / cards: de blanco a azul-noche oscuro ── */
+    /* ── TODAS las superficies blancas conocidas → azul-noche oscuro ──
+       Cubre cards, headers, boxes, stickers, tablas y widgets nativos.
+       Sin esto, cualquier clase fuera de esta lista se queda blanca. */
     .glass-card, .metric-card, .mgmt-card, .mgmt-section, .panel, .kpi-card,
     .update-card, .agenda-card, .brand-card, .status-card, .hero-card,
     .stack-card, .wide-info-card, .info-card, .comments-card, .salary-card,
-    .bucket-card, .campaign-mini-card, .multibrand-box, .business-card-grid > div {
+    .bucket-card, .campaign-mini-card, .multibrand-box, .business-card-grid > div,
+    .app-header, .business-mini-card, .target-box, .result-box, .variable-box,
+    .zero-box, .lime-box, .success-box, .legend-box, .net-card, .sticker,
+    .action-card, .table-glass, .cal-grid, .mgmt-stack-card, .hm-card, .hm-zone,
+    .pareto-card, .qt-score-card, .qt-trainer-card, .qt-card-header, .qt-example,
+    .hm-insight, .day-col, .hour-col, .evt,
+    div[data-testid="stSelectbox"] > div > div, details summary {
         background: #141A2E !important;
         box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.25) !important;
     }
 
-    /* ── Texto principal y secundario sobre fondo oscuro ── */
-    .stApp, .stApp p, .stApp span, .stApp div, .stApp label {
-        color: #E4E7F1;
+    /* ── Texto: neutralizar los colores oscuros hardcodeados (#1A1A2E / #6B7280 / negros)
+       SIN tocar los colores semánticos (verde/rojo/naranja/azul) que ya contrastan bien
+       sobre fondo oscuro. Se apunta directo a los valores de color usados en HTML inline. ──*/
+    .stApp, .stApp p, .stApp span, .stApp div, .stApp label, .stApp li, .stApp td, .stApp th {
+        color: #E4E7F1 !important;
     }
+    /* Las clases de "label"/título secundario quedan en gris claro, no gris oscuro */
     .stack-label, .sticker-label, .hero-info-label, .info-mini-label,
-    .card-label, .kpi-title, .salary-label, .bucket-title {
+    .card-label, .kpi-title, .salary-label, .bucket-title, .small-muted,
+    .pareto-meta, .pareto-row-label, .header-subtitle, .nav-logo-sub,
+    .hero-id, .update-title, .wide-info-title {
         color: #8C93AC !important;
     }
-    .hero-name, .hero-info-value, .kpi-value, .salary-value {
+    /* Los valores principales quedan en blanco/casi-blanco, no negro */
+    .hero-name, .hero-info-value, .kpi-value, .salary-value,
+    .stack-main, .brand-name, .status-value, .metric-title,
+    .mgmt-section-title, .pareto-name, .pareto-row-value,
+    .header-title, .bucket-card .kpi-value {
         color: #F2F4F9 !important;
     }
-    .hero-id, .header-subtitle, .nav-logo-sub {
-        color: #7C84A0 !important;
+
+    /* ── Neutralizar SOLO los colores de texto neutros inline (no los semánticos) ──
+       Cualquier span/div con color inline #1A1A2E (texto oscuro estándar) o
+       rgba(107,114,128,*) (gris secundario) se reescribe a claro. Verde/rojo/
+       naranja/azul semánticos quedan intactos porque no se tocan sus selectores. */
+    [style*="color:#1A1A2E"], [style*="color: #1A1A2E"],
+    [style*="color:#1a1a2e"], [style*="color: #1a1a2e"] {
+        color: #F2F4F9 !important;
+    }
+    [style*="color:rgba(107,114,128"], [style*="color: rgba(107,114,128"],
+    [style*="color:#6B7280"], [style*="color: #6B7280"],
+    [style*="color:#aaa"], [style*="color: #aaa"] {
+        color: #8C93AC !important;
     }
 
     /* ── Inputs / widgets nativos de Streamlit ── */
@@ -6006,7 +6033,12 @@ if DARK_MODE:
     [data-testid="stDataFrame"] {
         background: #141A2E !important;
     }
-    [data-testid="stDataFrame"] tr:nth-child(even) {
+    [data-testid="stDataFrame"] table, [data-testid="stDataFrame"] th, [data-testid="stDataFrame"] td {
+        background: #141A2E !important;
+        color: #E4E7F1 !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    [data-testid="stDataFrame"] tr:nth-child(even) td {
         background: rgba(255,255,255,0.03) !important;
     }
 
@@ -6024,6 +6056,13 @@ if DARK_MODE:
     .nav-divider, .hero-divider, hr {
         background: rgba(255,255,255,0.08) !important;
         border-color: rgba(255,255,255,0.08) !important;
+    }
+
+    /* ── st_components.html (iframes): Weekly Calendar, Brand vs Brand, etc. ──
+       Estos renderizan en un iframe con su propio <body>, fuera del alcance
+       del CSS de .stApp — se oscurecen aparte. */
+    iframe {
+        background: #141A2E !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -10048,244 +10087,8 @@ def page_productivity_heatmap():
         },
     ]
 
-    # ── Conversion metrics ────────────────────────────────────────────────────
-    def md_conv():
-        out = []
-        for wl in WEEKS:
-            w = df[df["_wl"] == wl]
-            offered  = (w["Markdown"].astype(str).str.upper() == "SI").sum()
-            accepted = (w["¿Se aceptó lo ofrecido?"].astype(str).str.strip().str.lower() == "si").sum()
-            pct = round(accepted / offered * 100) if offered else None
-            out.append((pct, int(accepted), int(offered)))
-        return out
+    html = ""  # acumulador reutilizado por el bloque de Benchmark personal debajo
 
-    def ads_conv():
-        EXCLUDE = {"no activo", "sigue igual", "sin gestionar", "", "nan"}
-        out = []
-        for wl in WEEKS:
-            w = df[df["_wl"] == wl]
-            offered = (w["Ads"].astype(str).str.upper() == "SI").sum()
-            def activated(row):
-                if str(row.get("Ads", "")).upper() != "SI":
-                    return False
-                tipo = str(row.get("Tipo Ads", "")).strip().lower()
-                if tipo in EXCLUDE:
-                    return False
-                if tipo == "never ads":
-                    return str(row.get("Tipo Never Ads", "")).strip().lower() not in ("no activo", "", "nan")
-                return True
-            activated_count = w.apply(activated, axis=1).sum()
-            pct = round(activated_count / offered * 100) if offered else None
-            out.append((pct, int(activated_count), int(offered)))
-        return out
-
-    def churn_conv():
-        out = []
-        for wl in WEEKS:
-            w = df[df["_wl"] == wl]
-            churn_rows = w[w["Churn"].astype(str).str.upper() == "SI"]
-            total = len(churn_rows)
-            retained = churn_rows["Fecha Reactivación"].notna().sum()
-            pct = round(retained / total * 100) if total else None
-            out.append((pct, int(retained), int(total)))
-        return out
-
-    # ── Render helpers ────────────────────────────────────────────────────────
-    def _lerp_hex(lo, hi, t):
-        """Interpolate between two hex colors."""
-        def h(c): return int(c, 16)
-        lr, lg, lb = h(lo[1:3]), h(lo[3:5]), h(lo[5:7])
-        hr, hg, hb = h(hi[1:3]), h(hi[3:5]), h(hi[5:7])
-        r = int(lr + t * (hr - lr))
-        g = int(lg + t * (hg - lg))
-        b = int(lb + t * (hb - lb))
-        return f"#{r:02x}{g:02x}{b:02x}"
-
-    def cell_style(pct, lo_bg, hi_bg, lo_text, hi_text):
-        if pct is None:
-            return "background:rgba(255,255,255,0.90);color:#aaa;"
-        t = min(pct / 100, 1.0)
-        # Only interpolate if both colors are hex (#RRGGBB); otherwise pick by threshold
-        if lo_bg.startswith("#") and hi_bg.startswith("#"):
-            bg = _lerp_hex(lo_bg, hi_bg, t)
-        else:
-            bg = hi_bg if t > 0.45 else lo_bg
-        text = hi_text if t > 0.45 else lo_text
-        return f"background:{bg};color:{text};"
-
-    # ── Conversion lookup: maps palanca name → (conv_label, conv_data, hi_bg, lo_bg) ──
-    CONV_MAP = {
-        "Markdown":  ("↳ Conversión MD",   md_conv(),    PALETTE["slate_indigo"],   "rgba(59,72,131,0.15)"),
-        "Ads":       ("↳ Activación Ads",   ads_conv(),   PALETTE["slate_indigo"],   "rgba(59,72,131,0.15)"),
-        "Churn":     ("↳ Retención churn",  churn_conv(), PALETTE["tangerine_dark"], "rgba(255,113,36,0.10)"),
-    }
-
-    CONV_BADGE = {
-        "Markdown": ("conv →", "rgba(59,72,131,0.15)", PALETTE["slate_indigo"]),
-        "Ads":      ("conv →", "rgba(59,72,131,0.15)", PALETTE["slate_indigo"]),
-        "Churn":    ("retención →", "rgba(255,113,36,0.10)", PALETTE["tangerine_dark"]),
-    }
-
-    # ── CSS ───────────────────────────────────────────────────────────────────
-    st.markdown("""
-    <style>
-    .hm-wrap { width: 100%; font-family: sans-serif; }
-    .hm-table { width: 100%; border-collapse: collapse; }
-    .hm-table th {
-        font-size: 11px; font-weight: 500; color: #6B7280;
-        text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid rgba(0,0,0,0.08);
-    }
-    .hm-table th.hm-lh { text-align: left; min-width: 150px; }
-    .hm-table td.hm-label {
-        font-size: 12px; color: #1A1A2E; padding: 3px 6px 3px 2px;
-        border-bottom: 1px solid rgba(255,255,255,0.95); white-space: nowrap;
-    }
-    .hm-table td.hm-label-sub {
-        font-size: 11px; color: #6B7280; padding: 3px 6px 3px 20px;
-        border-bottom: 1px solid rgba(255,255,255,0.95); white-space: nowrap;
-    }
-    .hm-table td.hm-c {
-        text-align: center; padding: 3px 3px;
-        border-bottom: 1px solid rgba(255,255,255,0.95);
-    }
-    .hm-cell-inner {
-        display: flex; flex-direction: column; align-items: center;
-        justify-content: center; border-radius: 6px;
-        padding: 5px 4px; min-height: 42px; min-width: 60px;
-    }
-    .hm-cell-inner-sub {
-        display: flex; flex-direction: column; align-items: center;
-        justify-content: center; border-radius: 6px;
-        padding: 4px 4px; min-height: 36px; min-width: 60px;
-    }
-    .hm-pct { font-size: 15px; font-weight: 500; line-height: 1.1; }
-    .hm-pct-sub { font-size: 13px; font-weight: 500; line-height: 1.1; }
-    .hm-frac { font-size: 10px; opacity: .72; }
-    .hm-sep td {
-        padding: 8px 4px 3px; border-bottom: none;
-    }
-    .hm-grp-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        font-size: 11px; font-weight: 600; letter-spacing: .05em;
-        text-transform: uppercase; padding: 2px 8px; border-radius: 4px;
-    }
-    .hm-conv-badge {
-        font-size: 10px; font-weight: 500; letter-spacing: .03em;
-        text-transform: uppercase; padding: 1px 5px; border-radius: 3px;
-        vertical-align: middle; margin-left: 5px;
-    }
-    .hm-insight {
-        margin-top: 1.5rem; padding: 12px 16px; border-radius: 8px;
-        border: 1px solid rgba(0,0,0,0.08); background: rgba(27,63,139,0.03);
-        font-size: 12px; color: #6B7280; line-height: 1.6;
-    }
-    .hm-insight b { color: #1A1A2E; font-weight: 600; }
-    .hm-cell-inner-rec {
-        display: flex; flex-direction: column; align-items: center;
-        justify-content: center; border-radius: 6px;
-        padding: 3px 4px; min-height: 30px; min-width: 60px;
-        border: 1.5px dashed #7ED321;
-    }
-    .hm-rec-val { font-size: 11px; font-weight: 700; color: #7ED321; }
-    .hm-rec-lbl { font-size: 9px; color: #6B7280; opacity: .9; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ── Build HTML — single unified table ────────────────────────────────────
-    def week_headers():
-        ths = '<th class="hm-lh" style="min-width:160px"></th>'
-        for i, wl in enumerate(WEEKS):
-            ths += f'<th>{wl}<br><span style="font-weight:400;font-size:10px;opacity:.65">{WEEK_DATES[i]}</span></th>'
-        return f"<tr>{ths}</tr>"
-
-    def conv_row(label, values, hi_bg, lo_bg):
-        row = f'<td class="hm-label-sub">{label}</td>'
-        for pct, n, d in values:
-            sty = cell_style(pct, lo_bg, hi_bg, hi_bg, "rgba(255,255,255,0.9)")
-            inner_pct = f'<span class="hm-pct-sub">{pct}%</span>' if pct is not None else '<span class="hm-pct-sub" style="opacity:.35">—</span>'
-            inner_frac = f'<span class="hm-frac">{n}/{d}</span>' if d else '<span class="hm-frac" style="opacity:.35">sin datos</span>'
-            row += (
-                f'<td class="hm-c">'
-                f'<div class="hm-cell-inner-sub" style="{sty}">'
-                f'{inner_pct}{inner_frac}'
-                f'</div></td>'
-            )
-        return f"<tr>{row}</tr>"
-
-    html = '<div class="hm-wrap"><table class="hm-table">'
-    html += week_headers()
-
-    for g in GROUPS:
-        # Group separator row
-        html += (
-            f'<tr class="hm-sep"><td colspan="{len(WEEKS) + 1}">'
-            f'<span class="hm-grp-badge" style="background:{g["color_cell_lo"]};color:{g["color_cell_hi"]}">'
-            f'{g["label"]}</span></td></tr>'
-        )
-
-        for name, freqs in g["palancas"]:
-            pcts = [round(c / t * 100) if t else 0 for c, t in freqs]
-
-            # ── Personal best (benchmark) across all weeks ─────────────────
-            best_pct  = max(pcts) if pcts else 0
-            best_widx = pcts.index(best_pct) if pcts else -1   # week index of best
-
-            # Badge if this palanca has a conversion subrow
-            badge_html = ""
-            if name in CONV_BADGE:
-                b_label, b_bg, b_color = CONV_BADGE[name]
-                badge_html = (
-                    f'<span class="hm-conv-badge" style="background:{b_bg};color:{b_color}">'
-                    f'{b_label}</span>'
-                )
-
-            row = f'<td class="hm-label">{name}{badge_html}</td>'
-            for i, (pct, (c, t)) in enumerate(zip(pcts, freqs)):
-                # Highlight the best week with a dashed lime border
-                is_best = (i == best_widx and best_pct > 0)
-                border_style = "outline:2px dashed #7ED321;outline-offset:-2px;" if is_best else ""
-                sty = cell_style(pct, g["color_cell_lo"], g["color_cell_hi"],
-                                 g["color_text_lo"], g["color_text_hi"])
-                trophy = '<span style="font-size:8px;opacity:.8">🏆</span>' if is_best else ""
-                row += (
-                    f'<td class="hm-c">'
-                    f'<div class="hm-cell-inner" style="{sty}{border_style}">'
-                    f'<span class="hm-pct">{pct}%{trophy}</span>'
-                    f'<span class="hm-frac">{c}/{t}</span>'
-                    f'</div></td>'
-                )
-            html += f"<tr>{row}</tr>"
-
-            # ── Benchmark subrow: "Tu récord" line ────────────────────────
-            rec_row = f'<td class="hm-label-sub" style="color:#1B3F8B;font-size:10px;">📈 récord personal</td>'
-            for i, pct in enumerate(pcts):
-                is_best = (i == best_widx and best_pct > 0)
-                if is_best:
-                    rec_row += (
-                        f'<td class="hm-c">'
-                        f'<div class="hm-cell-inner-rec">'
-                        f'<span class="hm-rec-val">🏆 {best_pct}%</span>'
-                        f'<span class="hm-rec-lbl">mejor sem.</span>'
-                        f'</div></td>'
-                    )
-                else:
-                    delta = pct - best_pct
-                    delta_str = f"{delta:+d}pp" if best_pct > 0 else "—"
-                    delta_color = "#7ED321" if delta >= 0 else "#aaa"
-                    rec_row += (
-                        f'<td class="hm-c">'
-                        f'<div style="display:flex;align-items:center;justify-content:center;min-height:30px;">'
-                        f'<span style="font-size:10px;color:{delta_color};font-weight:600;">{delta_str}</span>'
-                        f'</div></td>'
-                    )
-            html += f"<tr>{rec_row}</tr>"
-
-            # Inline conversion subrow if applicable
-            if name in CONV_MAP:
-                c_label, c_vals, c_hi, c_lo = CONV_MAP[name]
-                html += conv_row(c_label, c_vals, c_hi, c_lo)
-
-    html += "</table>"
 
     # ── Benchmark personal summary — top 3 palancas con mejor récord ─────────
     _bm_records = []
@@ -10315,8 +10118,8 @@ def page_productivity_heatmap():
         </div>
         '''
 
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
+    if html:
+        st.markdown(html, unsafe_allow_html=True)
 
     # ── Heatmap visual real: eje Y = semanas, eje X = palancas, color = intensidad ──
     # (Complementa la tabla numérica de arriba con una lectura visual rápida
