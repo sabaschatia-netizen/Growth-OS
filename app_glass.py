@@ -14176,6 +14176,20 @@ def render_brand_profile(row, brand_id):
             + context_html
         )
 
+    # ── Retomar generado por Claude (lectura directa, sin re-adivinar) ────────
+    def _extract_claude_retomar(note_text):
+        """
+        Busca una línea 'Retomar: ...' dentro de una nota [Auto] con análisis
+        completo (generada en el chat de Claude, no por el analizador local).
+        Devuelve solo el enfoque de la próxima llamada, sin pasos a seguir.
+        Si no existe (nota vieja del analizador local, sin este campo), devuelve
+        None y se cae al scoring por keywords de siempre (_build_retomar_html).
+        """
+        if not note_text:
+            return None
+        matches = re.findall(r"(?im)^\s*retomar:\s*(.+?)\s*$", note_text)
+        return matches[-1].strip() if matches else None
+
     # ── Retomar desde texto (fallback cuando no hay datos de Productivity) ────
     def _build_retomar_html(note_text):
         """Pure-Python analysis of last note to suggest call re-entry point."""
@@ -14234,7 +14248,16 @@ def render_brand_profile(row, brand_id):
         )
 
     # ── Choose retomar renderer based on source ───────────────────────────────
-    if _nota_source == "productivity" and _prod_levers:
+    _claude_retomar_text = (
+        _extract_claude_retomar(_display_last_note) if _nota_source == "transcript" else None
+    )
+    if _claude_retomar_text:
+        # Fuente: análisis completo de Claude → mostrar el enfoque tal cual, sin re-adivinar
+        _retomar_html = (
+            f'<div style="font-size:13px;font-weight:600;color:{PALETTE["blue_glow"]};line-height:1.4;">'
+            f'{html.escape(_claude_retomar_text)}</div>'
+        )
+    elif _nota_source == "productivity" and _prod_levers:
         _retomar_html = _build_retomar_from_levers(_prod_levers)
     else:
         _retomar_html = _build_retomar_html(_display_last_note)
