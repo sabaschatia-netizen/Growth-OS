@@ -14263,11 +14263,31 @@ def render_brand_profile(row, brand_id):
         _retomar_html = _build_retomar_html(_display_last_note)
 
     # ── Render: última nota display ───────────────────────────────────────────
+    def _extract_claude_resumen(note_text):
+        """
+        Busca el párrafo 'Resumen: ...' dentro de una nota [Auto] con análisis
+        completo (generada en el chat de Claude). Devuelve solo ese párrafo
+        condensado para mostrar en la carta Última Nota — no la nota completa.
+        Si no existe (nota vieja sin este campo), retorna None y se muestra
+        el texto completo como fallback.
+        """
+        if not note_text:
+            return None
+        m = re.search(r"(?i)resumen:\s*(.+?)(?:\n\s*\n|\Z)", note_text, re.DOTALL)
+        return m.group(1).strip() if m else None
+
     _note_display_clean = _display_last_note
     # Strip well-known prefixes for cleaner display
     for _pfx in ["[Auto] ·", "[Auto]", "[Productivity]"]:
         if _note_display_clean.startswith(_pfx):
             _note_display_clean = _note_display_clean[len(_pfx):].strip()
+
+    # Si la nota viene de Claude (transcript) y tiene el párrafo Resumen:,
+    # usarlo en vez del texto completo — la carta muestra solo el resumen.
+    if _nota_source == "transcript":
+        _claude_resumen_text = _extract_claude_resumen(_display_last_note)
+        if _claude_resumen_text:
+            _note_display_clean = _claude_resumen_text
 
     # Source badge (tiny label below the note)
     _source_badge_map = {
@@ -16500,9 +16520,9 @@ def _render_followup_form(row, brand_id, name):
     # ── Transcripción / nota de contacto ─────────────────────────────────────
     transcript_label = "📋 Transcripción de la llamada" if contact_channel == "Call" else "📝 Nota del contacto (WhatsApp / Email / Meet)"
     transcript_placeholder = (
-        "Pegá aquí la transcripción de Amazon Connect — el sistema detectará palancas, status sugerido y próximos pasos automáticamente."
+        "Pegá acá el resumen que te da Claude — se guarda tal cual, sin análisis ni cambios automáticos."
         if contact_channel == "Call"
-        else "Escribí el resumen del contacto — el sistema detectará intenciones comerciales automáticamente."
+        else "Escribí o pegá el resumen del contacto — se guarda tal cual."
     )
     call_transcript = st.text_area(
         transcript_label,
@@ -16511,59 +16531,9 @@ def _render_followup_form(row, brand_id, name):
         key=f"call_transcript_{brand_id}",
     )
 
-    # ── Análisis local en tiempo real (sin API) ───────────────────────────────
+    # ── Transcripción / resumen: se pega tal cual el resumen ya elaborado por
+    # Claude — no hay análisis local en vivo ni auto-detección de palancas. ──
     transcript_analysis = None
-    _transcript_cache_key = f"_transcript_analysis_{brand_id}"
-    _transcript_text_key = f"_transcript_text_{brand_id}"
-    if call_transcript.strip():
-        # Solo re-analiza si el texto cambió — evita rerun lento por cambio de status/selectbox
-        if (st.session_state.get(_transcript_text_key) != call_transcript or
-                _transcript_cache_key not in st.session_state):
-            st.session_state[_transcript_cache_key] = analyze_transcript_locally(call_transcript)
-            st.session_state[_transcript_text_key] = call_transcript
-        transcript_analysis = st.session_state.get(_transcript_cache_key)
-        if transcript_analysis:
-            sentiment_color = {"Positive": "#7ED321", "Neutral": "#FF7124", "Negative": "#FF4D2E"}.get(transcript_analysis["sentiment"], "#FF7124")
-            levers_str = " · ".join(transcript_analysis["levers"]) if transcript_analysis["levers"] else "Ninguna detectada"
-            actions_str = "\n".join(f"• {a}" for a in transcript_analysis["action_items"]) if transcript_analysis["action_items"] else "• Ninguna detectada"
-            _topic_states = transcript_analysis.get("topic_states", {})
-            _topic_states_html = (
-                "".join(
-                    f'<span style="display:inline-block;background:rgba(27,63,139,0.08);border-radius:6px;'
-                    f'padding:3px 9px;margin:2px 4px 2px 0;font-size:11px;font-weight:600;color:#1A1A2E;">'
-                    f'{html.escape(k)}: {html.escape(v)}</span>'
-                    for k, v in _topic_states.items()
-                )
-                if _topic_states else '<span style="font-size:11px;color:#6B7280;">Sin temas detectados</span>'
-            )
-            st.markdown(f"""
-            <div style="background:rgba(111,242,75,0.08);border:1px solid rgba(111,242,75,0.25);border-radius:10px;padding:14px 18px;margin:12px 0;">
-                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#5A9E00;margin-bottom:10px;">🤖 ANÁLISIS LOCAL DE TRANSCRIPCIÓN</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-                    <div>
-                        <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">SENTIMIENTO</div>
-                        <div style="font-weight:700;color:{sentiment_color};">{transcript_analysis["sentiment"]}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">STATUS SUGERIDO</div>
-                        <div style="font-weight:700;color:#1A1A2E;">{transcript_analysis["suggested_status"]}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">PALANCAS</div>
-                        <div style="font-weight:600;color:#1A1A2E;">{levers_str}</div>
-                    </div>
-                </div>
-                <div style="margin-top:10px;">
-                    <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">ESTADO POR TEMA</div>
-                    <div>{_topic_states_html}</div>
-                </div>
-                <div style="margin-top:10px;">
-                    <div style="font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;">PRÓXIMOS PASOS DETECTADOS</div>
-                    <div style="font-size:13px;white-space:pre-line;color:#1A1A2E;">{actions_str}</div>
-                </div>
-                <div style="margin-top:8px;font-size:10px;color:#6B7280;">Este análisis se guardará como nota automática. Seleccioná el Status correcto arriba si difiere del sugerido.</div>
-            </div>
-            """, unsafe_allow_html=True)
 
     new_comment = ""  # kept for calendar default_notes compatibility below
 
@@ -16790,27 +16760,18 @@ def _render_followup_form(row, brand_id, name):
             commercial_action = f"Markdown · {md_discount_input}"
         comment_auto = f"🏆 Deal Closed — {commercial_action}"
 
-    # ── Auto-router desde transcripción ──────────────────────────────────────
-    if transcript_analysis:
-        detected_intents = []
-        if "ADS" in transcript_analysis["levers"]:
-            detected_intents.append(("📊 ADS detectado", "La transcripción menciona publicidad / Rappi Ads"))
-        if "MD" in transcript_analysis["levers"]:
-            detected_intents.append(("💸 Markdown detectado", "La transcripción menciona descuento / promo"))
-        if "Churn Risk" in transcript_analysis["levers"]:
-            detected_intents.append(("⚠️ Riesgo de Churn", "La transcripción indica posible baja"))
-        if detected_intents:
-            for intent_label, intent_reason in detected_intents:
-                st.info(f"{intent_label} — {intent_reason}")
-            st.caption("Sugerencias del análisis local. Confirmá el Status correcto antes de guardar.")
+    # ── Auto-router desde transcripción: desactivado. El resumen ya viene
+    # armado por Claude con las palancas identificadas — no hace falta
+    # re-detectarlas acá con keywords. ─────────────────────────────────────────
 
     if st.button("Save Follow-up"):
-        # Build final comment from transcript analysis or comment_auto
+        # Build final comment: se guarda tal cual el contenido del campo de
+        # transcripción (el resumen ya armado por Claude) — no se regenera nada.
         if _is_no_answer or _is_separator:
             # No Answer: comment is the status label itself — no transcript needed
             final_comment = opportunity_status
-        elif transcript_analysis and transcript_analysis.get("summary"):
-            final_comment = transcript_analysis["summary"]
+        elif call_transcript.strip():
+            final_comment = call_transcript.strip()
         else:
             final_comment = comment_auto.strip()
 
