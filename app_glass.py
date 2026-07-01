@@ -2708,7 +2708,8 @@ def save_comment_csv(brand_id, brand_name, comment, contact_channel="", opportun
 def _parse_claude_note_fields(note_text):
     """
     Parsea una nota [Auto] con análisis completo (generada por Claude en chat)
-    y devuelve sus campos estructurados para guardar en el histórico.
+    y devuelve sus campos estructurados para guardar en el histórico y para
+    prellenar el cuadro de accionable en el Follow-up.
     Si la nota no tiene ese formato (nota manual, vieja, o status de No Answer),
     devuelve todos los campos vacíos — la fila igual se guarda, solo sin
     estructura de análisis.
@@ -2716,6 +2717,8 @@ def _parse_claude_note_fields(note_text):
     empty = {
         "sentiment": "", "palancas": "", "status_sugerido": "",
         "resumen": "", "proximos_pasos": "", "retomar": "",
+        "cal_aplica": False, "cal_fecha": "", "cal_canal": "",
+        "cal_prioridad": "", "cal_tema": "",
     }
     if not note_text or not note_text.strip().startswith("[Auto]"):
         return empty
@@ -2737,9 +2740,28 @@ def _parse_claude_note_fields(note_text):
     retomar_matches = re.findall(r"(?im)^\s*retomar:\s*(.+?)\s*$", note_text)
     retomar = retomar_matches[-1].strip() if retomar_matches else ""
 
+    # ── Bloque de accionable (Calendario) ─────────────────────────────────────
+    cal_aplica, cal_fecha, cal_canal, cal_prioridad, cal_tema = False, "", "", "", ""
+    cal_match = re.search(r"(?is)Calendario:\s*\n?(.+?)(?:\n\s*\n|\Z)", note_text)
+    if cal_match:
+        cal_block = cal_match.group(1)
+        if not re.search(r"(?i)no aplica", cal_block):
+            cal_aplica = True
+
+            def _cal_field(key):
+                fm = re.search(rf"(?im)^\s*{key}:\s*(.+?)\s*$", cal_block)
+                return fm.group(1).strip() if fm else ""
+
+            cal_fecha = _cal_field("Fecha")
+            cal_canal = _cal_field("Canal")
+            cal_prioridad = _cal_field("Prioridad")
+            cal_tema = _cal_field("Tema")
+
     return {
         "sentiment": sentiment, "palancas": palancas, "status_sugerido": status_sug,
         "resumen": resumen, "proximos_pasos": proximos_pasos, "retomar": retomar,
+        "cal_aplica": cal_aplica, "cal_fecha": cal_fecha, "cal_canal": cal_canal,
+        "cal_prioridad": cal_prioridad, "cal_tema": cal_tema,
     }
 
 
@@ -2768,6 +2790,10 @@ def save_call_history_row(brand_id, brand_name, note_text, contact_channel="", o
         "resumen":           parsed["resumen"],
         "proximos_pasos":    parsed["proximos_pasos"],
         "retomar":           parsed["retomar"],
+        "proximo_accionable_fecha":     parsed["cal_fecha"],
+        "proximo_accionable_canal":     parsed["cal_canal"],
+        "proximo_accionable_prioridad": parsed["cal_prioridad"],
+        "proximo_accionable_tema":      parsed["cal_tema"],
         "source":            "claude" if note_text and note_text.strip().startswith("[Auto]") else "manual",
         "raw_note":          note_text or "",
     }])
@@ -16612,8 +16638,11 @@ def _render_followup_form(row, brand_id, name):
     )
 
     # ── Transcripción / resumen: se pega tal cual el resumen ya elaborado por
-    # Claude — no hay análisis local en vivo ni auto-detección de palancas. ──
+    # Claude — no hay análisis local en vivo ni auto-detección de palancas.
+    # Sí se parsea el bloque "Calendario:" embebido para prellenar el cuadro
+    # de accionable más abajo (fecha, canal, prioridad, tema). ────────────────
     transcript_analysis = None
+    _claude_parsed = _parse_claude_note_fields(call_transcript)
 
     new_comment = ""  # kept for calendar default_notes compatibility below
 
@@ -16661,7 +16690,16 @@ def _render_followup_form(row, brand_id, name):
     else:
         st.session_state[_override_key] = False
 
-    def _render_calendar_fields(suffix, default_task="Follow-up", default_notes=""):
+    def _render_calendar_fields(suffix, default_task="Follow-up", default_notes="", parsed_cal=None):
+        """
+        Cuadro de accionable: se auto-completa con lo que Claude dejó en el
+        bloque '📅 Calendario:' de la transcripción pegada (fecha, canal,
+        prioridad, tema). Por default se muestra solo como resumen — el
+        formulario editable (Date/Time/Channel/Priority/Notes) solo aparece
+        si se tilda "✏️ Editar accionable".
+        """
+        parsed_cal = parsed_cal or {}
+
         # ── Color por tipo de task ────────────────────────────────────────────
         task_colors = {
             "Campaign Follow Up":  "#1B3F8B",
@@ -16670,48 +16708,83 @@ def _render_followup_form(row, brand_id, name):
         }
         task_color = next((v for k, v in task_colors.items() if k.lower() in default_task.lower()), "#1B3F8B")
 
+        # ── Defaults: primero lo que Claude dejó parseado, si no hay, la
+        # lógica automática de siempre (7/14 días) y el canal del contacto. ──
+        _default_date = _auto_next_date
+        if parsed_cal.get("cal_fecha"):
+            try:
+                _default_date = datetime.strptime(parsed_cal["cal_fecha"], "%Y-%m-%d").date()
+            except Exception:
+                pass
+        _channel_options = ["Call", "WhatsApp", "Email", "Meet", "Other"]
+        _default_channel = parsed_cal.get("cal_canal") if parsed_cal.get("cal_canal") in _channel_options else contact_channel
+        if _default_channel not in _channel_options:
+            _default_channel = "Call"
+        _priority_options = ["High", "Mid", "Low"]
+        _default_priority = parsed_cal.get("cal_prioridad") if parsed_cal.get("cal_prioridad") in _priority_options else "Mid"
+        _default_tema = parsed_cal.get("cal_tema") or default_notes
+
         st.markdown(f"""
         <div style="
             border-left: 4px solid {task_color};
-            background: rgba(27,63,139,0.03);
+            background: rgba(27,63,131,0.03);
             border-radius: 0 10px 10px 0;
-            padding: 14px 18px 10px 16px;
+            padding: 14px 18px 12px 16px;
             margin: 16px 0 10px 0;
         ">
-            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:{task_color};margin-bottom:2px;">
-                📅 ADD TO WEEKLY CALENDAR
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:{task_color};margin-bottom:6px;">
+                📅 ACCIONABLE — {default_task}
             </div>
-            <div style="font-size:15px;font-weight:600;color:var(--color-text-primary);">{default_task}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 2fr;gap:12px;font-size:13px;">
+                <div><div style="font-size:10px;color:#6B7280;">FECHA</div><div style="font-weight:700;">{_default_date.strftime('%d/%m/%Y')}</div></div>
+                <div><div style="font-size:10px;color:#6B7280;">CANAL</div><div style="font-weight:600;">{html.escape(_default_channel)}</div></div>
+                <div><div style="font-size:10px;color:#6B7280;">PRIORIDAD</div><div style="font-weight:600;">{html.escape(_default_priority)}</div></div>
+                <div><div style="font-size:10px;color:#6B7280;">TEMA</div><div style="font-weight:600;">{html.escape(_default_tema) if _default_tema else '—'}</div></div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
+        if not st.checkbox("✏️ Editar accionable", key=f"edit_accionable_{suffix}_{brand_id}"):
+            return {
+                "date": _default_date,
+                "time": time(9, 0).strftime("%I:%M %p").lstrip("0"),
+                "id": brand_id,
+                "name": name,
+                "task": default_task,
+                "channel": _default_channel,
+                "priority": _default_priority,
+                "status": default_task,
+                "notes": _default_tema.strip(),
+            }
+
         e1, e2, e3 = st.columns([1.2, 1, 1.5])
         with e1:
-            _event_date = st.date_input("Date", value=date.today(), key=f"event_date_{suffix}_{brand_id}")
+            _event_date = st.date_input("Date", value=_default_date, key=f"event_date_{suffix}_{brand_id}")
             _event_time = st.time_input("Time", value=time(9, 0), key=f"event_time_{suffix}_{brand_id}")
         with e2:
             _event_channel = st.selectbox(
                 "Channel",
-                ["Call", "WhatsApp", "Email", "Meet", "Other"],
-                index=0,
+                _channel_options,
+                index=_channel_options.index(_default_channel),
                 key=f"event_channel_{suffix}_{brand_id}"
             )
             _event_priority = st.selectbox(
                 "Priority",
-                ["High", "Mid", "Low"],
-                index=1,
+                _priority_options,
+                index=_priority_options.index(_default_priority),
                 key=f"event_priority_{suffix}_{brand_id}"
             )
             _event_status = st.selectbox(
                 "Task Status",
                 ["Campaign Follow Up", "Campaign Negotiation", "Contractual Changes"],
-                index=0,
+                index=["Campaign Follow Up", "Campaign Negotiation", "Contractual Changes"].index(default_task)
+                    if default_task in ["Campaign Follow Up", "Campaign Negotiation", "Contractual Changes"] else 0,
                 key=f"event_status_{suffix}_{brand_id}"
             )
         with e3:
             _event_notes = st.text_area(
                 "Notes",
-                value=default_notes,
+                value=_default_tema,
                 placeholder="Próximos pasos, acuerdos pendientes...",
                 height=112,
                 key=f"event_notes_{suffix}_{brand_id}"
@@ -16797,20 +16870,17 @@ def _render_followup_form(row, brand_id, name):
         comment_auto = opportunity_status  # save the exact No Answer label as the note
     elif opportunity_status == "📅 Campaign Follow Up":
         event_required = True
-        _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
-        event_data = _render_calendar_fields("camp_followup", default_task="Campaign Follow Up", default_notes=_calendar_notes)
+        event_data = _render_calendar_fields("camp_followup", default_task="Campaign Follow Up", parsed_cal=_claude_parsed)
         comment_auto = "📅 Campaign Follow Up"
 
     elif opportunity_status == "📅 Campaign Negotiation":
         event_required = True
-        _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
-        event_data = _render_calendar_fields("camp_negotiation", default_task="Campaign Negotiation", default_notes=_calendar_notes)
+        event_data = _render_calendar_fields("camp_negotiation", default_task="Campaign Negotiation", parsed_cal=_claude_parsed)
         comment_auto = "📅 Campaign Negotiation"
 
     elif opportunity_status == "📅 Contractual Changes":
         event_required = True
-        _calendar_notes = "\n".join(transcript_analysis["action_items"]) if transcript_analysis and transcript_analysis.get("action_items") else ""
-        event_data = _render_calendar_fields("contractual", default_task="Contractual Changes", default_notes=_calendar_notes)
+        event_data = _render_calendar_fields("contractual", default_task="Contractual Changes", parsed_cal=_claude_parsed)
         comment_auto = "📅 Contractual Changes"
 
     elif opportunity_status == "Deal Closed 🏆":
