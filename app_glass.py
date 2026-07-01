@@ -39,6 +39,7 @@ CALL_QUALITY_HISTORY_FILE = "growth_os_call_quality_history.csv"
 ROLEPLAY_OBJECTIONS_FILE = "growth_os_roleplay_objections.csv"
 ROLEPLAY_HISTORY_FILE = "growth_os_roleplay_history.csv"
 BRAND_LINKS_FILE = "growth_os_brand_links.csv"
+CALL_HISTORY_FILE = "growth_os_call_history.csv"
 BACKUP_FOLDER = "backups"
 
 ARS_PER_USD = 1400
@@ -2702,6 +2703,85 @@ def save_comment_csv(brand_id, brand_name, comment, contact_channel="", opportun
         final = new_row
 
     final.to_csv(COMMENTS_FILE, index=False, encoding="utf-8-sig")
+
+
+def _parse_claude_note_fields(note_text):
+    """
+    Parsea una nota [Auto] con análisis completo (generada por Claude en chat)
+    y devuelve sus campos estructurados para guardar en el histórico.
+    Si la nota no tiene ese formato (nota manual, vieja, o status de No Answer),
+    devuelve todos los campos vacíos — la fila igual se guarda, solo sin
+    estructura de análisis.
+    """
+    empty = {
+        "sentiment": "", "palancas": "", "status_sugerido": "",
+        "resumen": "", "proximos_pasos": "", "retomar": "",
+    }
+    if not note_text or not note_text.strip().startswith("[Auto]"):
+        return empty
+
+    header_match = re.search(
+        r"\[Auto\]\s*([^\n·]+)·\s*Palancas:\s*([^\n·]+)·\s*Status sugerido:\s*([^\n]+)",
+        note_text
+    )
+    sentiment  = header_match.group(1).strip() if header_match else ""
+    palancas   = header_match.group(2).strip() if header_match else ""
+    status_sug = header_match.group(3).strip() if header_match else ""
+
+    resumen_match = re.search(r"(?i)resumen:\s*(.+?)(?:\n\s*\n|\Z)", note_text, re.DOTALL)
+    resumen = resumen_match.group(1).strip() if resumen_match else ""
+
+    pasos_match = re.search(r"(?i)próximos pasos:\s*(.+?)(?:\n\s*\n|\Z)", note_text, re.DOTALL)
+    proximos_pasos = pasos_match.group(1).strip() if pasos_match else ""
+
+    retomar_matches = re.findall(r"(?im)^\s*retomar:\s*(.+?)\s*$", note_text)
+    retomar = retomar_matches[-1].strip() if retomar_matches else ""
+
+    return {
+        "sentiment": sentiment, "palancas": palancas, "status_sugerido": status_sug,
+        "resumen": resumen, "proximos_pasos": proximos_pasos, "retomar": retomar,
+    }
+
+
+def save_call_history_row(brand_id, brand_name, note_text, contact_channel="", opportunity_status=""):
+    """
+    Guarda una fila en el histórico de contactos (growth_os_call_history.csv).
+    Se llama junto a save_comment_csv en cada Save Follow-up — esta tabla es la
+    que alimenta análisis de tendencia por marca: sentimiento a lo largo del
+    tiempo, palancas que se repiten sin cerrarse, promesas incumplidas, etc.
+    No reemplaza growth_os_comments.csv (que sigue siendo la fuente de "última
+    nota" en vivo); esta es la serie histórica completa, una fila por contacto.
+    """
+    parsed = _parse_claude_note_fields(note_text)
+    now = datetime.now()
+    new_row = pd.DataFrame([{
+        "datetime":          now.strftime("%Y-%m-%d %H:%M"),
+        "date":              now.strftime("%Y-%m-%d"),
+        "week":              now.strftime("%G-W%V"),
+        "brand_id":          str(normalize_brand_id(brand_id)),
+        "brand_name":        brand_name,
+        "contact_channel":   contact_channel,
+        "opportunity_status": opportunity_status,
+        "sentiment":         parsed["sentiment"],
+        "palancas":          parsed["palancas"],
+        "status_sugerido":   parsed["status_sugerido"],
+        "resumen":           parsed["resumen"],
+        "proximos_pasos":    parsed["proximos_pasos"],
+        "retomar":           parsed["retomar"],
+        "source":            "claude" if note_text and note_text.strip().startswith("[Auto]") else "manual",
+        "raw_note":          note_text or "",
+    }])
+
+    if os.path.exists(CALL_HISTORY_FILE):
+        old = pd.read_csv(CALL_HISTORY_FILE, encoding="utf-8-sig")
+        for col in new_row.columns:
+            if col not in old.columns:
+                old[col] = ""
+        final = pd.concat([old[new_row.columns], new_row], ignore_index=True)
+    else:
+        final = new_row
+
+    final.to_csv(CALL_HISTORY_FILE, index=False, encoding="utf-8-sig")
 
 
 def _extract_customer_text(transcript):
@@ -16800,6 +16880,15 @@ def _render_followup_form(row, brand_id, name):
             contact_channel=contact_channel,
             opportunity_status=opportunity_status,
             commercial_action=comment_commercial_action,
+        )
+
+        # ── Histórico para analytics (sentimiento, palancas recurrentes, etc.) ────
+        save_call_history_row(
+            brand_id,
+            name,
+            final_comment,
+            contact_channel=contact_channel,
+            opportunity_status=opportunity_status,
         )
 
         # ── Backup async: corre en background, no bloquea el guardado principal ──
