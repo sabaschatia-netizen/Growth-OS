@@ -362,6 +362,29 @@ def _resolve_data_issue(context):
         pass
 
 
+# =========================
+# EXCEL HANDLE ÚNICO — un solo parseo del workbook para toda la app
+# =========================
+# Antes, cada loader hacía su propio pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), ...) y cada
+# llamada reabría y re-parseaba el zip del .xlsx desde cero (~25-30 parseos
+# completos en un arranque en frío). Este handle cachea el pd.ExcelFile una
+# sola vez por versión del archivo (clave = mtime): el zip se abre UNA vez y
+# cada hoja se lee barato desde el workbook ya cargado. Cuando el archivo
+# cambia (guardado desde la app o actualización manual), el mtime cambia y
+# el handle se renueva solo.
+
+@st.cache_resource(show_spinner=False)
+def _excel_handle(path, mtime):
+    return pd.ExcelFile(path, engine="openpyxl")
+
+
+def _excel_mtime():
+    try:
+        return os.path.getmtime(EXCEL_FILE)
+    except OSError:
+        return 0
+
+
 def normalize(text):
     if text is None:
         return ""
@@ -620,7 +643,7 @@ def load_growth_data():
         return pd.DataFrame()
 
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=HEADER_ROW - 1)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=GROWTH_SHEET, header=HEADER_ROW - 1)
     except Exception as e:
         _log_data_issue("Growth OS (hoja maestra)", e,
                         f"Verificá que '{EXCEL_FILE}' tenga la hoja '{GROWTH_SHEET}' con headers en la fila {HEADER_ROW}.")
@@ -657,7 +680,7 @@ def load_asignacion_activa():
     red_ids = set()
     turbo_numeric_ids = set()
     try:
-        _wb = openpyxl.load_workbook(EXCEL_FILE, read_only=False, data_only=True)
+        _wb = openpyxl.load_workbook(EXCEL_FILE, read_only=True, data_only=True)  # read_only: los estilos (font.color) siguen disponibles y la carga es 10x más liviana
         if ASIGNACION_SHEET in _wb.sheetnames:
             _ws = _wb[ASIGNACION_SHEET]
             for _row in _ws.iter_rows(min_row=2):
@@ -693,7 +716,7 @@ def load_asignacion_activa():
         pass
 
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=ASIGNACION_SHEET, header=None)
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=ASIGNACION_SHEET, header=None)
     except Exception:
         return pd.DataFrame(columns=["brand_id", "brand_name", "turbo", "is_new"])
 
@@ -761,7 +784,7 @@ def load_current_churn():
     if not os.path.exists(EXCEL_FILE):
         return {}
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_CHURN_SHEET)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=CURRENT_CHURN_SHEET)
         df.columns = [normalize(c) for c in df.columns]
 
         id_col  = _first_existing_col(df, ["country_brand_id", "brand id", "brand_id", "id"])
@@ -801,7 +824,7 @@ def load_current_churn_per_brand():
     if not os.path.exists(EXCEL_FILE):
         return {}
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_CHURN_SHEET)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=CURRENT_CHURN_SHEET)
         df.columns = [normalize(c) for c in df.columns]
 
         id_col  = _first_existing_col(df, ["country_brand_id", "brand id", "brand_id", "id"])
@@ -846,7 +869,7 @@ def load_earnings_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
 
-    return pd.read_excel(EXCEL_FILE, sheet_name=EARNINGS_SHEET, header=None)
+    return pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=EARNINGS_SHEET, header=None)
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -854,7 +877,7 @@ def load_agenda_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
 
-    raw = pd.read_excel(EXCEL_FILE, sheet_name=AGENDA_SHEET, header=None)
+    raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=AGENDA_SHEET, header=None)
 
     header_index = None
     for i in range(min(25, len(raw))):
@@ -923,7 +946,7 @@ def _load_gmv_sheet_data(sheet_name):
         return pd.DataFrame()
 
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=sheet_name)
         _resolve_data_issue(f"Hoja {sheet_name}")
     except Exception as e:
         _log_data_issue(f"Hoja {sheet_name}", e,
@@ -1004,7 +1027,7 @@ def get_may_brand_metrics(brand_id, brand_name=""):
 
     # Leer MAY GMV directo para no depender del filtro de _id
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=MAY_GMV_SHEET)
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=MAY_GMV_SHEET)
     except Exception:
         return None
 
@@ -1082,7 +1105,7 @@ def load_detalle_caba():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name="Detalle CABA")
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name="Detalle CABA")
         _resolve_data_issue("Detalle CABA")
         df.columns = [normalize(c) for c in df.columns]
         # Extract brand_id from Brand column (format: "72087 - Ayguacamolee")
@@ -1112,7 +1135,7 @@ def load_cvr_data():
     if not os.path.exists(EXCEL_FILE):
         return {}
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name="CVR%", header=None)
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name="CVR%", header=None)
         raw.columns = list(range(len(raw.columns)))
         mask = raw[0].astype(str).str.strip() == "CVR %"
         cvr = raw[mask].copy()
@@ -1281,7 +1304,7 @@ def load_traffic_data():
     if not os.path.exists(EXCEL_FILE):
         return {}
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name="Traffic #", header=None)
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name="Traffic #", header=None)
         raw.columns = list(range(len(raw.columns)))
         mask = raw[0].astype(str).str.strip() == "Trafico"
         if not mask.any():
@@ -1557,7 +1580,7 @@ def get_current_gmv_totals():
     if not os.path.exists(EXCEL_FILE):
         return None
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_GMV_SHEET, engine="openpyxl")
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=CURRENT_GMV_SHEET)
         # Normalise column names for flexible lookup
         raw.columns = [str(c).strip() for c in raw.columns]
 
@@ -1663,7 +1686,7 @@ def _read_current_sheet(sheet_name):
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=sheet_name)
         df.columns = [normalize(c) for c in df.columns]
         _resolve_data_issue(f"Hoja {sheet_name}")
         return df
@@ -1871,14 +1894,14 @@ def load_current_md_data(portfolio_only=False, pro=False):
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=sheet, header=0)
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=sheet, header=0)
     except Exception:
         return pd.DataFrame()
 
     if raw.empty:
         if pro:
             try:
-                raw = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_MD_SHEET, header=0)
+                raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=CURRENT_MD_SHEET, header=0)
             except Exception:
                 return pd.DataFrame()
         if raw.empty:
@@ -2125,7 +2148,7 @@ def load_coinversion_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=COINVERSION_SHEET, header=None, engine="openpyxl")
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=COINVERSION_SHEET, header=None)
     except Exception:
         return pd.DataFrame()
     if df.empty:
@@ -2350,7 +2373,7 @@ def get_caba_category_trends(category):
 
     # Top products trend
     try:
-        products = pd.read_excel(EXCEL_FILE, sheet_name=TOP_PRODUCTS_SHEET)
+        products = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=TOP_PRODUCTS_SHEET)
         products.columns = [normalize(c) for c in products.columns]
 
         if "product" in products.columns:
@@ -2378,7 +2401,7 @@ def get_caba_category_trends(category):
 
     # Cross-sell trend
     try:
-        cross = pd.read_excel(EXCEL_FILE, sheet_name=CROSS_SELL_SHEET)
+        cross = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=CROSS_SELL_SHEET)
         cross.columns = [normalize(c) for c in cross.columns]
 
         if "pprincipal" in cross.columns and "psecundario" in cross.columns:
@@ -3666,7 +3689,7 @@ def _load_productivity_sheet_raw(excel_path):
     if not os.path.exists(excel_path):
         return pd.DataFrame()
     try:
-        raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
+        raw = pd.read_excel(_excel_handle(excel_path, os.path.getmtime(excel_path)), sheet_name="Productivity", header=0)
     except Exception as e:
         _log_data_issue('Productivity', e, 'Contactos y palancas salen de esta hoja.')
         return pd.DataFrame()
@@ -5418,7 +5441,7 @@ section[data-testid="stSidebar"] > div:first-child {
     align-items: center;
     gap: 10px;
     padding: 4px 2px 12px 2px;
-    border-bottom: 1px solid rgba(255,255,255,0.95);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
     margin-bottom: 8px;
 }
 .nav-logo-icon {
@@ -5446,13 +5469,25 @@ section[data-testid="stSidebar"] > div:first-child {
 """, unsafe_allow_html=True)
 
 # ── Sidebar content ───────────────────────────────────────────────────────
+
+def _nav_set_page(page_name):
+    """Callback de navegación — corre antes del rerun, elimina el doble render."""
+    st.session_state["active_page"] = page_name
+
+
+def _nav_toggle_collapse():
+    st.session_state["nav_collapsed"] = not st.session_state.get("nav_collapsed", False)
+
+
+def _nav_toggle_dark():
+    st.session_state["dark_mode"] = not st.session_state.get("dark_mode", False)
+
+
 with st.sidebar:
     # Toggle button
     toggle_label = "◀" if not collapsed else "▶"
-    if st.button(toggle_label, key="nav_toggle", help="Colapsar / expandir navegación",
-                 use_container_width=True):
-        st.session_state["nav_collapsed"] = not st.session_state["nav_collapsed"]
-        st.rerun()
+    st.button(toggle_label, key="nav_toggle", help="Colapsar / expandir navegación",
+              use_container_width=True, on_click=_nav_toggle_collapse)
 
     collapsed = st.session_state["nav_collapsed"]
 
@@ -5468,7 +5503,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.95);margin-bottom:8px;">📈</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,0.08);margin-bottom:8px;">📈</div>', unsafe_allow_html=True)
 
     # Nav groups
     current_page = st.session_state["active_page"]
@@ -5483,13 +5518,13 @@ with st.sidebar:
             active_class = "active" if is_active else ""
             label_html = f'<span class="nav-label">{page_name}</span>' if not collapsed else ""
             btn_key = f"nav_{page_name.replace(' ', '_').lower()}"
-            if st.button(
+            st.button(
                 f"{icon}  {page_name}" if not collapsed else icon,
                 key=btn_key,
                 use_container_width=True,
-            ):
-                st.session_state["active_page"] = page_name
-                st.rerun()
+                on_click=_nav_set_page,
+                args=(page_name,),
+            )
 
     if not collapsed:
         st.markdown('<div class="nav-divider" style="margin-top:12px;"></div>', unsafe_allow_html=True)
@@ -5506,9 +5541,8 @@ with st.sidebar:
         if "dark_mode" not in st.session_state:
             st.session_state["dark_mode"] = False
         _dm_label = "🌙 Dark mode" if not st.session_state["dark_mode"] else "☀️ Light mode"
-        if st.button(_dm_label, key="nav_dark_mode_toggle", use_container_width=True):
-            st.session_state["dark_mode"] = not st.session_state["dark_mode"]
-            st.rerun()
+        st.button(_dm_label, key="nav_dark_mode_toggle", use_container_width=True,
+                  on_click=_nav_toggle_dark)
         st.caption(f"📁 {EXCEL_FILE}")
 
 page = st.session_state["active_page"]
@@ -6551,13 +6585,33 @@ def render_header(title="Growth OS", subtitle="Commercial Management System · R
     period = f"Q{quarter} · W{iso_week} · {today.year}"
 
     subtitle_html = f'<div class="header-subtitle">{subtitle}</div>' if subtitle else ""
+
+    # Sello de frescura: qué archivo alimenta el sistema y hace cuánto se
+    # actualizó, más el FX con el que se calculan todos los USD en pantalla.
+    # Transparencia metodológica: los números siempre declaran su fuente.
+    try:
+        _h_age = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(EXCEL_FILE))).total_seconds() / 3600
+        _h_age_txt = f"hace {_h_age:.0f} h" if _h_age < 48 else f"hace {_h_age/24:.0f} días"
+        _h_dot = "#7ED321" if _h_age < 48 else ("#FF7124" if _h_age < 24 * 7 else "#FF4D2E")
+        _h_stamp = (
+            f'<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;'
+            f'margin-top:6px;font-size:11px;color:#6B7280;">'
+            f'<span style="width:7px;height:7px;border-radius:50%;background:{_h_dot};display:inline-block;"></span>'
+            f'{html.escape(os.path.basename(EXCEL_FILE))} · {_h_age_txt} · FX {ARS_PER_USD:,.0f} ARS/USD</div>'
+        )
+    except Exception:
+        _h_stamp = ""
+
     st.markdown(f"""
     <div class="app-header">
         <div>
             <div class="header-title">{title}</div>
             {subtitle_html}
         </div>
-        <div class="period-pill">{period}</div>
+        <div>
+            <div class="period-pill">{period}</div>
+            {_h_stamp}
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -6770,7 +6824,7 @@ def _read_growth_summary_values():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _compute_growth_summary_fallback():
-    raw = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=None)
+    raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=GROWTH_SHEET, header=None)
     portfolio = raw.iloc[3:253].copy()
 
     # Total de marcas desde Asignacion Junio (fuente de verdad del portafolio)
@@ -7071,7 +7125,7 @@ def page_management_dashboard():
         '</div>'
     )
 
-    def _waffle_icons(filled_count, total=10, filled_color="#7ED321", empty_color="rgba(255,255,255,0.15)"):
+    def _waffle_icons(filled_count, total=10, filled_color="#7ED321", empty_color="rgba(26,26,46,0.15)"):
         person_path = '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/>'
         icons = []
         for i in range(total):
@@ -7104,7 +7158,7 @@ def page_management_dashboard():
         f'<span style="color:#6B7280;">{cr_pct_bar}%</span>'
         '</div>'
         f'<div style="font-size:11px;color:#6B7280;margin-bottom:2px;">{cr_icons_count} de 10 = {cr_pct_bar}% convierten</div>'
-        + _waffle_icons(cr_icons_count, filled_color="#1B3F8B", empty_color="rgba(255,255,255,0.15)") +
+        + _waffle_icons(cr_icons_count, filled_color="#1B3F8B", empty_color="rgba(26,26,46,0.15)") +
         '</div>'
         '</div>'
         '<div style="font-size:11px;color:#6B7280;margin-top:12px;">Baseline reference · last month snapshot · 1 muñequito = 10%</div>'
@@ -8030,7 +8084,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     # Revenue Proj 80% pill — green money sticker, value x4
     def _revenue_pill(text):
         if text in ("-", "", "—"):
-            return f'<span style="font-size:12px;color:rgba(255,255,255,0.15);">—</span>'
+            return f'<span style="font-size:12px;color:rgba(26,26,46,0.30);">—</span>'
         val4 = _revenue_x4(text)
         return _make_pill(f"↑ {val4}", "rgba(111,242,75,0.12)", "#7ED321")
 
@@ -8109,14 +8163,14 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         'position:sticky;top:0;z-index:2;padding:10px 14px;'
         'text-align:left;font-size:11px;font-weight:700;'
         'letter-spacing:0.05em;text-transform:uppercase;color:rgba(107,114,128,0.60);'
-        'background:rgba(255,255,255,0.92);border-bottom:2px solid rgba(255,255,255,0.92);'
-        'white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.92);'
+        'background:rgba(255,255,255,0.92);border-bottom:2px solid rgba(0,0,0,0.08);'
+        'white-space:nowrap;box-shadow:0 1px 0 rgba(0,0,0,0.06);'
     )
     header_cells = (
         f'<th style="position:sticky;top:0;z-index:2;padding:10px 8px 10px 20px;width:36px;'
         f'text-align:center;font-size:11px;font-weight:700;letter-spacing:0.05em;'
         f'text-transform:uppercase;color:rgba(107,114,128,0.60);background:rgba(255,255,255,0.92);'
-        f'border-bottom:2px solid rgba(255,255,255,0.92);box-shadow:0 1px 0 rgba(255,255,255,0.92);">N.</th>'
+        f'border-bottom:2px solid rgba(0,0,0,0.08);box-shadow:0 1px 0 rgba(0,0,0,0.06);">N.</th>'
     )
     for col in display_df.columns:
         header_cells += f'<th style="{th_base}">{html.escape(str(col))}</th>'
@@ -8141,8 +8195,8 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         )
         row_num = (
             f'<td style="padding:12px 8px 12px 20px;text-align:center;'
-            f'font-size:12px;font-weight:600;color:rgba(255,255,255,0.15);'
-            f'border-bottom:1px solid rgba(255,255,255,0.92);">{i+1}</td>'
+            f'font-size:12px;font-weight:600;color:rgba(26,26,46,0.30);'
+            f'border-bottom:1px solid rgba(0,0,0,0.06);">{i+1}</td>'
         )
         cells = row_num
         for col, val in zip(display_df.columns, row):
@@ -8157,7 +8211,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
             if pill_fn and text not in ("-", "", "—"):
                 cell_inner = pill_fn(text)
             elif text in ("-", "", "—"):
-                cell_inner = '<span style="font-size:12px;color:rgba(255,255,255,0.15);">—</span>'
+                cell_inner = '<span style="font-size:12px;color:rgba(26,26,46,0.30);">—</span>'
             else:
                 stripped = (text.replace("ARS","").replace("USD","").replace("$","")
                                .replace(".","").replace(",","").replace("%","").replace("x","").strip())
@@ -8171,7 +8225,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
             import re as _re
             tooltip_text = _re.sub(r"<[^>]+>", "", text) if col_key in ("días", "próximo contacto", "roi trend") else text
             cells += (
-                f'<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.92);'
+                f'<td style="padding:12px 14px;border-bottom:1px solid rgba(0,0,0,0.06);'
                 f'white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;'
                 f'transition:background 0.15s;" title="{html.escape(tooltip_text)}">'
                 f'{cell_inner}</td>'
@@ -8296,10 +8350,10 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         marker_html     = ""
         scale_html      = '<div style="margin-bottom:8px;"></div>'
 
-    color_track     = "rgba(255,255,255,0.08)" if DARK_MODE else "rgba(255,255,255,0.95)"
-    color_badge_bg  = "rgba(255,255,255,0.06)" if DARK_MODE else "rgba(255,255,255,.06)"
-    color_rest      = "rgba(255,255,255,0.10)" if DARK_MODE else "rgba(255,255,255,.04)"
-    color_gap_seg   = "rgba(255,255,255,0.14)" if DARK_MODE else "rgba(255,255,255,.07)"
+    color_track     = "rgba(255,255,255,0.08)" if DARK_MODE else "rgba(0,0,0,0.08)"
+    color_badge_bg  = "rgba(255,255,255,0.06)" if DARK_MODE else "rgba(0,0,0,0.05)"
+    color_rest      = "rgba(255,255,255,0.10)" if DARK_MODE else "rgba(0,0,0,0.04)"
+    color_gap_seg   = "rgba(255,255,255,0.14)" if DARK_MODE else "rgba(0,0,0,0.07)"
     color_gap_dot   = "rgba(255,255,255,0.30)" if DARK_MODE else "rgba(255,255,255,.25)"
 
     html = """
@@ -8373,7 +8427,7 @@ def _render_churn_distribution_bar(counts, total):
     color_border = "rgba(255,255,255,0.10)" if DARK_MODE else COLORS["border"]
     color_muted  = "#8C93AC" if DARK_MODE else COLORS["muted"]
     color_card   = "#141A2E" if DARK_MODE else COLORS["card"]
-    color_track  = "rgba(255,255,255,0.08)" if DARK_MODE else "rgba(255,255,255,0.95)"
+    color_track  = "rgba(255,255,255,0.08)" if DARK_MODE else "rgba(0,0,0,0.08)"
     color_badge_bg = "rgba(255,255,255,0.06)"
 
     segments = [
@@ -8496,7 +8550,7 @@ def load_current_churn_raw_df():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_CHURN_SHEET)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=CURRENT_CHURN_SHEET)
         df.columns = [normalize(c) for c in df.columns]
         return df
     except Exception as e:
@@ -10148,7 +10202,7 @@ def page_call_quality_trainer():
         if not os.path.exists(excel_path):
             return pd.DataFrame()
         try:
-            df = pd.read_excel(excel_path, sheet_name="Call Detail", header=0)
+            df = pd.read_excel(_excel_handle(excel_path, os.path.getmtime(excel_path)), sheet_name="Call Detail", header=0)
             df = df[df["Farmer"].notna()].copy()
             return df
         except Exception:
@@ -10159,7 +10213,7 @@ def page_call_quality_trainer():
         if not os.path.exists(excel_path):
             return pd.DataFrame()
         try:
-            raw = pd.read_excel(excel_path, sheet_name="Call Quality", header=None)
+            raw = pd.read_excel(_excel_handle(excel_path, os.path.getmtime(excel_path)), sheet_name="Call Quality", header=None)
             header_idx = None
             for i, row in raw.iterrows():
                 if any(str(v).strip() == "WEEK" for v in row):
@@ -10329,7 +10383,7 @@ def page_call_quality_trainer():
     .qt-card-header {
         display: flex; align-items: center; gap: 12px;
         padding: 14px 18px 10px;
-        border-bottom: 1px solid rgba(255,255,255,0.95);
+        border-bottom: 1px solid rgba(0,0,0,0.08);
     }
     .qt-rank-badge {
         width:30px; height:30px; border-radius:50%;
@@ -10591,7 +10645,7 @@ def page_productivity_heatmap():
         if not os.path.exists(excel_path):
             return pd.DataFrame(), {}
         try:
-            df = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
+            df = pd.read_excel(_excel_handle(excel_path, os.path.getmtime(excel_path)), sheet_name="Productivity", header=0)
         except Exception:
             return pd.DataFrame(), {}
 
@@ -11363,7 +11417,7 @@ def _match_row_by_name(df, name, candidates):
 @st.cache_data(ttl=3000, show_spinner=False)
 def _load_sheet_safe(sheet_name):
     try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=sheet_name)
         df.columns = [normalize(c) for c in df.columns]
         return df
     except Exception:
@@ -13617,7 +13671,7 @@ def _business_card(label, value, copy="", lever_class="", chip=""):
 def render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw=0, conversion_raw=0, commission_raw=0, cvr_weekly=None, cvr_source='Sin datos', cvr_bench=None):
     import math as _math
 
-    def _waffle_icons(filled_count, total=10, filled_color="#7ED321", empty_color="rgba(255,255,255,0.15)"):
+    def _waffle_icons(filled_count, total=10, filled_color="#7ED321", empty_color="rgba(26,26,46,0.15)"):
         person_path = '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/>'
         icons = []
         for i in range(total):
@@ -13739,7 +13793,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     # PRO Users card with waffle
     pro_pct = round(pro_users_raw * 100) if pro_users_raw <= 1 else round(pro_users_raw)
     pro_icons = max(0, min(10, round(pro_pct / 10)))
-    pro_waffle_html = _waffle_icons(pro_icons, filled_color="#7ED321", empty_color="rgba(255,255,255,0.15)")
+    pro_waffle_html = _waffle_icons(pro_icons, filled_color="#7ED321", empty_color="rgba(26,26,46,0.15)")
     pro_card = (
         f"<div class='business-mini-card lever-pro'>"
         f"<div class='card-label'>PRO Users</div>"
@@ -13755,7 +13809,7 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     _cvr_norm = (_cvr_val if _cvr_val <= 1 else _cvr_val / 100) if _cvr_val else 0
     cr_pct = round(_cvr_norm * 100)
     cr_icons = max(0, min(10, round(cr_pct / 10)))
-    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#1B3F8B", empty_color="rgba(255,255,255,0.15)")
+    cr_waffle_html = _waffle_icons(cr_icons, filled_color="#1B3F8B", empty_color="rgba(26,26,46,0.15)")
     _cvr_main = fmt_percent0(_cvr_norm) if _cvr_val is not None else clean(conversion_display, '-')
     _cvr_src_html = f"<span style='font-size:9px;color:rgba(107,114,128,0.60);margin-left:4px;'>({html.escape(cvr_source)})</span>"
     _bench_html = ""
@@ -16086,7 +16140,7 @@ def _campaign_period_label(baseline=False):
 def _load_cpc_supervisor_data(excel_path):
     """Load CPC sheet from main Excel. Returns only STATUS=OK rows (active campaigns)."""
     try:
-        df = pd.read_excel(excel_path, sheet_name="CPC", header=0)
+        df = pd.read_excel(_excel_handle(excel_path, os.path.getmtime(excel_path)), sheet_name="CPC", header=0)
         df.columns = [c.strip() for c in df.columns]
         df["BRAND_ID"] = df["BRAND_ID"].apply(normalize_brand_id)
         df["DELIVERY RATE"] = pd.to_numeric(df["DELIVERY RATE"], errors="coerce")
@@ -18492,10 +18546,10 @@ def page_role_play_trainer():
                             {_score_bar(eval_result['score_cierre'])}
                         </div>
                     </div>
-                    <hr style="border-color:rgba(255,255,255,.15);margin:16px 0;">
+                    <hr style="border-color:rgba(0,0,0,.12);margin:16px 0;">
                     <div style="margin-bottom:10px;"><span class="small-muted">✅ Qué hizo bien:</span><br>{html.escape(str(eval_result.get('que_hizo_bien','')))} </div>
                     <div style="margin-bottom:10px;"><span class="small-muted">⚠️ Qué faltó:</span><br>{html.escape(str(eval_result.get('que_falto','')))} </div>
-                    <div style="background:{PALETTE['space_indigo']};border-radius:8px;padding:12px;margin-top:8px;">
+                    <div style="background:#F5F5F3;border:1px solid rgba(0,0,0,0.06);border-radius:8px;padding:12px;margin-top:8px;">
                         <div class="small-muted">💬 Frase que te faltó decir:</div>
                         <div style="font-style:italic;margin-top:4px;">"{html.escape(str(eval_result.get('frase_que_faltó','')))} "</div>
                     </div>
@@ -18529,8 +18583,12 @@ def page_role_play_trainer():
 # CACHE WARM-UP (silencioso — evita spinners en primera carga)
 # =========================
 if "_cache_warmed" not in st.session_state:
-    load_cvr_data()
-    load_detalle_caba()
+    with st.spinner("Cargando Growth OS — preparando tu portafolio…"):
+        if os.path.exists(EXCEL_FILE):
+            _excel_handle(EXCEL_FILE, _excel_mtime())  # 1 solo parseo del zip para toda la app
+        load_growth_data()
+        load_cvr_data()
+        load_detalle_caba()
     st.session_state["_cache_warmed"] = True
 
 # =========================
