@@ -42,6 +42,13 @@ BRAND_LINKS_FILE = "growth_os_brand_links.csv"
 CALL_HISTORY_FILE = "growth_os_call_history.csv"
 BACKUP_FOLDER = "backups"
 
+# ── Defaults de negocio ──────────────────────────────────────────────────────
+# Estos valores son SOLO fallback. Si el Excel tiene una hoja "Config" con pares
+# clave/valor (col A = clave, col B = valor), esos valores mandan. Así cada
+# Farmer adapta Growth OS a su operación editando 6 celdas, sin tocar código.
+# Claves reconocidas (case-insensitive):
+#   farmer_name · farmer_role · portfolio_country · ars_per_usd · cop_per_usd
+#   ads_revenue_target_usd · contacts_start_date (YYYY-MM-DD)
 ARS_PER_USD = 1400
 COP_PER_USD = 3900
 ADS_REVENUE_TARGET_USD = 17574
@@ -50,6 +57,11 @@ CONTACTS_START_DATE = date(2026, 6, 1)
 # Growth OS es agnóstico de país. Este filtro define qué país del Excel se carga
 # en el portafolio activo. Dejar en "" desactiva el filtro y carga todas las filas.
 PORTFOLIO_COUNTRY = "Argentina"
+
+# Identidad del Farmer — usada en plantillas de outreach (firmas de email /
+# WhatsApp), headers de páginas y detección de presentación en Call Quality.
+FARMER_NAME = "Sabas Ramírez"
+FARMER_ROLE = "Especialista en crecimiento de marcas digitales"
 
 # Main visual identity requested by Sabas
 # Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
@@ -145,22 +157,179 @@ st.set_page_config(page_title="Growth OS", page_icon="📈", layout="wide")
 # FILE HELPERS
 # =========================
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _workbook_has_growth_sheet(path, mtime):
+    """True si el .xlsx contiene la hoja 'Growth OS'. Cacheado por (path, mtime)
+    para no reabrir workbooks en cada rerun. mtime forma parte de la clave."""
+    try:
+        wb = openpyxl.load_workbook(path, read_only=True)
+        found = GROWTH_SHEET in wb.sheetnames
+        wb.close()
+        return found
+    except Exception:
+        return False
+
+
 def find_excel_file():
-    # Always use the newest SR Farmer Base AR workbook in this folder.
-    # This avoids loading an older copy like (1) when the updated file is (3).
-    matches = [
+    """
+    Localiza el workbook base del Farmer, en orden de preferencia:
+      1. El 'SR Farmer Base AR*.xlsx' más reciente (compatibilidad con el
+         nombre histórico — evita cargar una copia vieja tipo '(1)').
+      2. Cualquier .xlsx de la carpeta que contenga la hoja 'Growth OS',
+         el más reciente primero. Esto hace la app portable: cada Farmer
+         piloto usa su propio archivo con el nombre que quiera.
+    Se excluyen archivos temporales de Excel (~$) y la carpeta de backups.
+    """
+    legacy = [
         f for f in glob.glob("SR Farmer Base AR*.xlsx")
         if not os.path.basename(f).startswith("~$")
     ]
+    if legacy:
+        legacy.sort(key=os.path.getmtime, reverse=True)
+        return legacy[0]
 
-    if matches:
-        matches.sort(key=os.path.getmtime, reverse=True)
-        return matches[0]
+    candidates = [
+        f for f in glob.glob("*.xlsx")
+        if not os.path.basename(f).startswith("~$")
+        and BACKUP_FOLDER not in f
+    ]
+    candidates.sort(key=os.path.getmtime, reverse=True)
+    for f in candidates:
+        if _workbook_has_growth_sheet(f, os.path.getmtime(f)):
+            return f
 
-    return "SR Farmer Base AR 🧉.xlsx"
+    # Sin candidatos: devolver el nombre histórico para que los mensajes de
+    # "archivo no encontrado" del resto de la app sigan siendo coherentes.
+    return "SR Farmer Base AR.xlsx"
 
 
 EXCEL_FILE = find_excel_file()
+
+
+# =========================
+# CONFIG SHEET — parámetros del Farmer leídos desde el Excel
+# =========================
+
+CONFIG_SHEET = "Config"
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_app_config(excel_path, mtime):
+    """
+    Lee la hoja 'Config' (col A = clave, col B = valor) y devuelve un dict
+    con claves normalizadas. Si la hoja no existe, devuelve {} y la app usa
+    los defaults del código. Cacheado por mtime del archivo.
+    """
+    cfg = {}
+    try:
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+        if CONFIG_SHEET in wb.sheetnames:
+            for row in wb[CONFIG_SHEET].iter_rows(min_row=1, max_col=2, values_only=True):
+                key = str(row[0]).strip().lower().replace(" ", "_") if row and row[0] is not None else ""
+                if key and len(row) > 1 and row[1] is not None:
+                    cfg[key] = row[1]
+        wb.close()
+    except Exception:
+        pass
+    return cfg
+
+
+def _cfg_str(cfg, key, default):
+    v = cfg.get(key)
+    return str(v).strip() if v is not None and str(v).strip() else default
+
+
+def _cfg_num(cfg, key, default):
+    try:
+        v = float(str(cfg.get(key)).replace(",", "."))
+        return v if v > 0 else default
+    except Exception:
+        return default
+
+
+def _cfg_date(cfg, key, default):
+    v = cfg.get(key)
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    try:
+        return datetime.strptime(str(v).strip()[:10], "%Y-%m-%d").date()
+    except Exception:
+        return default
+
+
+if os.path.exists(EXCEL_FILE):
+    _app_cfg = load_app_config(EXCEL_FILE, os.path.getmtime(EXCEL_FILE))
+else:
+    _app_cfg = {}
+
+FARMER_NAME            = _cfg_str(_app_cfg, "farmer_name", FARMER_NAME)
+FARMER_ROLE            = _cfg_str(_app_cfg, "farmer_role", FARMER_ROLE)
+PORTFOLIO_COUNTRY      = _cfg_str(_app_cfg, "portfolio_country", PORTFOLIO_COUNTRY)
+ARS_PER_USD            = _cfg_num(_app_cfg, "ars_per_usd", ARS_PER_USD)
+COP_PER_USD            = _cfg_num(_app_cfg, "cop_per_usd", COP_PER_USD)
+ADS_REVENUE_TARGET_USD = _cfg_num(_app_cfg, "ads_revenue_target_usd", ADS_REVENUE_TARGET_USD)
+CONTACTS_START_DATE    = _cfg_date(_app_cfg, "contacts_start_date", CONTACTS_START_DATE)
+
+# Derivados de identidad (para plantillas y Call Quality)
+FARMER_FIRST_NAME  = FARMER_NAME.split()[0] if FARMER_NAME.strip() else "Farmer"
+FARMER_ROLE_INLINE = (FARMER_ROLE[0].lower() + FARMER_ROLE[1:]) if FARMER_ROLE else ""
+
+
+# =========================
+# ASIGNACIÓN ACTIVA — detección dinámica de la hoja del mes
+# =========================
+
+_SPANISH_MONTHS = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
+}
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _detect_asignacion_sheet(excel_path, mtime):
+    """
+    Encuentra la hoja de asignación vigente sin hardcodear el mes.
+    Busca hojas cuyo nombre empiece con 'Asignacion'/'Asignación' y elige la
+    del mes más reciente según el nombre (ej: 'Asignacion Julio' > 'Asignacion
+    Junio'). Si ninguna trae mes reconocible, usa la última en orden del
+    workbook. Así el dashboard rota de mes a mes sin tocar código.
+    """
+    try:
+        wb = openpyxl.load_workbook(excel_path, read_only=True)
+        names = wb.sheetnames
+        wb.close()
+    except Exception:
+        return ASIGNACION_JUNIO_SHEET
+
+    def _norm(s):
+        s = str(s).strip().lower()
+        return "".join(ch for ch in unicodedata.normalize("NFKD", s)
+                       if not unicodedata.combining(ch))
+
+    matches = [n for n in names if _norm(n).startswith("asignacion")]
+    if not matches:
+        return ASIGNACION_JUNIO_SHEET
+
+    def _month_score(sheet_name):
+        low = _norm(sheet_name)
+        month = next((num for name, num in _SPANISH_MONTHS.items() if name in low), 0)
+        year_m = re.search(r"(20\d{2})", low)
+        year = int(year_m.group(1)) if year_m else date.today().year
+        return (year, month)
+
+    scored = [(m, _month_score(m)) for m in matches]
+    if all(s[1][1] == 0 for s in scored):
+        return matches[-1]
+    return max(scored, key=lambda x: x[1])[0]
+
+
+if os.path.exists(EXCEL_FILE):
+    ASIGNACION_SHEET = _detect_asignacion_sheet(EXCEL_FILE, os.path.getmtime(EXCEL_FILE))
+else:
+    ASIGNACION_SHEET = ASIGNACION_JUNIO_SHEET
 
 
 def normalize(text):
@@ -436,9 +605,9 @@ def load_growth_data():
 
 
 @st.cache_data(ttl=3000, show_spinner=False)
-def load_asignacion_junio():
+def load_asignacion_activa():
     """
-    Carga el sheet 'Asignacion Junio' y devuelve un DataFrame con columnas normalizadas:
+    Carga la hoja de asignación activa (detectada dinámicamente) y devuelve un DataFrame con columnas normalizadas:
       brand_id   → str   (normalizado con normalize_brand_id)
       brand_name → str
       turbo      → bool  (True SOLO si columna C contiene un valor numérico — el Store Turbo ID)
@@ -453,8 +622,8 @@ def load_asignacion_junio():
     turbo_numeric_ids = set()
     try:
         _wb = openpyxl.load_workbook(EXCEL_FILE, read_only=False, data_only=True)
-        if ASIGNACION_JUNIO_SHEET in _wb.sheetnames:
-            _ws = _wb[ASIGNACION_JUNIO_SHEET]
+        if ASIGNACION_SHEET in _wb.sheetnames:
+            _ws = _wb[ASIGNACION_SHEET]
             for _row in _ws.iter_rows(min_row=2):
                 _id_cell    = _row[0] if len(_row) > 0 else None
                 _turbo_cell = _row[2] if len(_row) > 2 else None
@@ -488,7 +657,7 @@ def load_asignacion_junio():
         pass
 
     try:
-        raw = pd.read_excel(EXCEL_FILE, sheet_name=ASIGNACION_JUNIO_SHEET, header=None)
+        raw = pd.read_excel(EXCEL_FILE, sheet_name=ASIGNACION_SHEET, header=None)
     except Exception:
         return pd.DataFrame(columns=["brand_id", "brand_name", "turbo", "is_new"])
 
@@ -537,7 +706,7 @@ def get_turbo_info(brand_id):
     if not bid:
         return False
     try:
-        df = load_asignacion_junio()
+        df = load_asignacion_activa()
         if df.empty:
             return False
         return bool((df["brand_id"] == bid).any() and
@@ -927,7 +1096,7 @@ def get_portfolio_gmv_aov_from_detalle_caba():
     AOV del portafolio = promedio de los AOVs individuales por marca.
     """
     try:
-        aj_df     = load_asignacion_junio()
+        aj_df     = load_asignacion_activa()
         detalle   = load_detalle_caba()
         if aj_df.empty or detalle.empty:
             return None
@@ -1240,7 +1409,7 @@ def get_pareto_tiers_map():
 
     aj_ids = set()
     try:
-        _aj_tiers = load_asignacion_junio()
+        _aj_tiers = load_asignacion_activa()
         if not _aj_tiers.empty:
             aj_ids = set(_aj_tiers["brand_id"].dropna().astype(str))
             aj_ids.discard("")
@@ -1398,7 +1567,7 @@ def get_portfolio_ids():
     except Exception:
         pass
     try:
-        aj = load_asignacion_junio()
+        aj = load_asignacion_activa()
         if not aj.empty:
             ids.update(aj["brand_id"].dropna().astype(str))
     except Exception:
@@ -3115,8 +3284,8 @@ def evaluate_and_save_call_detail(transcript, brand_id, brand_name, farmer_email
                            "confirmado", "listo"] if k in customer_text)
 
     # ── INTRODUCCIÓN ──────────────────────────────────────────────────────────
-    identified = has(["soy sabas", "soy de rappi", "te llamo de rappi", "mi nombre es",
-                       "habla sabas", "habla el farmer", "soy el farmer"])
+    identified = has([f"soy {FARMER_FIRST_NAME.lower()}", "soy de rappi", "te llamo de rappi", "mi nombre es",
+                       f"habla {FARMER_FIRST_NAME.lower()}", "habla el farmer", "soy el farmer"])
     named_brand = has(["rappi", "rappi ads", "la plataforma"])
     said_hello  = has(["hola", "buenos días", "buenas tardes", "buenas noches", "buen día", "hey"])
     pct_intro   = avg(identified, named_brand, said_hello)
@@ -4173,7 +4342,7 @@ def generate_template_messages(template_type, ctx, source_comment=""):
     if template_type == "Presentación inicial":
         email_body = f"""{greeting}
 
-Mucho gusto. Soy Sabas Ramírez, especialista en crecimiento de marcas digitales en Rappi.
+Mucho gusto. Soy {FARMER_NAME}, {FARMER_ROLE_INLINE} en Rappi.
 
 A partir de ahora estaré acompañando la gestión comercial de {brand}. La idea es trabajar la marca con una mirada 360, revisando operación, menú, promociones, visibilidad y oportunidades de crecimiento dentro de la app.
 
@@ -4185,10 +4354,10 @@ Lectura inicial 360: {summary}.
 
 Quedo atento.
 
-Sabas Ramírez
-Especialista en crecimiento de marcas digitales
+{FARMER_NAME}
+{FARMER_ROLE}
 Rappi"""
-        whatsapp_body = f"""{greeting} Soy Sabas Ramírez, especialista en crecimiento de marcas digitales en Rappi. A partir de ahora estaré acompañando la gestión comercial de {brand}. Ya tengo la marca mapeada con enfoque 360: {summary}. {tone['cta']}"""
+        whatsapp_body = f"""{greeting} Soy {FARMER_NAME}, {FARMER_ROLE_INLINE} en Rappi. A partir de ahora estaré acompañando la gestión comercial de {brand}. Ya tengo la marca mapeada con enfoque 360: {summary}. {tone['cta']}"""
 
     elif template_type == "Seguimiento":
         source_line = f"\n\nNota de seguimiento: {source_comment}" if clean(source_comment, "").strip() else ""
@@ -4206,7 +4375,7 @@ Resumen 360: {summary}.{source_line}
 
 Quedo atento.
 
-Sabas Ramírez
+{FARMER_NAME}
 Rappi"""
         whatsapp_body = f"""{greeting} Retomo la gestión de {brand}. Según la lectura 360, la prioridad sería: {priority_action}. Motivo: {priority_reason}. {tone['cta']}"""
 
@@ -4224,7 +4393,7 @@ Para cuidar la ejecución, la idea es alinear las palancas completas: OPS, menú
 
 Quedo atento.
 
-Sabas Ramírez
+{FARMER_NAME}
 Rappi"""
         whatsapp_body = f"""{greeting} Revisando {brand}, veo oportunidad de activar campaña. La lectura 360 sugiere empezar por {campaign_action}: {campaign_reason}. Resumen: {summary}. ¿Lo validamos para avanzar esta semana?"""
 
@@ -4241,7 +4410,7 @@ El punto principal a revisar sería: {priority_action}. Motivo: {priority_reason
 
 Quedo atento.
 
-Sabas Ramírez
+{FARMER_NAME}
 Rappi"""
         whatsapp_body = f"""{greeting} te estuve llamando para revisar algunos puntos importantes de {brand} en Rappi. La idea es coordinar una gestión 360: operación, menú, promociones y visibilidad. Lectura rápida: {summary}. El punto principal sería {priority_action}. ¿Me confirman un contacto efectivo o una disponibilidad breve?"""
 
@@ -4263,7 +4432,7 @@ La idea es revisarlo con ustedes para evitar deterioro adicional y definir una a
 
 Quedo atento.
 
-Sabas Ramírez
+{FARMER_NAME}
 Rappi"""
         whatsapp_body = f"""{greeting} les escribo por un tema puntual de Chon/Churn de {brand}. Datos a revisar: Estado Chon: {churn}. {second_data}. Recomendación: {churn_action}. ¿Lo revisamos en una llamada breve para definir acción?"""
 
@@ -4274,7 +4443,7 @@ Comparto seguimiento comercial de {brand} con lectura 360: {summary}.
 
 {tone['cta']}
 
-Sabas Ramírez
+{FARMER_NAME}
 Rappi"""
         whatsapp_body = f"""{greeting} Comparto seguimiento de {brand}. Lectura 360: {summary}. {tone['cta']}"""
 
@@ -4563,12 +4732,12 @@ def _build_churn_day_queue_message(name, category, churn_status, priority_topics
     if topics_line:
         greeting_wa += f" {topics_line}"
 
-    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi.\n\n"
+    greeting_email = (f"Hola,\n\nSoy {FARMER_NAME}, tu farmer de Rappi.\n\n"
                       f"{pain_email}\n\n"
                       + (f"{topics_line}\n\n" if topics_line else "")
-                      + (f"¿Tenés un momento hoy para una llamada urgente?\n\nSaludos,\nSabas Ramírez\nRappi"
+                      + (f"¿Tenés un momento hoy para una llamada urgente?\n\nSaludos,\n{FARMER_NAME}\nRappi"
                          if urgent else
-                         f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi"))
+                         f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\n{FARMER_NAME}\nRappi"))
 
     return subject, greeting_wa, greeting_email
 
@@ -4651,10 +4820,10 @@ def _build_day_queue_message(name, category, lever, ads_current, md_current, cr,
     if topics_line:
         greeting_wa += f" {topics_line}"
 
-    greeting_email = (f"Hola,\n\nSoy Sabas Ramírez, tu farmer de Rappi.\n\n"
+    greeting_email = (f"Hola,\n\nSoy {FARMER_NAME}, tu farmer de Rappi.\n\n"
                       f"{pain_email}\n\n"
                       + (f"{topics_line}\n\n" if topics_line else "")
-                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\nSabas Ramírez\nRappi")
+                      + f"¿Tenés un momento hoy para una llamada breve?\n\nSaludos,\n{FARMER_NAME}\nRappi")
 
     return subject, greeting_wa, greeting_email
 
@@ -6390,7 +6559,7 @@ def get_live_campaign_coverage_counts():
     """
     # Total desde Asignacion Junio (fuente de verdad)
     try:
-        _aj_df = load_asignacion_junio()
+        _aj_df = load_asignacion_activa()
         aj_ids = set(_aj_df["brand_id"].tolist()) if not _aj_df.empty else set()
         total  = len(_aj_df) if not _aj_df.empty else 0
     except Exception:
@@ -6519,7 +6688,7 @@ def _compute_growth_summary_fallback():
 
     # Total de marcas desde Asignacion Junio (fuente de verdad del portafolio)
     try:
-        _aj_df = load_asignacion_junio()
+        _aj_df = load_asignacion_activa()
         total_brands = len(_aj_df) if not _aj_df.empty else 250
     except Exception:
         total_brands = 250
@@ -6745,7 +6914,7 @@ def page_management_dashboard():
     # CR desde CVR% sheet — promedio del portafolio (Asignacion Junio)
     try:
         _cvr_map = load_cvr_data()
-        _aj_cvr  = load_asignacion_junio()
+        _aj_cvr  = load_asignacion_activa()
         _cvr_vals = []
         for _, _aj_row in _aj_cvr.iterrows():
             _bname = normalize(str(_aj_row.get("brand_name", "")))
@@ -7433,7 +7602,7 @@ def _prepare_growth_scored_data():
     _aj_new_ids   = set()
     _aj_all_ids   = set()
     try:
-        aj = load_asignacion_junio()
+        aj = load_asignacion_activa()
         if not aj.empty:
             _aj_all_ids = set(aj["brand_id"].dropna().astype(str))
             _aj_all_ids.discard("")
@@ -8875,7 +9044,7 @@ def page_opportunity_list():
                 _dist_counts_norm[kn] = _dist_counts_norm.get(kn, 0) + v
 
         _n_churned = sum(_dist_counts_norm.values())
-        _asignacion_df = load_asignacion_junio()
+        _asignacion_df = load_asignacion_activa()
         _portfolio_total = len(_asignacion_df)
 
         if _portfolio_total > 0:
@@ -9811,7 +9980,7 @@ def page_follow_up_list():
 # =========================
 
 def page_call_quality_trainer():
-    render_header("Call Quality Trainer", "Análisis de calidad de llamadas · Coach personal · Sabas Ramírez")
+    render_header("Call Quality Trainer", f"Análisis de calidad de llamadas · Coach personal · {FARMER_NAME}")
 
 
     # ── Load from sheets inside EXCEL_FILE ───────────────────────────────────
@@ -10255,7 +10424,7 @@ def page_call_quality_trainer():
 
 
 def page_productivity_heatmap():
-    render_header("Productivity HeatMap", "Frecuencia de palancas y conversión semanal · Sabas Ramírez")
+    render_header("Productivity HeatMap", f"Frecuencia de palancas y conversión semanal · {FARMER_NAME}")
 
     # ── Load Productivity sheet from main Excel ───────────────────────────────
     @st.cache_data(ttl=3000, show_spinner=False)
@@ -13497,7 +13666,7 @@ def _build_pareto_hub_data():
     # Restringir al portafolio vigente (Asignacion Junio) por si Current GMV
     # todavía trae marcas que ya fueron reasignadas a otro Farmer.
     try:
-        _aj_pareto = load_asignacion_junio()
+        _aj_pareto = load_asignacion_activa()
         if not _aj_pareto.empty:
             _aj_pareto_ids = set(_aj_pareto["brand_id"].dropna().astype(str))
             _aj_pareto_ids.discard("")
@@ -16503,7 +16672,7 @@ def page_brand_finder():
 
     if result.empty:
         # Fallback: buscar en Asignacion Junio → construir fila sintética enriquecida
-        aj = load_asignacion_junio()
+        aj = load_asignacion_activa()
         aj_match = aj[aj["brand_id"] == brand_id] if not aj.empty else pd.DataFrame()
         if not aj_match.empty:
             aj_row = aj_match.iloc[0]
@@ -17954,7 +18123,7 @@ def _evaluate_objection_response_locally(user_response, ideal_response, objectio
 # =========================
 
 def page_role_play_trainer():
-    render_header("Role Play Trainer", "Entrenamiento y práctica de manejo de objeciones · Sabas Ramírez")
+    render_header("Role Play Trainer", f"Entrenamiento y práctica de manejo de objeciones · {FARMER_NAME}")
 
     # ── Helper: load/save objections CSV ─────────────────────────────────────
     def _load_objections():
