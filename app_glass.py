@@ -332,6 +332,36 @@ else:
     ASIGNACION_SHEET = ASIGNACION_JUNIO_SHEET
 
 
+# =========================
+# DATA ISSUES REGISTRY — avisos visibles cuando una fuente de datos falla
+# =========================
+# Filosofía: un cero silencioso es peor que un error visible. Cuando un loader
+# falla (hoja renombrada, columnas cambiadas, export corrupto), en vez de
+# tragarse la excepción y mostrar ceros, registra el problema acá. El sidebar
+# muestra "⚠️ N avisos de datos" y el usuario sabe QUÉ se degradó y CÓMO
+# arreglarlo — clave para pilotos sin soporte presencial.
+
+def _log_data_issue(context, detail, hint=""):
+    """Registra un problema de datos para mostrarlo en el sidebar."""
+    try:
+        issues = st.session_state.setdefault("_data_issues", {})
+        issues[context] = {
+            "detail": str(detail)[:300],
+            "hint": hint,
+            "time": datetime.now().strftime("%H:%M"),
+        }
+    except Exception:
+        pass  # fuera del runtime de Streamlit (tests) no hay session_state
+
+
+def _resolve_data_issue(context):
+    """Limpia un aviso cuando la fuente vuelve a cargar bien."""
+    try:
+        st.session_state.setdefault("_data_issues", {}).pop(context, None)
+    except Exception:
+        pass
+
+
 def normalize(text):
     if text is None:
         return ""
@@ -589,7 +619,13 @@ def load_growth_data():
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
 
-    df = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=HEADER_ROW - 1)
+    try:
+        df = pd.read_excel(EXCEL_FILE, sheet_name=GROWTH_SHEET, header=HEADER_ROW - 1)
+    except Exception as e:
+        _log_data_issue("Growth OS (hoja maestra)", e,
+                        f"Verificá que '{EXCEL_FILE}' tenga la hoja '{GROWTH_SHEET}' con headers en la fila {HEADER_ROW}.")
+        return pd.DataFrame()
+    _resolve_data_issue("Growth OS (hoja maestra)")
     df.columns = [normalize(c) for c in df.columns]
 
     if "id" in df.columns:
@@ -785,7 +821,8 @@ def load_current_churn_per_brand():
             if new_priority > current_priority:
                 result[bid] = sta
         return result
-    except Exception:
+    except Exception as e:
+        _log_data_issue('Current Churn', e, 'Verificá columnas COUNTRY_BRAND_ID y Estado Actual.')
         return {}
 
 
@@ -827,7 +864,10 @@ def load_agenda_data():
             break
 
     if header_index is None:
+        _log_data_issue("Agenda", "Header no encontrado",
+                        "La hoja Agenda necesita una fila con columnas id, name y notes en las primeras 25 filas.")
         return pd.DataFrame()
+    _resolve_data_issue("Agenda")
 
     headers = [normalize(x) for x in list(raw.iloc[header_index].values)]
     data = raw.iloc[header_index + 1:].copy()
@@ -884,7 +924,10 @@ def _load_gmv_sheet_data(sheet_name):
 
     try:
         df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
-    except Exception:
+        _resolve_data_issue(f"Hoja {sheet_name}")
+    except Exception as e:
+        _log_data_issue(f"Hoja {sheet_name}", e,
+                        "Verificá que la hoja exista con columnas Brand, GMV y Ordenes.")
         return pd.DataFrame()
 
     df.columns = [normalize(c).replace("_", " ") for c in df.columns]
@@ -1040,6 +1083,7 @@ def load_detalle_caba():
         return pd.DataFrame()
     try:
         df = pd.read_excel(EXCEL_FILE, sheet_name="Detalle CABA")
+        _resolve_data_issue("Detalle CABA")
         df.columns = [normalize(c) for c in df.columns]
         # Extract brand_id from Brand column (format: "72087 - Ayguacamolee")
         if "brand" in df.columns:
@@ -1056,7 +1100,9 @@ def load_detalle_caba():
             df["_gmv"] = df[gmv_col]
             df["_ordenes"] = df[ord_col]
         return df
-    except Exception:
+    except Exception as e:
+        _log_data_issue("Detalle CABA", e,
+                        "El GMV/AOV del portafolio sale de esta hoja. Verificá columnas Brand, GMV y Ordenes.")
         return pd.DataFrame()
 
 
@@ -1090,7 +1136,8 @@ def load_cvr_data():
             if vals:
                 result[brand] = sum(vals) / len(vals)
         return result
-    except Exception:
+    except Exception as e:
+        _log_data_issue('CVR%', e, 'El export semanal de CVR cambió de formato o no está.')
         return {}
 
 
@@ -1259,7 +1306,8 @@ def load_traffic_data():
             if vals:
                 result[brand] = sum(vals) / len(vals)
         return result
-    except Exception:
+    except Exception as e:
+        _log_data_issue('Traffic #', e, 'El export semanal de Traffic cambió de formato o no está.')
         return {}
 
 
@@ -1617,8 +1665,11 @@ def _read_current_sheet(sheet_name):
     try:
         df = pd.read_excel(EXCEL_FILE, sheet_name=sheet_name)
         df.columns = [normalize(c) for c in df.columns]
+        _resolve_data_issue(f"Hoja {sheet_name}")
         return df
-    except Exception:
+    except Exception as e:
+        _log_data_issue(f"Hoja {sheet_name}", e,
+                        f"Verificá que la hoja '{sheet_name}' exista en '{EXCEL_FILE}' con su formato de export original.")
         return pd.DataFrame()
 
 
@@ -2570,7 +2621,7 @@ def update_agenda_notes(excel_path, brand_id, notes_value, append=False):
         return True, "Agenda notes updated."
     except PermissionError:
         wb.close()
-        return False, "Excel file is open. Close it before saving Agenda notes."
+        return False, f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo para poder guardar las notas de Agenda."
 
 
 
@@ -2659,7 +2710,7 @@ def add_event_to_agenda(excel_path, event_data):
         return True, "Event added to Weekly Calendar."
     except PermissionError:
         wb.close()
-        return False, "Excel file is open. Close it before saving the event."
+        return False, f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo para poder guardar el evento."
 
 
 
@@ -2759,7 +2810,7 @@ def update_contact_followup_fields(excel_path, brand_id, contact_channel=None, o
         return True, "Follow-up fields updated."
     except PermissionError:
         wb.close()
-        return False, "Excel file is open. Close it before saving follow-up fields."
+        return False, f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo para poder guardar el follow-up."
 
 
 def _update_brand_in_excel_inner(wb, brand_id, updates):
@@ -2842,7 +2893,7 @@ def update_brand_in_excel(brand_id, updates):
         wb.close()
     except PermissionError:
         wb.close()
-        return False, "Excel file is open. Close it before saving changes.", updated, locked, missing, None
+        return False, f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo y volvé a intentar el guardado.", updated, locked, missing, None
 
     # Invalidar solo lo que pudo haber cambiado — Growth OS y Agenda.
     # st.cache_data.clear() completo forzaba releer las ~40 funciones cacheadas
@@ -3616,7 +3667,8 @@ def _load_productivity_sheet_raw(excel_path):
         return pd.DataFrame()
     try:
         raw = pd.read_excel(excel_path, sheet_name="Productivity", header=0)
-    except Exception:
+    except Exception as e:
+        _log_data_issue('Productivity', e, 'Contactos y palancas salen de esta hoja.')
         return pd.DataFrame()
     raw.columns = [str(c).strip() for c in raw.columns]
     return raw
@@ -5441,6 +5493,16 @@ with st.sidebar:
 
     if not collapsed:
         st.markdown('<div class="nav-divider" style="margin-top:12px;"></div>', unsafe_allow_html=True)
+
+        # ── Avisos de datos: visibles, no invasivos ──────────────────────
+        _issues = st.session_state.get("_data_issues", {})
+        if _issues:
+            with st.expander(f"⚠️ {len(_issues)} aviso{'s' if len(_issues) > 1 else ''} de datos"):
+                for _ctx, _info in _issues.items():
+                    st.markdown(f"**{_ctx}** · {_info.get('time', '')}")
+                    if _info.get("hint"):
+                        st.caption(_info["hint"])
+
         if "dark_mode" not in st.session_state:
             st.session_state["dark_mode"] = False
         _dm_label = "🌙 Dark mode" if not st.session_state["dark_mode"] else "☀️ Light mode"
@@ -6765,7 +6827,7 @@ def page_management_dashboard():
     render_header("Management Dashboard", "General Overview of Commercial Performance · Rappi")
 
     if not os.path.exists(EXCEL_FILE):
-        st.error("Excel data not found. Make sure the workbook is in the same folder as app.py.")
+        st.error(f"No encontré el archivo de datos '{EXCEL_FILE}'. Poné tu workbook (.xlsx con la hoja Growth OS) en la misma carpeta que app_glass.py.")
         return
 
     # Wrappers locales — preservan los nombres usados más abajo en esta función
@@ -7481,6 +7543,71 @@ def page_management_dashboard():
           <div style="font-size:12px;color:#6B7280;margin-top:4px;">Datos actualizados desde Current sheets.</div>
         </div>
         """, unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # 🩺 DATA HEALTH — el sistema se audita a sí mismo
+    # Reconciliación entre las tres listas maestras (Asignación, Growth OS,
+    # Detalle CABA) + frescura del archivo + fuente de configuración.
+    # Convierte desalineaciones silenciosas en un control visible.
+    # ══════════════════════════════════════════════════════════════════════
+    try:
+        _dh_cov = get_portfolio_gmv_aov_from_detalle_caba() or {}
+        _dh_total   = int(_dh_cov.get("brands_total", 0))
+        _dh_matched = int(_dh_cov.get("brands_matched", 0))
+        _dh_nosales = int(_dh_cov.get("brands_no_sales", 0))
+        _dh_cov_pct = (_dh_matched / _dh_total * 100) if _dh_total else 0
+
+        # Marcas asignadas sin ficha en la hoja maestra Growth OS
+        _dh_gos = load_growth_data()
+        _dh_aj  = load_asignacion_activa()
+        _dh_sin_ficha = 0
+        if not _dh_gos.empty and not _dh_aj.empty and "id" in _dh_gos.columns:
+            _gos_ids = set(_dh_gos["id"].apply(normalize_brand_id))
+            _aj_ids  = set(_dh_aj["brand_id"].apply(normalize_brand_id))
+            _dh_sin_ficha = len(_aj_ids - _gos_ids)
+
+        # Frescura del archivo
+        _dh_age_h = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(EXCEL_FILE))).total_seconds() / 3600
+        _dh_age_txt = (f"hace {_dh_age_h:.0f} h" if _dh_age_h < 48 else f"hace {_dh_age_h/24:.0f} días")
+        _dh_age_color = "#7ED321" if _dh_age_h < 48 else ("#FF7124" if _dh_age_h < 24 * 7 else "#FF4D2E")
+
+        _dh_cfg_src = "Hoja Config del Excel" if _app_cfg else "Defaults del código"
+        _dh_issues  = len(st.session_state.get("_data_issues", {}))
+        _dh_cov_color = "#7ED321" if _dh_cov_pct >= 70 else ("#FF7124" if _dh_cov_pct >= 50 else "#FF4D2E")
+
+        st.markdown('<div style="font-size:13px;font-weight:900;text-transform:uppercase;color:#6B7280;margin:18px 0 10px 2px;">🩺 Data Health · reconciliación de fuentes</div>', unsafe_allow_html=True)
+        _dhc1, _dhc2, _dhc3, _dhc4 = st.columns(4)
+        _dh_card = (
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.08);'
+            'border-radius:16px;padding:14px 16px;height:100%;">'
+            '<div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">{label}</div>'
+            '<div style="font-size:22px;font-weight:900;color:{color};line-height:1;">{value}</div>'
+            '<div style="font-size:11px;color:#6B7280;margin-top:6px;">{sub}</div></div>'
+        )
+        with _dhc1:
+            st.markdown(_dh_card.format(
+                label="Archivo de datos", color=_dh_age_color,
+                value=_dh_age_txt,
+                sub=f"{os.path.basename(EXCEL_FILE)}"), unsafe_allow_html=True)
+        with _dhc2:
+            st.markdown(_dh_card.format(
+                label="Cobertura GMV del cruce", color=_dh_cov_color,
+                value=f"{_dh_matched}/{_dh_total} · {_dh_cov_pct:.0f}%",
+                sub="Marcas asignadas con GMV matcheado por ID"), unsafe_allow_html=True)
+        with _dhc3:
+            st.markdown(_dh_card.format(
+                label="Radar de activación", color="#FF7124" if _dh_nosales else "#7ED321",
+                value=f"{_dh_nosales} marcas",
+                sub="Asignadas sin ventas en el período — candidatas a rescate"), unsafe_allow_html=True)
+        with _dhc4:
+            _dh4_color = "#FF4D2E" if (_dh_issues or _dh_sin_ficha) else "#7ED321"
+            _dh4_val = "OK ✓" if not (_dh_issues or _dh_sin_ficha) else f"{_dh_issues + _dh_sin_ficha} pendientes"
+            _dh4_sub = f"Avisos de datos: {_dh_issues} · Sin ficha en Growth OS: {_dh_sin_ficha} · Config: {_dh_cfg_src}"
+            st.markdown(_dh_card.format(
+                label="Integridad del sistema", color=_dh4_color,
+                value=_dh4_val, sub=_dh4_sub), unsafe_allow_html=True)
+    except Exception as e:
+        _log_data_issue("Panel Data Health", e, "El panel de salud no pudo calcularse; el resto del dashboard no se ve afectado.")
 
     st.markdown(f"""
     <div class="legend-box">
@@ -8372,7 +8499,8 @@ def load_current_churn_raw_df():
         df = pd.read_excel(EXCEL_FILE, sheet_name=CURRENT_CHURN_SHEET)
         df.columns = [normalize(c) for c in df.columns]
         return df
-    except Exception:
+    except Exception as e:
+        _log_data_issue('Current Churn', e, 'Verificá columnas COUNTRY_BRAND_ID y Estado Actual.')
         return pd.DataFrame()
 
 
@@ -17310,7 +17438,7 @@ def _render_followup_form(row, brand_id, name):
         except PermissionError:
             _wb_save.close()
             ok = False
-            msg = "Excel file is open. Close it before saving."
+            msg = f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo y reintentá el guardado."
 
         if ok and follow_ok and event_ok and commercial_ok and tracker_ok:
             _days_label = "7 días (No Answer)" if (_is_no_answer or _is_separator) else "14 días"
@@ -17388,7 +17516,7 @@ def mark_agenda_row_done(excel_path, excel_row):
         return True, "Task marked as Done."
     except PermissionError:
         wb.close()
-        return False, "Excel file is open. Close it before marking as Done."
+        return False, f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo para poder marcar la tarea como Done."
 
 
 
