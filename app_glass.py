@@ -385,6 +385,123 @@ def _excel_mtime():
         return 0
 
 
+# =========================
+# 🩺 DIAGNÓSTICO — valida el Excel del usuario contra lo que la app espera
+# =========================
+# Onboarding auto-servicio para el piloto: en vez de "no me funciona", el
+# usuario corre el diagnóstico y ve exactamente qué hoja o columna le falta
+# y qué features dependen de ella. Reduce el soporte a "pasame captura".
+
+_DIAG_CRITICAL_SHEETS = {
+    GROWTH_SHEET:        ("Hoja maestra del portafolio", ["id", "name"]),
+    "Detalle CABA":      ("GMV y AOV del portafolio", ["brand", "gmv", "ordenes"]),
+    CURRENT_ADS_SHEET:   ("Revenue ADS (tu target mensual)", ["code", "bookings net", "revenue net"]),
+    CURRENT_MD_SHEET:    ("Resultados Markdown", ["brand id"]),
+    CURRENT_MD_PRO_SHEET:("Resultados Markdown PRO", ["brand id"]),
+    CURRENT_CHURN_SHEET: ("Radar de retención", ["country_brand_id", "estado actual"]),
+    CURRENT_GMV_SHEET:   ("GMV por marca del período", ["brand", "gmv"]),
+    AGENDA_SHEET:        ("Weekly Calendar y follow-ups", ["id", "name", "notes"]),
+    "Productivity":      ("Contactabilidad y palancas", []),
+}
+
+_DIAG_OPTIONAL_SHEETS = {
+    MAY_GMV_SHEET:            "Comparativa vs mes anterior",
+    "CVR%":                   "Conversión semanal por marca",
+    "Traffic #":              "Tráfico semanal por marca",
+    EARNINGS_SHEET:           "Earnings Calculator",
+    PRIORITY_DATA_SHEET:      "Smart Priorities",
+    SEASONAL_EVENTS_SHEET:    "Calendario de eventos",
+    TOP_PRODUCTS_SHEET:       "Top productos CABA",
+    CROSS_SELL_SHEET:         "Cross selling",
+    DEFINITIVE_TOP_PRODUCTS_SHEET: "Top productos definitivo",
+    STORE_ID_SHEET:           "Mapeo de tiendas",
+    COINVERSION_SHEET:        "Coinversión MD",
+    "Call Quality":           "Call Quality Trainer",
+    "Call Detail":            "Call Quality Trainer (detalle)",
+    "CPC":                    "Costo por click ADS",
+    "MD Names":               "Nombres de campañas MD",
+    "Availability Data":      "Disponibilidad operativa",
+    "Perfect Store Data":     "Perfect Store",
+    CONFIG_SHEET:             "Parámetros del Farmer (FX, targets, identidad)",
+}
+
+
+def run_excel_diagnostics():
+    """Devuelve una lista de checks: (nivel, etiqueta, detalle).
+    Niveles: 'ok' · 'warn' (feature degradado) · 'fail' (crítico)."""
+    results = []
+
+    if not os.path.exists(EXCEL_FILE):
+        results.append(("fail", "Archivo de datos",
+                        f"No se encontró '{EXCEL_FILE}'. Poné tu workbook .xlsx (con la hoja '{GROWTH_SHEET}') en la misma carpeta que app_glass.py."))
+        return results
+
+    _age_h = (datetime.now() - datetime.fromtimestamp(_excel_mtime())).total_seconds() / 3600
+    _age_txt = f"hace {_age_h:.0f} h" if _age_h < 48 else f"hace {_age_h/24:.0f} días"
+    results.append(("ok" if _age_h < 24 * 7 else "warn", "Archivo de datos",
+                    f"{os.path.basename(EXCEL_FILE)} · actualizado {_age_txt}."))
+
+    try:
+        xl = _excel_handle(EXCEL_FILE, _excel_mtime())
+        sheet_names = set(xl.sheet_names)
+    except Exception as e:
+        results.append(("fail", "Lectura del workbook",
+                        f"El archivo no se pudo abrir como .xlsx válido: {str(e)[:120]}"))
+        return results
+
+    # ── Hojas críticas + columnas clave ──────────────────────────────────
+    for sheet, (purpose, req_cols) in _DIAG_CRITICAL_SHEETS.items():
+        if sheet not in sheet_names:
+            results.append(("fail", f"Hoja '{sheet}'",
+                            f"FALTA — {purpose} no va a funcionar. Exportala de Rappi con su nombre original."))
+            continue
+        if req_cols:
+            try:
+                hdr = HEADER_ROW - 1 if sheet == GROWTH_SHEET else 0
+                cols = {normalize(c) for c in pd.read_excel(xl, sheet_name=sheet, header=hdr, nrows=0).columns}
+                missing = [c for c in req_cols if c not in cols]
+                if missing:
+                    results.append(("warn", f"Hoja '{sheet}'",
+                                    f"Presente, pero faltan columnas: {', '.join(missing)}. {purpose} puede mostrar datos incompletos."))
+                    continue
+            except Exception as e:
+                results.append(("warn", f"Hoja '{sheet}'", f"Presente pero no se pudo leer: {str(e)[:100]}"))
+                continue
+        results.append(("ok", f"Hoja '{sheet}'", purpose))
+
+    # ── Asignación activa (nombre dinámico) ──────────────────────────────
+    _asig = [n for n in sheet_names if normalize_text(n).startswith("asignacion")]
+    if _asig:
+        results.append(("ok", "Asignación del mes",
+                        f"Detectada: '{ASIGNACION_SHEET}'. El sistema rota solo cuando agregues la del próximo mes."))
+    else:
+        results.append(("fail", "Asignación del mes",
+                        "No hay ninguna hoja 'Asignacion <Mes>'. El portafolio activo sale de ahí (BRAND ID / BRAND NAME)."))
+
+    # ── Hojas opcionales ─────────────────────────────────────────────────
+    _missing_opt = [(s, p) for s, p in _DIAG_OPTIONAL_SHEETS.items() if s not in sheet_names]
+    for s, p in _missing_opt:
+        results.append(("warn", f"Hoja '{s}' (opcional)", f"No está — se degrada: {p}."))
+
+    # ── Configuración ────────────────────────────────────────────────────
+    if CONFIG_SHEET in sheet_names:
+        results.append(("ok", "Configuración",
+                        f"Hoja Config activa · Farmer: {FARMER_NAME} · FX {ARS_PER_USD:,.0f} ARS/USD · Target ADS {ADS_REVENUE_TARGET_USD:,.0f} USD."))
+    else:
+        results.append(("warn", "Configuración",
+                        f"Sin hoja Config — usando defaults del código (Farmer: {FARMER_NAME}, FX {ARS_PER_USD:,.0f}). "
+                        "Creá la hoja 'Config' (col A=clave, col B=valor) para personalizar: farmer_name, farmer_role, "
+                        "portfolio_country, ars_per_usd, ads_revenue_target_usd, contacts_start_date."))
+
+    # ── Avisos de datos activos ──────────────────────────────────────────
+    _issues = st.session_state.get("_data_issues", {}) if hasattr(st, "session_state") else {}
+    if _issues:
+        results.append(("warn", "Avisos de datos activos",
+                        " · ".join(_issues.keys())))
+
+    return results
+
+
 def normalize(text):
     if text is None:
         return ""
@@ -5543,6 +5660,28 @@ with st.sidebar:
         _dm_label = "🌙 Dark mode" if not st.session_state["dark_mode"] else "☀️ Light mode"
         st.button(_dm_label, key="nav_dark_mode_toggle", use_container_width=True,
                   on_click=_nav_toggle_dark)
+
+        # ── 🩺 Diagnóstico del sistema (onboarding auto-servicio del piloto) ──
+        @st.dialog("🩺 Diagnóstico del sistema", width="large")
+        def _show_diagnostics_dialog():
+            st.caption("Valida tu Excel contra lo que Growth OS espera: hojas, columnas clave y configuración.")
+            _diag = run_excel_diagnostics()
+            _n_fail = sum(1 for lvl, _, _ in _diag if lvl == "fail")
+            _n_warn = sum(1 for lvl, _, _ in _diag if lvl == "warn")
+            if _n_fail == 0 and _n_warn == 0:
+                st.success("Todo en orden: el workbook cumple todo lo que la app necesita.")
+            elif _n_fail == 0:
+                st.info(f"Sistema operativo con {_n_warn} advertencia{'s' if _n_warn > 1 else ''} — hay features degradados, nada crítico.")
+            else:
+                st.error(f"{_n_fail} problema{'s' if _n_fail > 1 else ''} crítico{'s' if _n_fail > 1 else ''} y {_n_warn} advertencias. Resolvé los críticos primero.")
+            _icon = {"ok": "✅", "warn": "⚠️", "fail": "🛑"}
+            for lvl, label, detail in _diag:
+                st.markdown(f"{_icon[lvl]} **{label}** — {detail}")
+
+        if st.button("🩺 Diagnóstico", key="nav_diagnostics", use_container_width=True,
+                     help="Verificá que tu Excel tenga todo lo que Growth OS necesita"):
+            _show_diagnostics_dialog()
+
         st.caption(f"📁 {EXCEL_FILE}")
 
 page = st.session_state["active_page"]
