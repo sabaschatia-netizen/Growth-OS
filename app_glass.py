@@ -755,6 +755,11 @@ def load_current_churn_per_brand():
       prioridad W3 > W2 > W1 > Off
     Usado en Brand Finder y get_churn_status (display de una sola marca).
     """
+    # INTENCIONAL: jerarquía de DISPLAY por marca (peor estado ACTIVO primero).
+    # Off pesa menos aquí a propósito: una marca multi-tienda con un solo local
+    # cerrado no debe mostrarse "Off" entera si sus otras tiendas siguen en W1-W3.
+    # La priorización de RETENCIÓN (Opportunity List) usa la jerarquía inversa:
+    # Off primero, porque ahí el criterio es rescate, no diagnóstico de estado.
     _churn_order = {"W3": 4, "W2": 3, "W1": 2, "Off": 1}
 
     if not os.path.exists(EXCEL_FILE):
@@ -1101,48 +1106,64 @@ def get_portfolio_gmv_aov_from_detalle_caba():
         if aj_df.empty or detalle.empty:
             return None
 
-        aj_names = set(aj_df["brand_name"].apply(lambda x: normalize(str(x))))
-
-        # Columna de nombre en Detalle CABA
-        name_col = _first_existing_col(detalle, ["brand name", "brand", "nombre", "tienda"])
-        if not name_col:
-            return None
-
-        detalle["_norm_name"] = detalle[name_col].apply(lambda x: normalize(str(x).split(" - ")[-1].strip()) if " - " in str(x) else normalize(str(x)))
-
-        # Filtrar solo marcas de Asignacion Junio
-        filtered = detalle[detalle["_norm_name"].isin(aj_names)].copy()
-        if filtered.empty:
-            # Fallback: intentar con la columna brand_id
-            if "brand_id" in detalle.columns:
-                aj_ids = set(aj_df["brand_id"].tolist())
-                filtered = detalle[detalle["brand_id"].isin(aj_ids)].copy()
-            if filtered.empty:
-                return None
-
-        # Agrupar por marca y calcular GMV, Ordenes y AOV por marca
-        gmv_col = "_gmv"    if "_gmv"     in filtered.columns else None
-        ord_col = "_ordenes" if "_ordenes" in filtered.columns else None
-
+        # ── Cruce por ID (primario) con fallback por nombre ──────────────────
+        # El cruce por nombre exacto perdía marcas por diferencias de tildes,
+        # sufijos y escritura entre hojas (medido: ~$15.7M ARS de GMV, +6.1%).
+        # Ambas fuentes traen el ID numérico: Asignación como "AR16516" y
+        # Detalle CABA como prefijo "16516 - Marca". El nombre queda solo como
+        # red de seguridad para filas sin ID legible.
+        gmv_col = "_gmv"     if "_gmv"     in detalle.columns else None
+        ord_col = "_ordenes" if "_ordenes" in detalle.columns else None
         if not gmv_col or not ord_col:
             return None
 
-        brand_group = filtered.groupby("_norm_name").agg(
-            gmv_total  =(gmv_col, "sum"),
-            ord_total  =(ord_col, "sum"),
-        ).reset_index()
+        name_col = _first_existing_col(detalle, ["brand name", "brand", "nombre", "tienda"])
 
-        brand_group["aov"] = brand_group.apply(
-            lambda r: r["gmv_total"] / r["ord_total"] if r["ord_total"] > 0 else 0, axis=1
+        # Índices agregados de Detalle CABA: por ID y por nombre normalizado
+        det = detalle.copy()
+        if "brand_id" not in det.columns and name_col:
+            det["brand_id"] = det[name_col].apply(normalize_brand_id)
+        det["_norm_name"] = det[name_col].apply(
+            lambda x: normalize(re.sub(r"^\d+[\s\-–]+", "", str(x).strip()))
+        ) if name_col else ""
+
+        by_id = det[det["brand_id"].astype(str) != ""].groupby("brand_id").agg(
+            gmv_total=(gmv_col, "sum"), ord_total=(ord_col, "sum")
+        )
+        by_name = det[det["_norm_name"].astype(str) != ""].groupby("_norm_name").agg(
+            gmv_total=(gmv_col, "sum"), ord_total=(ord_col, "sum")
         )
 
-        total_gmv_ars = brand_group["gmv_total"].sum()
-        total_orders  = brand_group["ord_total"].sum()
-        # AOV portafolio = promedio de AOVs individuales
-        aov_vals = brand_group[brand_group["aov"] > 0]["aov"].tolist()
-        aov_ars  = sum(aov_vals) / len(aov_vals) if aov_vals else (total_gmv_ars / total_orders if total_orders else 0)
-        gmv_usd  = total_gmv_ars / ARS_PER_USD
-        aov_usd  = aov_ars / ARS_PER_USD
+        total_gmv_ars = 0.0
+        total_orders  = 0.0
+        matched = 0
+        no_sales = 0
+        for _, aj_row in aj_df.iterrows():
+            bid   = normalize_brand_id(aj_row.get("brand_id", ""))
+            bname = normalize(str(aj_row.get("brand_name", "")))
+            if bid and bid in by_id.index:
+                total_gmv_ars += float(by_id.loc[bid, "gmv_total"])
+                total_orders  += float(by_id.loc[bid, "ord_total"])
+                matched += 1
+            elif bname and bname in by_name.index:
+                total_gmv_ars += float(by_name.loc[bname, "gmv_total"])
+                total_orders  += float(by_name.loc[bname, "ord_total"])
+                matched += 1
+            else:
+                # Marca asignada sin filas de GMV en el export del período:
+                # facturó cero → candidata natural a activación / rescate.
+                no_sales += 1
+
+        if matched == 0:
+            return None
+
+        # ── AOV ponderado: GMV total ÷ órdenes totales ────────────────────────
+        # El promedio simple de AOVs individuales daba el mismo peso a una marca
+        # de 5 órdenes que a una de 200, distorsionando la métrica frente a las
+        # tablas oficiales. El ponderado es el estándar y cuadra en auditoría.
+        aov_ars = (total_gmv_ars / total_orders) if total_orders > 0 else 0
+        gmv_usd = total_gmv_ars / ARS_PER_USD
+        aov_usd = aov_ars / ARS_PER_USD
 
         return {
             "gmv_ars": total_gmv_ars,
@@ -1152,6 +1173,10 @@ def get_portfolio_gmv_aov_from_detalle_caba():
             "aov_ars": aov_ars,
             "aov_usd": aov_usd,
             "aov_cop": aov_usd * COP_PER_USD,
+            # Cobertura del cruce — consumido por el panel Data Health
+            "brands_total":    int(len(aj_df)),
+            "brands_matched":  int(matched),
+            "brands_no_sales": int(no_sales),
         }
     except Exception:
         return None
@@ -8988,8 +9013,14 @@ def page_opportunity_list():
 
         churn_df = pd.DataFrame(churn_rows)
 
-        # Orden: W3 > W2 > W1 > Off (severidad descendente), luego GMV descendente
-        _sev = {"W3": 4, "W2": 3, "W1": 2, "Off": 1}
+        # ── Orden de retención: Off > W3 > W2 > W1, luego GMV descendente ────
+        # Regla de gestión: una marca Off ya dejó de facturar — es rescate
+        # inmediato y encabeza la lista (ordenada por GMV histórico: cuánta
+        # plata se está yendo). Después la escalera de riesgo W3 → W1.
+        # Nota: get_brand_churn_map usa la jerarquía inversa a propósito —
+        # allá se elige el "peor estado ACTIVO" para mostrar el status de una
+        # marca multi-tienda sin marcarla Off entera por un local cerrado.
+        _sev = {"Off": 5, "W3": 4, "W2": 3, "W1": 2}
         churn_df["_sev"] = churn_df["_churn_raw"].apply(lambda x: _sev.get(x, 0))
         churn_df = churn_df.sort_values(by=["_sev", "_gmv_usd"], ascending=[False, False]).reset_index(drop=True)
         churn_df["Rank"] = churn_df.index + 1
