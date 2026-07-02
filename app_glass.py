@@ -13,7 +13,6 @@ import unicodedata
 import html
 import uuid
 import json
-import requests
 from datetime import datetime, date, time, timedelta
 from urllib.parse import quote_plus
 
@@ -47,7 +46,7 @@ BACKUP_FOLDER = "backups"
 # clave/valor (col A = clave, col B = valor), esos valores mandan. Así cada
 # Farmer adapta Growth OS a su operación editando 6 celdas, sin tocar código.
 # Claves reconocidas (case-insensitive):
-#   farmer_name · farmer_role · portfolio_country · ars_per_usd · cop_per_usd
+#   farmer_name · farmer_role · farmer_email · portfolio_country · ars_per_usd · cop_per_usd
 #   ads_revenue_target_usd · contacts_start_date (YYYY-MM-DD)
 ARS_PER_USD = 1400
 COP_PER_USD = 3900
@@ -62,6 +61,7 @@ PORTFOLIO_COUNTRY = "Argentina"
 # WhatsApp), headers de páginas y detección de presentación en Call Quality.
 FARMER_NAME = "Sabas Ramírez"
 FARMER_ROLE = "Especialista en crecimiento de marcas digitales"
+FARMER_EMAIL = "sabas.ramirez@rappi.com"
 
 # Main visual identity requested by Sabas
 # Slate / Neon Tangerine / Mint palette · blue background + white surfaces + tangerine as secondary accent
@@ -266,6 +266,7 @@ else:
 
 FARMER_NAME            = _cfg_str(_app_cfg, "farmer_name", FARMER_NAME)
 FARMER_ROLE            = _cfg_str(_app_cfg, "farmer_role", FARMER_ROLE)
+FARMER_EMAIL           = _cfg_str(_app_cfg, "farmer_email", FARMER_EMAIL)
 PORTFOLIO_COUNTRY      = _cfg_str(_app_cfg, "portfolio_country", PORTFOLIO_COUNTRY)
 ARS_PER_USD            = _cfg_num(_app_cfg, "ars_per_usd", ARS_PER_USD)
 COP_PER_USD            = _cfg_num(_app_cfg, "cop_per_usd", COP_PER_USD)
@@ -17519,7 +17520,7 @@ def _render_followup_form(row, brand_id, name):
                     transcript=call_transcript.strip(),
                     brand_id=brand_id,
                     brand_name=name,
-                    farmer_email="sabas.ramirez@rappi.com",
+                    farmer_email=FARMER_EMAIL,
                     call_date=date.today(),
                     wb=_wb_save,
                 )
