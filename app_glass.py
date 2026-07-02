@@ -9322,18 +9322,37 @@ def page_follow_up_list():
         return ts.strftime("%Y-%m-%d %H:%M")
 
     follow_df["Last Update"]    = follow_df["_last_comment_dt"].apply(_fmt_last_update)
+    def _shorten_note_preview(notes, max_chars=90):
+        """
+        Recorta la nota completa a un preview corto para la tabla. Si es una
+        nota [Auto] de Claude, usa el párrafo Resumen: (ya condensado); si no,
+        toma la primera línea. El texto completo sigue disponible en Brand
+        Finder (Última Nota) y en growth_os_call_history.csv — acá solo
+        necesitamos una referencia rápida de una línea.
+        """
+        if not notes or notes == "-":
+            return "-"
+        text = notes.strip()
+        if text.startswith("[Auto]"):
+            parsed = _parse_claude_note_fields(text)
+            text = parsed["resumen"] if parsed["resumen"] else text.split("\n", 1)[0].replace("[Auto]", "").strip()
+        else:
+            text = text.split("\n", 1)[0]
+        text = " ".join(text.split())  # colapsar saltos de línea y espacios sobrantes
+        return text if len(text) <= max_chars else text[:max_chars].rstrip() + "…"
+
     def _resolve_last_notes(row):
         """Resolves Last Notes by brand_id first, then by normalized brand name as fallback."""
         bid = normalize_brand_id(row.get("_id", ""))
         # Primary: by brand_id
         entry = meta_map.get(bid, {})
         notes = entry.get("notes", "-")
-        if notes and notes != "-":
-            return notes
-        # Fallback: by normalized brand name (catches brand_id normalization mismatches)
-        bname_key = norm_text(str(row.get("_name", "")))
-        entry_by_name = meta_map.get(bname_key, {})
-        return entry_by_name.get("notes", "-")
+        if not (notes and notes != "-"):
+            # Fallback: by normalized brand name (catches brand_id normalization mismatches)
+            bname_key = norm_text(str(row.get("_name", "")))
+            entry_by_name = meta_map.get(bname_key, {})
+            notes = entry_by_name.get("notes", "-")
+        return _shorten_note_preview(notes)
 
     follow_df["Last Notes"] = follow_df.apply(_resolve_last_notes, axis=1)
     follow_df["_manual_status"] = follow_df["_id"].apply(lambda x: meta_value(x, "status", "OFF 😴"))
