@@ -18758,9 +18758,82 @@ if "_cache_warmed" not in st.session_state:
 # =========================
 # ROUTER
 # =========================
+import time as _time
 
-# ── Router con loading dinámico (item 5): cada cambio de sección o ficha
-# muestra de inmediato un overlay con donut — sin "pantalla pegada".
+# ── Telón de carga a pantalla completa ────────────────────────────────────────
+# Reemplaza el efecto por defecto de Streamlit (dejar la página vieja en gris /
+# "pegada") por un cuadro gris grande con dona girando que cubre TODO. Se inyecta
+# en el <body> del documento para que ningún contenedor de Streamlit lo recorte.
+
+def _show_loading_overlay(page_name):
+    dark = st.session_state.get("dark_mode", False)
+    if dark:
+        bg, track, txt = "#0F172A", "#273449", "#94A3B8"
+    else:
+        bg, track, txt = "#EEF2F8", "#DCE3EE", "#6E7787"
+    css = f"""
+      #gos-loading {{
+        position: fixed; inset: 0; z-index: 2147483600;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 20px; background: {bg};
+        font-family: 'DM Sans', -apple-system, sans-serif;
+        animation: gos-fade-in .12s ease-out;
+      }}
+      #gos-loading .gos-donut {{
+        width: 58px; height: 58px; border-radius: 50%;
+        border: 5px solid {track}; border-top-color: #EA6A28;
+        animation: gos-spin .8s linear infinite;
+      }}
+      #gos-loading .gos-txt {{
+        font-size: 16px; font-weight: 700; color: {txt}; letter-spacing: .2px;
+      }}
+      @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
+      @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+    """
+    inner = f'<div class="gos-donut"></div><div class="gos-txt">{html.escape("Loading " + str(page_name) + "…")}</div>'
+    css_js = json.dumps(css)
+    inner_js = json.dumps(inner)
+    st_components.html(f"""
+    <script>
+    (function() {{
+      try {{
+        var W = window.parent, D = W.document;
+        var s = D.getElementById('gos-loading-style');
+        if (!s) {{ s = D.createElement('style'); s.id = 'gos-loading-style'; D.head.appendChild(s); }}
+        s.textContent = {css_js};
+        var el = D.getElementById('gos-loading');
+        if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
+        el.innerHTML = {inner_js};
+        el.style.display = 'flex';
+        // Red de seguridad: si algo falla al ocultarlo, se quita solo.
+        clearTimeout(W.__gosLoadingKill);
+        W.__gosLoadingKill = setTimeout(function() {{
+          var e = D.getElementById('gos-loading'); if (e) e.remove();
+        }}, 12000);
+      }} catch (e) {{ /* cross-origin: no se puede inyectar en el padre */ }}
+    }})();
+    </script>
+    """, height=0)
+
+
+def _hide_loading_overlay():
+    st_components.html("""
+    <script>
+    (function() {
+      try {
+        var W = window.parent, D = W.document;
+        function go() { var el = D.getElementById('gos-loading'); if (el) el.remove(); clearTimeout(W.__gosLoadingKill); }
+        // 1 frame para que la página nueva pinte antes de correr el telón
+        if (W.requestAnimationFrame) { W.requestAnimationFrame(function() { setTimeout(go, 40); }); }
+        else { setTimeout(go, 60); }
+      } catch (e) {}
+    })();
+    </script>
+    """, height=0)
+
+
+# ── Router con loading dinámico: cada cambio de sección muestra el telón gris —
+# sin "pantalla pegada". El telón se ve SIEMPRE, aunque la página cargue en ms.
 _PAGE_FN = {
     "Management Dashboard":     page_management_dashboard,
     "Opportunity List":         page_opportunity_list,
@@ -18777,5 +18850,19 @@ _PAGE_FN = {
     "Role Play Trainer":        page_role_play_trainer,
 }
 _page_fn = _PAGE_FN.get(page, page_management_dashboard)
+
+# ¿Es un cambio de página? (no en la primera carga ni en reruns dentro de la misma)
+_last_pg = st.session_state.get("_last_rendered_page")
+_is_nav = (_last_pg is not None) and (_last_pg != page)
+
+if _is_nav:
+    _show_loading_overlay(page)
+    _time.sleep(0.20)  # mínimo visible: garantiza que el telón siempre se pinte
+
 with st.spinner(f"Loading {page}…", show_time=False):
     _page_fn()
+
+if _is_nav:
+    _hide_loading_overlay()
+
+st.session_state["_last_rendered_page"] = page
