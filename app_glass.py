@@ -165,6 +165,251 @@ st.set_page_config(page_title="My GrowthOS", page_icon="👑", layout="wide")
 
 
 # =========================
+# ACCESS GATE (login)
+# =========================
+# Puerta de acceso: la app NO se abre directo. Pide correo permitido + código.
+# Todo lo de abajo (carga de Excel, CSS, router) solo corre si estás autenticado,
+# porque require_login() hace st.stop() mientras no lo estés.
+
+def _get_access_config():
+    """Devuelve (usuarios_permitidos, código). Prioriza st.secrets (no se sube al
+    repo). Si no hay secrets, usa el fallback en código para que arranque ya.
+
+    Formato en .streamlit/secrets.toml:
+        [access]
+        code = "TU-CODIGO"
+        [access.users]
+        "sabas.ramirez@rappi.com" = "Sabas"
+    """
+    try:
+        acc = st.secrets.get("access", {})
+        users = dict(acc.get("users", {}))
+        code = acc.get("code", None)
+        if users or code:
+            return users, code
+    except Exception:
+        pass
+    # ── Fallback local — MOVÉ esto a .streamlit/secrets.toml antes de publicar ──
+    return (
+        {
+            "sabas.ramirez@rappi.com": "Sabas Ramírez",
+            # "otro.correo@rappi.com": "Nombre",
+        },
+        "GROWTHOS-2026",  # código de acceso compartido — cambialo
+    )
+
+
+# ── Ajustes de sesión y de perfil ────────────────────────────────────────────
+SESSION_TIMEOUT_MIN = 30          # minutos de inactividad antes de cerrar sesión
+SESSION_TIMEOUT_SEC = SESSION_TIMEOUT_MIN * 60
+PROFILE_NAME = "Sabas Ramírez"    # nombre que se muestra en la esquina
+PROFILE_ROLE = "Growth Manager"   # rol/subtítulo bajo el nombre
+# La foto se sube desde el sidebar y se guarda como profile_photo.(png|jpg).
+
+
+def _session_expired():
+    """True si pasó el tiempo de inactividad desde la última interacción."""
+    import time
+    last = st.session_state.get("last_active")
+    if last is None:
+        return False
+    return (time.time() - last) > SESSION_TIMEOUT_SEC
+
+
+def require_login():
+    """Renderiza la pantalla de acceso y detiene la app si no estás autenticado.
+    Se cierra sola tras SESSION_TIMEOUT_MIN minutos de inactividad y vuelve a
+    pedir el correo."""
+    import time
+    if st.session_state.get("auth_ok"):
+        if _session_expired():
+            # Expiró por inactividad → limpiar sesión y caer al login de abajo
+            for _k in ("auth_ok", "auth_email", "auth_name", "last_active"):
+                st.session_state.pop(_k, None)
+            st.session_state["_expired_notice"] = True
+        else:
+            st.session_state["last_active"] = time.time()  # cada interacción renueva el reloj
+            return  # autenticado y vigente → seguí con la app normal
+
+    users, master_code = _get_access_config()
+    users_lower = {k.strip().lower(): v for k, v in users.items()}
+
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'DM Sans', sans-serif; }
+    .stApp {
+        background: #F6F8FC !important;
+        background-image:
+            radial-gradient(ellipse 90% 80% at 12% 12%, rgba(51,92,255,0.06) 0%, transparent 60%),
+            radial-gradient(ellipse 85% 75% at 88% 82%, rgba(234,106,40,0.06) 0%, transparent 58%) !important;
+    }
+    [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
+    .block-container { max-width: 440px !important; padding-top: 8vh !important; }
+    .login-card {
+        background: rgba(255,255,255,0.90);
+        backdrop-filter: blur(24px) saturate(140%);
+        -webkit-backdrop-filter: blur(24px) saturate(140%);
+        border: 1px solid #E7ECF3;
+        border-radius: 24px;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+        padding: 34px 32px 26px;
+        text-align: center;
+        margin-bottom: 22px;
+    }
+    .login-logo { font-size: 42px; line-height: 1; }
+    .login-title { font-size: 22px; font-weight: 800; color: #1B2333; margin-top: 12px; letter-spacing: -.02em; }
+    .login-sub { font-size: 13px; color: #6E7787; font-weight: 600; margin-top: 4px; }
+    .stTextInput label { font-weight: 600 !important; color: #1B2333 !important; font-size: 13px !important; }
+    .stTextInput input {
+        border-radius: 12px !important; border: 1px solid #E7ECF3 !important;
+        background: #FFFFFF !important; color: #1B2333 !important; padding: 11px 14px !important;
+    }
+    .stTextInput input:focus { border-color: #EA6A28 !important; box-shadow: 0 0 0 3px rgba(234,106,40,0.12) !important; }
+    .stButton > button {
+        background: #EA6A28 !important; color: #FFFFFF !important; border: none !important;
+        border-radius: 12px !important; font-weight: 700 !important; padding: 11px 20px !important;
+        box-shadow: 0 4px 12px rgba(234,106,40,0.22) !important; transition: background .2s, transform .15s !important;
+    }
+    .stButton > button:hover { background: #C85618 !important; transform: translateY(-1px) !important; }
+    .login-foot { text-align: center; font-size: 11px; color: #A8B0BF; font-weight: 600; margin-top: 18px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="login-card">
+        <div class="login-logo">👑</div>
+        <div class="login-title">My GrowthOS</div>
+        <div class="login-sub">Acceso restringido · Commercial Excellence</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.session_state.pop("_expired_notice", False):
+        st.info(f"Tu sesión se cerró tras {SESSION_TIMEOUT_MIN} minutos de inactividad. Ingresá de nuevo.")
+
+    email = st.text_input("Correo electrónico", placeholder="tu.correo@rappi.com", key="login_email")
+    code = st.text_input("Código de acceso", type="password", placeholder="••••••••", key="login_code")
+
+    if st.button("Ingresar", use_container_width=True, key="login_submit"):
+        em = (email or "").strip().lower()
+        code_ok = (master_code is None) or ((code or "").strip() == str(master_code))
+        if em in users_lower and code_ok:
+            st.session_state["auth_ok"] = True
+            st.session_state["auth_email"] = em
+            st.session_state["auth_name"] = users_lower.get(em) or em.split("@")[0]
+            st.session_state["last_active"] = time.time()
+            st.rerun()
+        else:
+            st.error("Correo o código incorrecto. Verificá e intentá de nuevo.")
+
+    st.markdown('<div class="login-foot">Growth OS · uso interno</div>', unsafe_allow_html=True)
+    st.stop()
+
+
+require_login()
+
+
+# ── Auto-cierre por inactividad (lado cliente) ────────────────────────────────
+# Recarga la pestaña tras SESSION_TIMEOUT_MIN minutos sin actividad → sesión
+# nueva → vuelve el login. Complementa el chequeo de servidor de require_login().
+def _render_idle_watcher():
+    st_components.html(f"""
+    <script>
+    (function() {{
+      try {{
+        var W = window.parent, D = W.document;
+        var IDLE_MS = {SESSION_TIMEOUT_SEC} * 1000;
+        if (W.__gosIdleReset) {{ W.__gosIdleReset(); return; }}
+        var t;
+        W.__gosIdleReset = function() {{
+          clearTimeout(t);
+          t = setTimeout(function() {{ W.location.reload(); }}, IDLE_MS);
+        }};
+        ['mousemove','mousedown','keydown','scroll','touchstart','click'].forEach(function(ev) {{
+          D.addEventListener(ev, W.__gosIdleReset, {{passive: true}});
+        }});
+        W.__gosIdleReset();
+      }} catch (e) {{ /* cross-origin: el chequeo de servidor cubre igual */ }}
+    }})();
+    </script>
+    """, height=0)
+
+
+_render_idle_watcher()
+
+
+# ── Chip de perfil (esquina superior derecha) ─────────────────────────────────
+def _profile_photo_data_uri():
+    """Devuelve la foto de perfil como data-URI si el usuario subió una, o None."""
+    import base64
+    for ext, mime in (("png", "image/png"), ("jpg", "image/jpeg"), ("jpeg", "image/jpeg")):
+        p = f"profile_photo.{ext}"
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    return f"data:{mime};base64," + base64.b64encode(f.read()).decode()
+            except Exception:
+                pass
+    return None
+
+
+def _render_profile_chip(dark):
+    """Barra de identidad fija arriba a la derecha: foto + nombre + rol + caret."""
+    photo = _profile_photo_data_uri()
+    initials = "".join([w[0] for w in PROFILE_NAME.split()[:2]]).upper() or "•"
+    if photo:
+        avatar = f'<img src="{photo}" class="pc-avatar"/>'
+    else:
+        avatar = f'<div class="pc-avatar pc-initials">{initials}</div>'
+
+    if dark:
+        bg, bd, nm, rl, ic = "rgba(22,31,46,0.92)", "#273449", "#F3F4F6", "#94A3B8", "#94A3B8"
+    else:
+        bg, bd, nm, rl, ic = "rgba(255,255,255,0.92)", "#E7ECF3", "#1B2333", "#6E7787", "#98A2B3"
+
+    st.markdown(f"""
+    <style>
+      .profile-chip {{
+        position: fixed; top: 8px; right: 3rem; z-index: 1000;
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 12px 6px 8px;
+        background: {bg};
+        backdrop-filter: blur(16px) saturate(140%);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
+        border: 1px solid {bd}; border-radius: 999px;
+        box-shadow: 0 6px 20px rgba(15,23,42,0.08);
+        font-family: 'DM Sans', sans-serif;
+      }}
+      .profile-chip .pc-bell {{ font-size: 14px; color: {ic}; opacity: .85; }}
+      .profile-chip .pc-avatar {{
+        width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+        border: 2px solid {bd}; flex-shrink: 0;
+      }}
+      .profile-chip .pc-initials {{
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #EA6A28, #C85618);
+        color: #fff; font-weight: 800; font-size: 13px;
+      }}
+      .profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm}; line-height: 1.1; }}
+      .profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl}; line-height: 1.1; margin-top: 1px; }}
+      .profile-chip .pc-caret {{ color: {ic}; font-size: 11px; }}
+      @media (max-width: 900px) {{
+        .profile-chip .pc-text, .profile-chip .pc-caret, .profile-chip .pc-bell {{ display: none; }}
+      }}
+    </style>
+    <div class="profile-chip">
+      <span class="pc-bell">🔔</span>
+      {avatar}
+      <div class="pc-text">
+        <div class="pc-name">{html.escape(PROFILE_NAME)}</div>
+        <div class="pc-role">{html.escape(PROFILE_ROLE)}</div>
+      </div>
+      <span class="pc-caret">▾</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# =========================
 # FILE HELPERS
 # =========================
 
@@ -5183,6 +5428,39 @@ with st.sidebar:
 
         st.button("✏️  Brand Update", key="nav_brand_update_bottom", use_container_width=True,
                   on_click=_nav_set_page, args=("Brand Update",))
+
+        if st.session_state.get("auth_ok"):
+            _auth_who = st.session_state.get("auth_name", "")
+            st.caption(f"👤 {_auth_who}")
+            st.button("🔒 Cerrar sesión", key="nav_logout", use_container_width=True,
+                      on_click=lambda: st.session_state.update({"auth_ok": False}))
+
+            with st.expander("🖼️ Foto de perfil"):
+                _pf_up = st.file_uploader("Subí una imagen (PNG o JPG)",
+                                          type=["png", "jpg", "jpeg"], key="pf_upload")
+                if _pf_up is not None:
+                    _pf_ext = "png" if (_pf_up.type or "").endswith("png") else "jpg"
+                    for _e in ("png", "jpg", "jpeg"):
+                        _old = f"profile_photo.{_e}"
+                        if os.path.exists(_old):
+                            try:
+                                os.remove(_old)
+                            except Exception:
+                                pass
+                    with open(f"profile_photo.{_pf_ext}", "wb") as _fh:
+                        _fh.write(_pf_up.getbuffer())
+                    st.success("Foto actualizada.")
+                    st.rerun()
+                if _profile_photo_data_uri() and st.button("Quitar foto", key="pf_remove",
+                                                           use_container_width=True):
+                    for _e in ("png", "jpg", "jpeg"):
+                        _old = f"profile_photo.{_e}"
+                        if os.path.exists(_old):
+                            try:
+                                os.remove(_old)
+                            except Exception:
+                                pass
+                    st.rerun()
 
         # ── 🩺 Diagnóstico del sistema (onboarding auto-servicio del piloto) ──
         @st.dialog("🩺 Diagnóstico del sistema", width="large")
@@ -18426,6 +18704,12 @@ def page_role_play_trainer():
             st.info("No hay objeciones en el banco. Cargá algunas en la pestaña Entrenamiento.")
         else:
             st.info("Aplicá filtros y hacé click en 'Cargar objeción aleatoria' para empezar a practicar.")
+
+
+# =========================
+# PROFILE CHIP (esquina superior derecha)
+# =========================
+_render_profile_chip(DARK_MODE)
 
 
 # =========================
