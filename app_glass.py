@@ -6234,11 +6234,10 @@ if DARK_MODE:
 
 def render_header(title="Growth OS", subtitle="Commercial Management System · Rappi"):
     """Renderiza el header glass de cada página."""
-    from datetime import date as _date
-    today = _date.today()
+    today = datetime.now(TZ_APP).date()  # cambio de día en horario Colombia
     quarter = (today.month - 1) // 3 + 1
     iso_week = today.isocalendar().week
-    period = f"Q{quarter} · W{iso_week} · {today.year}"
+    period = f"Q{quarter} · W{iso_week} · {today.strftime('%a %d %b')} · {today.year}"
 
     subtitle_html = f'<div class="header-subtitle">{subtitle}</div>' if subtitle else ""
 
@@ -12489,30 +12488,45 @@ def render_campaign_designer_html(design):
     cross_card = _card.format(lever="lever-cross", label="🧩 Cross-Selling & Increase AOV", body=cross_body)
 
     # ══ 4. TOP 5 PRODUCTS ════════════════════════════════════════════════
-    tops = design.get("top_products", [])[:5]
+    # Solo renderizamos los productos que EXISTEN — muchas marcas tienen menos
+    # de 5 (o ninguno) rankeados en Definitive Top Products. Nunca rellenamos
+    # con filas vacías de guiones; si no hay ninguno, mostramos estado vacío.
+    tops = [p for p in design.get("top_products", []) if clean(p.get("name"), "-") not in ["", "-"]][:5]
     _medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
-    _rows = ""
-    for i in range(5):
-        p = tops[i] if i < len(tops) else {}
-        _pn = html.escape(clean(p.get("name", "-"), "-"))
-        _vpd = clean(p.get("vpd", "-"), "-")
-        _pcvr = clean(p.get("cvr", "-"), "-")
-        _w = 100 - i * 9
-        _rows += (
-            f"<div style='display:flex;align-items:center;gap:10px;width:{_w}%;"
-            f"background:rgba(255,255,255,{0.95 - i*0.08:.2f});border:1px solid rgba(0,0,0,0.07);"
-            f"border-radius:12px;padding:{12 - i}px 16px;'>"
-            f"<span style='font-size:{18 - i}px;'>{_medals[i]}</span>"
-            f"<span style='flex:1;font-size:{14 - min(i,2)}px;font-weight:800;color:#1A1A2E;"
-            f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_pn}</span>"
-            f"<span style='font-size:10px;font-weight:800;color:#6B7280;background:rgba(0,0,0,0.04);"
-            f"border-radius:999px;padding:2px 10px;white-space:nowrap;'>VPD {_vpd} · CVR {_pcvr}</span>"
-            f"</div>")
-    tops_body = (
-        "<div style='margin-top:14px;display:flex;flex-direction:column;align-items:center;"
-        f"gap:8px;flex:1;'>{_rows}</div>"
-        "<div style='font-size:11px;color:rgba(107,114,128,0.60);margin-top:12px;text-align:center'>"
-        "Best sellers by VPD · latest month · Definitive Top Products</div>")
+    if tops:
+        _n = len(tops)
+        _rows = ""
+        for i, p in enumerate(tops):
+            _pn = html.escape(clean(p.get("name", "-"), "-"))
+            _vpd = clean(p.get("vpd", "-"), "-")
+            _pcvr = clean(p.get("cvr", "-"), "-")
+            _w = 100 - i * 9
+            _rows += (
+                f"<div style='display:flex;align-items:center;gap:10px;width:{_w}%;"
+                f"background:rgba(255,255,255,{0.97 - i*0.06:.2f});border:1px solid rgba(0,0,0,0.07);"
+                f"box-shadow:0 1px 4px rgba(0,0,0,0.04);"
+                f"border-radius:12px;padding:{12 - i}px 16px;'>"
+                f"<span style='font-size:{18 - i}px;'>{_medals[i]}</span>"
+                f"<span style='flex:1;font-size:{14 - min(i,2)}px;font-weight:800;color:#1A1A2E;"
+                f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_pn}</span>"
+                f"<span style='font-size:10px;font-weight:800;color:#6B7280;background:rgba(0,0,0,0.04);"
+                f"border-radius:999px;padding:2px 10px;white-space:nowrap;'>VPD {_vpd} · CVR {_pcvr}</span>"
+                f"</div>")
+        _footer = (f"Top {_n} best seller{'s' if _n > 1 else ''} by VPD · latest month · Definitive Top Products"
+                   if _n < 5 else "Best sellers by VPD · latest month · Definitive Top Products")
+        tops_body = (
+            "<div style='margin-top:14px;display:flex;flex-direction:column;align-items:center;"
+            f"gap:8px;flex:1;'>{_rows}</div>"
+            f"<div style='font-size:11px;color:rgba(107,114,128,0.60);margin-top:12px;text-align:center'>{_footer}</div>")
+    else:
+        tops_body = (
+            "<div style='margin-top:14px;flex:1;display:flex;flex-direction:column;align-items:center;"
+            "justify-content:center;text-align:center;padding:28px 12px;'>"
+            "<div style='font-size:30px;opacity:.35;'>🗒️</div>"
+            "<div style='font-size:13px;font-weight:800;color:#6B7280;margin-top:8px;'>"
+            "Sin productos rankeados aún</div>"
+            "<div style='font-size:11px;color:rgba(107,114,128,0.65);margin-top:4px;line-height:1.5;'>"
+            "Esta marca todavía no figura en Definitive Top Products del último mes</div></div>")
     tops_card = _card.format(lever="lever-menu", label="🏅 Top 5 Products", body=tops_body)
 
     grid = ("<div style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;"
@@ -13729,20 +13743,25 @@ def page_pareto_hub():
         margin-bottom: 14px;
     }
     .pareto-card {
-        border-radius: 14px;
-        padding: 14px 16px;
+        background: #FFFFFF;
+        border: 1px solid rgba(27,63,139,0.09);
+        border-left: 4px solid var(--pareto-accent, #7ED321);
+        border-radius: 16px;
+        padding: 16px 18px 14px;
+        box-shadow: 0 2px 10px rgba(27,63,139,0.07), 0 1px 3px rgba(0,0,0,0.04);
         transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease;
         cursor: pointer;
     }
     .pareto-card:hover {
-        transform: translateY(-4px) scale(1.03);
-        box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 12px 30px rgba(27,63,139,0.14), 0 3px 8px rgba(0,0,0,0.06);
     }
     .pareto-name { font-size: 14px; font-weight: 800; color: #1A1A2E; line-height: 1.2; }
-    .pareto-meta { font-size: 11px; color: #6B7280; margin-top: 2px; margin-bottom: 8px; }
-    .pareto-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+    .pareto-meta { font-size: 11px; color: #6B7280; margin-top: 2px; margin-bottom: 10px; }
+    .pareto-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-bottom: 1px solid rgba(0,0,0,0.03); }
     .pareto-row-label { color: #6B7280; }
     .pareto-row-value { font-weight: 700; color: #1A1A2E; }
+    .pareto-status-pill { display:inline-block; border-radius:999px; padding:3px 12px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.04em; margin-top:10px; }
     .pareto-badge {
         display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .04em;
         text-transform: uppercase; padding: 2px 8px; border-radius: 10px; margin-top: 8px;
@@ -13786,7 +13805,7 @@ def page_pareto_hub():
             if d["perfect_store_pct"] is not None else "s/d"
         )
         _acq_note = (
-            f'<div class="pareto-badge" style="background:{style["bg"]};color:{style["border"]};">'
+            f'<div class="pareto-badge" style="background:rgba(255,113,36,0.10);color:#D95A10;margin-top:6px;">'
             f'Falta: {", ".join(d["acq_missing"])}</div>'
         ) if d["health"] == "tangerine" and d["acq_missing"] else ""
 
@@ -13796,7 +13815,7 @@ def page_pareto_hub():
         # en vez de renderizarlo. Por eso este builder concatena con join() en
         # una sola línea lógica por fragmento, sin sangría.
         parts = [
-            f'<div class="pareto-card" style="background:{style["bg"]};border:2px solid {style["border"]};">',
+            f'<div class="pareto-card" style="--pareto-accent:{style["border"]};">',
             f'<div class="pareto-name">{html.escape(d["name"])}</div>',
             f'<div class="pareto-meta">AR-{d["brand_id"]} · {html.escape(d["category"])}</div>',
             f'<div class="pareto-row"><span class="pareto-row-label">Last Contact</span><span class="pareto-row-value">{_days_lbl}</span></div>',
@@ -13807,7 +13826,7 @@ def page_pareto_hub():
             f'<div class="pareto-row"><span class="pareto-row-label">Churn</span><span class="pareto-row-value">{html.escape(d["churn_label"])}</span></div>',
             f'<div class="pareto-row"><span class="pareto-row-label">CVR vs bench</span><span class="pareto-row-value">{_fmt_cvr_cell(d["cvr_brand"], d["cvr_bench"])}</span></div>',
             f'<div class="pareto-row"><span class="pareto-row-label">Traffic vs bench</span><span class="pareto-row-value">{_fmt_traffic_cell(d["traffic_brand"], d["traffic_bench"])}</span></div>',
-            f'<div class="pareto-badge" style="background:{style["bg"]};color:{style["border"]};">{style["label"]}</div>',
+            f'<div class="pareto-status-pill" style="background:{style["bg"]};color:{style["border"]};">{style["label"]}</div>',
             _acq_note,
             '</div>',
         ]
@@ -15625,36 +15644,58 @@ def render_brand_profile(row, brand_id):
         f"¿Tenés 10 minutos ahora para cerrarlo?"
     )
 
+    # Dos cards fijas sólidas (estilo Brand Finder), con la plantilla escrita
+    # adentro — nada de scroll interno ni bloques de código.
+    _po_email_html = html.escape(_po_email_body).replace("\n", "<br>")
+    _po_wa_html = html.escape(_po_wa_body)
+    _po_subject_html = html.escape(_po_subject)
+    _po_email_label = html.escape(_po_email) if _po_email else "sin email registrado"
+    _po_phone_label = html.escape(_po_phone) if _po_phone else "sin teléfono registrado"
+
     st.markdown(
-        "<div class='wide-info-card' style='margin-bottom:0;'>"
+        "<div class='wide-info-card' style='margin-bottom:12px;'>"
         "<div class='wide-info-title'>✉️ Predetermined Outreach</div>"
-        "<div style='font-size:12px;color:#6B7280;margin:-4px 0 4px;'>"
-        "Ready-to-send message with today's top 3 priorities · copy with one click</div></div>",
+        "<div style='font-size:12px;color:#6B7280;margin:-4px 0 0;'>"
+        "Plantilla lista para enviar con los 3 temas del día — email y WhatsApp</div></div>",
         unsafe_allow_html=True)
+
+    _email_card = (
+        "<div class='business-mini-card lever-md' style='padding:18px 20px;'>"
+        "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>"
+        "<div class='card-label' style='margin:0;'>📧 Email</div>"
+        f"<span style='font-size:11px;color:#6B7280;font-weight:700;'>{_po_email_label}</span></div>"
+        "<div style='font-size:10px;font-weight:800;text-transform:uppercase;color:#1B3F8B;"
+        "letter-spacing:.04em;margin-top:12px;'>Asunto</div>"
+        f"<div style='font-size:13px;font-weight:800;color:#1A1A2E;margin-top:2px;line-height:1.4;'>{_po_subject_html}</div>"
+        "<div style='border-top:1px solid rgba(0,0,0,0.06);margin:12px 0;'></div>"
+        f"<div style='font-size:13px;color:#374151;line-height:1.7;'>{_po_email_html}</div>"
+        "</div>")
+
+    _wa_button = ""
+    if _po_phone:
+        _po_wa_digits = re.sub(r"\D", "", _po_phone)
+        if _po_wa_digits:
+            _wa_button = (
+                f"<a href='https://wa.me/{_po_wa_digits}?text={quote_plus(_po_wa_body)}' target='_blank' "
+                "style='display:inline-block;background:#25D366;color:#FFFFFF;border-radius:10px;"
+                "padding:9px 20px;font-size:13px;font-weight:900;text-decoration:none;margin-top:14px;'>"
+                "Open in WhatsApp →</a>")
+    _wa_card = (
+        "<div class='business-mini-card lever-menu' style='padding:18px 20px;border-left:3px solid #25D366 !important;'>"
+        "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>"
+        "<div class='card-label' style='margin:0;'>📱 WhatsApp</div>"
+        f"<span style='font-size:11px;color:#6B7280;font-weight:700;'>{_po_phone_label}</span></div>"
+        "<div style='font-size:10px;font-weight:800;text-transform:uppercase;color:#25D366;"
+        "letter-spacing:.04em;margin-top:12px;'>Mensaje</div>"
+        f"<div style='font-size:13px;color:#374151;line-height:1.7;margin-top:4px;'>{_po_wa_html}</div>"
+        f"{_wa_button}"
+        "</div>")
+
     _po_c1, _po_c2 = st.columns(2)
     with _po_c1:
-        st.markdown(
-            f"<div style='font-size:11px;font-weight:900;text-transform:uppercase;color:#1B3F8B;'>"
-            f"📧 Email · <span style='color:#6B7280;font-weight:700;text-transform:none;'>"
-            f"{html.escape(_po_email) if _po_email else 'sin email registrado'}</span></div>",
-            unsafe_allow_html=True)
-        st.code(_po_subject, language=None)
-        st.code(_po_email_body, language=None)
+        st.markdown(_email_card, unsafe_allow_html=True)
     with _po_c2:
-        st.markdown(
-            f"<div style='font-size:11px;font-weight:900;text-transform:uppercase;color:#25D366;'>"
-            f"📱 WhatsApp · <span style='color:#6B7280;font-weight:700;text-transform:none;'>"
-            f"{html.escape(_po_phone) if _po_phone else 'sin teléfono registrado'}</span></div>",
-            unsafe_allow_html=True)
-        st.code(_po_wa_body, language=None)
-        if _po_phone:
-            _po_wa_digits = re.sub(r"\D", "", _po_phone)
-            if _po_wa_digits:
-                st.markdown(
-                    f"<a href='https://wa.me/{_po_wa_digits}?text={quote_plus(_po_wa_body)}' target='_blank' "
-                    f"style='display:inline-block;background:#25D366;color:#FFFFFF;border-radius:10px;"
-                    f"padding:8px 18px;font-size:13px;font-weight:900;text-decoration:none;'>"
-                    f"Open in WhatsApp →</a>", unsafe_allow_html=True)
+        st.markdown(_wa_card, unsafe_allow_html=True)
 
     return name
 
