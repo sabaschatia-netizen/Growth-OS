@@ -303,6 +303,16 @@ def require_login():
             st.error("Correo o código incorrecto. Verificá e intentá de nuevo.")
 
     st.markdown('<div class="login-foot">Growth OS · uso interno</div>', unsafe_allow_html=True)
+    # Limpiar el chip de perfil si venís de cerrar sesión (quedó en el <body>).
+    st_components.html("""
+    <script>
+    try {
+      var D = window.parent.document;
+      var el = D.getElementById('gos-profile-chip'); if (el) el.remove();
+      var st = D.getElementById('gos-chip-style'); if (st) st.remove();
+    } catch (e) {}
+    </script>
+    """, height=0)
     st.stop()
 
 
@@ -354,7 +364,11 @@ def _profile_photo_data_uri():
 
 
 def _render_profile_chip(dark):
-    """Barra de identidad fija arriba a la derecha: foto + nombre + rol + caret."""
+    """Barra de identidad fija arriba a la derecha: foto + nombre + rol + caret.
+
+    Se inyecta directo en el <body> de la página (vía window.parent), fuera de
+    todos los contenedores de Streamlit. Así 'position:fixed' se ancla a la
+    pantalla de verdad y no lo tapa ningún contenedor con backdrop-filter."""
     photo = _profile_photo_data_uri()
     initials = "".join([w[0] for w in PROFILE_NAME.split()[:2]]).upper() or "•"
     if photo:
@@ -363,41 +377,41 @@ def _render_profile_chip(dark):
         avatar = f'<div class="pc-avatar pc-initials">{initials}</div>'
 
     if dark:
-        bg, bd, nm, rl, ic = "rgba(22,31,46,0.92)", "#273449", "#F3F4F6", "#94A3B8", "#94A3B8"
+        bg, bd, nm, rl, ic = "rgba(22,31,46,0.94)", "#273449", "#F3F4F6", "#94A3B8", "#94A3B8"
     else:
-        bg, bd, nm, rl, ic = "rgba(255,255,255,0.92)", "#E7ECF3", "#1B2333", "#6E7787", "#98A2B3"
+        bg, bd, nm, rl, ic = "rgba(255,255,255,0.94)", "#E7ECF3", "#1B2333", "#6E7787", "#98A2B3"
 
-    st.markdown(f"""
-    <style>
-      .profile-chip {{
-        position: fixed; top: 8px; right: 3rem; z-index: 1000;
+    css = f"""
+      #gos-profile-chip {{
+        position: fixed; top: 10px; right: 3.25rem; z-index: 2147483000;
         display: flex; align-items: center; gap: 10px;
         padding: 6px 12px 6px 8px;
         background: {bg};
-        backdrop-filter: blur(16px) saturate(140%);
         -webkit-backdrop-filter: blur(16px) saturate(140%);
+        backdrop-filter: blur(16px) saturate(140%);
         border: 1px solid {bd}; border-radius: 999px;
-        box-shadow: 0 6px 20px rgba(15,23,42,0.08);
-        font-family: 'DM Sans', sans-serif;
+        box-shadow: 0 6px 20px rgba(15,23,42,0.10);
+        font-family: 'DM Sans', -apple-system, sans-serif;
       }}
-      .profile-chip .pc-bell {{ font-size: 14px; color: {ic}; opacity: .85; }}
-      .profile-chip .pc-avatar {{
+      #gos-profile-chip .pc-bell {{ font-size: 14px; color: {ic}; opacity: .85; }}
+      #gos-profile-chip .pc-avatar {{
         width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
         border: 2px solid {bd}; flex-shrink: 0;
       }}
-      .profile-chip .pc-initials {{
+      #gos-profile-chip .pc-initials {{
         display: flex; align-items: center; justify-content: center;
         background: linear-gradient(135deg, #EA6A28, #C85618);
         color: #fff; font-weight: 800; font-size: 13px;
       }}
-      .profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm}; line-height: 1.1; }}
-      .profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl}; line-height: 1.1; margin-top: 1px; }}
-      .profile-chip .pc-caret {{ color: {ic}; font-size: 11px; }}
+      #gos-profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm}; line-height: 1.1; }}
+      #gos-profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl}; line-height: 1.1; margin-top: 1px; }}
+      #gos-profile-chip .pc-caret {{ color: {ic}; font-size: 11px; }}
       @media (max-width: 900px) {{
-        .profile-chip .pc-text, .profile-chip .pc-caret, .profile-chip .pc-bell {{ display: none; }}
+        #gos-profile-chip .pc-text, #gos-profile-chip .pc-caret, #gos-profile-chip .pc-bell {{ display: none; }}
       }}
-    </style>
-    <div class="profile-chip">
+    """
+
+    inner = f"""
       <span class="pc-bell">🔔</span>
       {avatar}
       <div class="pc-text">
@@ -405,8 +419,25 @@ def _render_profile_chip(dark):
         <div class="pc-role">{html.escape(PROFILE_ROLE)}</div>
       </div>
       <span class="pc-caret">▾</span>
-    </div>
-    """, unsafe_allow_html=True)
+    """
+
+    css_js = json.dumps(css)
+    inner_js = json.dumps(inner)
+    st_components.html(f"""
+    <script>
+    (function() {{
+      try {{
+        var W = window.parent, D = W.document;
+        var s = D.getElementById('gos-chip-style');
+        if (!s) {{ s = D.createElement('style'); s.id = 'gos-chip-style'; D.head.appendChild(s); }}
+        s.textContent = {css_js};
+        var el = D.getElementById('gos-profile-chip');
+        if (!el) {{ el = D.createElement('div'); el.id = 'gos-profile-chip'; D.body.appendChild(el); }}
+        el.innerHTML = {inner_js};
+      }} catch (e) {{ /* cross-origin: no se puede inyectar en el padre */ }}
+    }})();
+    </script>
+    """, height=0)
 
 
 # =========================
