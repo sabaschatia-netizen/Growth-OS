@@ -383,7 +383,7 @@ def _render_profile_chip(dark):
 
     css = f"""
       #gos-profile-chip {{
-        position: fixed; top: 10px; right: 3.25rem; z-index: 2147483000;
+        position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2147483000;
         display: flex; align-items: center; gap: 10px;
         padding: 6px 12px 6px 8px;
         background: {bg};
