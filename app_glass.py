@@ -6256,13 +6256,14 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{ color: rg
 /* ── BLOCK CONTAINER ── */
 .block-container {{
     max-width: 1400px;
-    padding-top: 0.6rem;
+    padding-top: 0 !important;   /* la franja superior la pone el wrapper sticky del header */
     padding-bottom: 5rem;
 }}
 
-/* Header nativo de Streamlit más bajo → los títulos suben, pegados al techo */
+/* Header nativo de Streamlit al mínimo → los títulos suben, pegados al techo */
 [data-testid="stHeader"] {{
-    height: 2.2rem !important;
+    height: 0 !important;
+    min-height: 0 !important;
     background: transparent !important;
 }}
 
@@ -6343,18 +6344,23 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     box-shadow: 0 8px 24px rgba(37,99,235,0.22);
     transition: box-shadow .2s;
 }}
-/* #1 · Header FIJO: sticky va en el contenedor que envuelve al header (no en el
-   header mismo), porque ese contenedor sí abarca toda la altura scrolleable. */
-[data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] .app-header),
+/* #1 · Header 100% FIJO a la altura de la pill: el sticky va en el contenedor
+   que envuelve al header (abarca toda la altura scrolleable). z-index alto para
+   que ninguna card se le atraviese, y fondo del canvas para tapar lo que pasa
+   por debajo del margen del header. */
+[data-testid="stElementContainer"]:has(.app-header),
+[data-testid="stVerticalBlock"] > div:has(> [data-testid="stElementContainer"] .app-header),
+.element-container:has(.app-header),
 [data-testid="element-container"]:has(.app-header) {{
     position: sticky !important;
-    top: 4px;
-    z-index: 400;
-    background: transparent;
+    top: 0 !important;
+    z-index: 500 !important;
+    background: #EEF4FF !important;
+    padding-top: 46px !important;
+    margin-bottom: 8px !important;
 }}
 .app-header:hover {{
     box-shadow: 0 12px 32px rgba(37,99,235,0.28);
-    transform: translateY(-1px);
 }}
 
 .header-title {{
@@ -7056,6 +7062,9 @@ if DARK_MODE:
     .nav-toggle-btn { background: #20232A !important; color: #E5E7EB !important; border-color: rgba(255,255,255,0.10) !important; }
     /* Header de página = mismo color que el sidebar (#080808) para formar la "L" */
     .app-header { background: #080808 !important; box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important; }
+    /* sticky header dark strip */
+    [data-testid="stElementContainer"]:has(.app-header),
+    [data-testid="element-container"]:has(.app-header) { background: #191C21 !important; }
 
     /* ── Vencer la regla base de mayor especificidad que fuerza texto oscuro
        en th/td de tablas HTML (Opportunity List, ADS/MD tables, etc.) — debe
@@ -9018,7 +9027,7 @@ def _render_churn_distribution_bar(counts, total):
         ("W1",  "⚠️ W1",  "#FFD166"),
         ("W2",  "🚨 W2",  "#F97316"),
         ("W3",  "🆘 W3",  "#EF4444"),
-        ("Off", "😴 Off", "rgba(255,255,255,.25)"),
+        ("Off", "😴 Off", "#94A3B8"),
     ]
 
     bars_html = ""
