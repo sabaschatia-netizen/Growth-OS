@@ -18783,19 +18783,16 @@ if "_cache_warmed" not in st.session_state:
 # =========================
 # ROUTER
 # =========================
-# =========================
-# ROUTER
-# =========================
+import time as _time
 
-# ── Telón de carga (cuadro gris con dona + barra de progreso) ─────────────────
-# Clave: el telón se DISPARA en el click del ítem de navegación (lado cliente,
-# instantáneo) y se QUITA cuando el nuevo render termina. Así no depende del
-# timing de los componentes (que montan al final del run y se cancelaban entre sí).
+# ── Afiche de carga (cuadro con dona + barra de progreso) ─────────────────────
+# Método confiable: se INYECTA en el <body> antes de construir la página, se le
+# da un instante para pintar (sleep), se renderiza la página debajo y luego se
+# QUITA. Posicionamiento a prueba de fallos: si no puede medir el sidebar/header,
+# usa defaults seguros (nunca queda invisible ni de tamaño cero).
 
-def _inject_nav_loader(dark):
-    """Controlador persistente: escucha clicks en la navegación y muestra el
-    telón al instante. Se re-inyecta cada run para refrescar el tema (light/dark),
-    pero los listeners se enlazan una sola vez."""
+def _show_loading_overlay(page_name):
+    dark = st.session_state.get("dark_mode", False)
     if dark:
         bg, track, txt = "#191C21", "#343A45", "#A1A1AA"
     else:
@@ -18804,17 +18801,21 @@ def _inject_nav_loader(dark):
       #gos-loading {{ position: fixed; z-index: 2147483200; display: flex; align-items: center; justify-content: center;
         background: {bg}; font-family: 'DM Sans', -apple-system, sans-serif; animation: gos-fade-in .12s ease-out; }}
       #gos-loading .gos-box {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
-      #gos-loading .gos-donut {{ width: 52px; height: 52px; border-radius: 50%; border: 5px solid {track};
+      #gos-loading .gos-donut {{ width: 54px; height: 54px; border-radius: 50%; border: 5px solid {track};
         border-top-color: #F97316; animation: gos-spin .8s linear infinite; }}
       #gos-loading .gos-txt {{ font-size: 15px; font-weight: 700; color: {txt}; letter-spacing: .2px; }}
-      #gos-loading .gos-bar {{ width: 220px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
+      #gos-loading .gos-bar {{ width: 230px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
       #gos-loading .gos-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
         background: linear-gradient(90deg, #2563EB, #F97316); animation: gos-slide 1.1s ease-in-out infinite; }}
       @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
       @keyframes gos-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
     """
+    inner = ('<div class="gos-box"><div class="gos-donut"></div><div class="gos-txt">'
+             + html.escape("Loading " + str(page_name) + "…")
+             + '</div><div class="gos-bar"><div class="gos-bar-fill"></div></div></div>')
     css_js = json.dumps(css)
+    inner_js = json.dumps(inner)
     st_components.html(f"""
     <script>
     (function() {{
@@ -18823,60 +18824,35 @@ def _inject_nav_loader(dark):
         var s = D.getElementById('gos-loading-style');
         if (!s) {{ s = D.createElement('style'); s.id = 'gos-loading-style'; D.head.appendChild(s); }}
         s.textContent = {css_js};
+        var el = D.getElementById('gos-loading');
+        if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
+        el.innerHTML = {inner_js};
+        el.style.display = 'flex';
 
-        function place(el) {{
-          var left = 0, top = 110;
+        // Posicionar sobre el contenido (sidebar + título visibles). Defaults seguros.
+        var left = 0, top = 88;
+        try {{
           var sb = D.querySelector('section[data-testid="stSidebar"]');
-          if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2) left = r.right; }}
+          if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2 && r.right < 600) left = r.right; }}
+        }} catch (e) {{}}
+        try {{
           var main = D.querySelector('[data-testid="stMain"]') || D.querySelector('section.main')
                   || D.querySelector('[data-testid="stAppViewContainer"]');
           var block = main ? (main.querySelector('[data-testid="stMainBlockContainer"]')
                            || main.querySelector('.block-container')) : null;
           if (block) {{
-            var kids = block.children, found = false;
+            var kids = block.children;
             for (var i = 0; i < kids.length; i++) {{
               var rr = kids[i].getBoundingClientRect();
-              if (rr.height > 24) {{ top = rr.bottom + 8; found = true; break; }}
+              if (rr.height > 24) {{ if (rr.bottom > 40 && rr.bottom < 400) top = rr.bottom + 8; break; }}
             }}
-            if (!found) {{ top = block.getBoundingClientRect().top + 110; }}
           }}
-          el.style.left = left + 'px'; el.style.top = Math.max(top, 56) + 'px';
-          el.style.right = '0px'; el.style.bottom = '0px';
-        }}
+        }} catch (e) {{}}
+        el.style.left = left + 'px'; el.style.top = top + 'px';
+        el.style.right = '0px'; el.style.bottom = '0px';
 
-        W.__gosShowLoading = function(label) {{
-          var el = D.getElementById('gos-loading');
-          if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
-          el.innerHTML = '<div class="gos-box"><div class="gos-donut"></div><div class="gos-txt">'
-            + (label || 'Loading…') + '</div><div class="gos-bar"><div class="gos-bar-fill"></div></div></div>';
-          place(el);
-          el.style.display = 'flex';
-          clearTimeout(W.__gosLoadingKill);
-          W.__gosLoadingKill = setTimeout(function() {{ var e = D.getElementById('gos-loading'); if (e) e.remove(); }}, 15000);
-        }};
-
-        if (!W.__gosNavLoaderBound) {{
-          W.__gosNavLoaderBound = true;
-          D.addEventListener('click', function(ev) {{
-            try {{
-              var t = ev.target;
-              var btn = (t && t.closest) ? t.closest('section[data-testid="stSidebar"] .stButton button') : null;
-              if (!btn) return;
-              var raw = (btn.innerText || '').trim();
-              var low = raw.toLowerCase();
-              // Ignorar botones utilitarios (toggle, dark/light, logout, brand update, foto)
-              if (raw === '◀' || raw === '▶' || low.indexOf('dark') >= 0 || low.indexOf('light') >= 0
-                  || low.indexOf('cerrar') >= 0 || low.indexOf('brand update') >= 0
-                  || low.indexOf('foto') >= 0 || low.indexOf('quitar') >= 0) return;
-              var name = raw.replace(/^[^A-Za-z0-9À-ɏ]+/, '').trim();
-              W.__gosShowLoading('Loading ' + name + '…');
-            }} catch (e) {{}}
-          }}, true);
-          W.addEventListener('resize', function() {{
-            var el = D.getElementById('gos-loading');
-            if (el && el.style.display !== 'none') place(el);
-          }});
-        }}
+        clearTimeout(W.__gosLoadingKill);
+        W.__gosLoadingKill = setTimeout(function() {{ var e = D.getElementById('gos-loading'); if (e) e.remove(); }}, 12000);
       }} catch (e) {{ /* cross-origin: no se puede inyectar en el padre */ }}
     }})();
     </script>
@@ -18884,7 +18860,7 @@ def _inject_nav_loader(dark):
 
 
 def _hide_loading_overlay():
-    """Quita el telón cuando el nuevo render ya terminó (corre al final del run)."""
+    """Quita el afiche cuando el nuevo render ya terminó."""
     st_components.html("""
     <script>
     (function() {
@@ -18916,7 +18892,18 @@ _PAGE_FN = {
 }
 _page_fn = _PAGE_FN.get(page, page_management_dashboard)
 
-_inject_nav_loader(DARK_MODE)   # arma el controlador de carga (una sola vez)
-_page_fn()                       # renderiza la página
-_hide_loading_overlay()          # quita el telón cuando el render terminó
+# ¿Cambio de página? (no en la primera carga ni en reruns dentro de la misma)
+_last_pg = st.session_state.get("_last_rendered_page")
+_is_nav = (_last_pg is not None) and (_last_pg != page)
+
+if _is_nav:
+    _show_loading_overlay(page)   # afiche con dona + barra
+    _time.sleep(0.28)             # deja que pinte antes de construir la página
+
+with st.spinner(f"Loading {page}…", show_time=False):
+    _page_fn()
+
+if _is_nav:
+    _hide_loading_overlay()
+
 st.session_state["_last_rendered_page"] = page
