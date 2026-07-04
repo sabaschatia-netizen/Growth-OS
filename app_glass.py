@@ -5649,6 +5649,14 @@ section[data-testid="stSidebar"] .stButton > button:hover {{
     transform: none !important;
     box-shadow: none !important;
 }}
+/* El label del botón vive en un <p> dentro de stMarkdownContainer, que tiene
+   más especificidad que la regla del botón → hay que pintarlo explícito. */
+section[data-testid="stSidebar"] .stButton > button p,
+section[data-testid="stSidebar"] .stButton > button span,
+section[data-testid="stSidebar"] .stButton > button div,
+section[data-testid="stSidebar"] .stButton > button [data-testid="stMarkdownContainer"] p {{
+    color: #FFFFFF !important;
+}}
 section[data-testid="stSidebar"] .stButton > button[kind="primary"],
 section[data-testid="stSidebar"] [data-testid="baseButton-primary"],
 section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {{
@@ -5739,7 +5747,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 
 /* ── APP HEADER — sticker style ── */
 .app-header {{
-    background: #FFFFFF;
+    background: #2563EB;
     border: none;
     border-radius: 12px;
     padding: 24px 32px;
@@ -5747,18 +5755,18 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 24px rgba(37,99,235,0.10), 0 1px 4px rgba(0,0,0,0.06);
+    box-shadow: 0 8px 24px rgba(37,99,235,0.22);
     transition: box-shadow .2s, transform .2s;
 }}
 .app-header:hover {{
-    box-shadow: 0 8px 32px rgba(37,99,235,0.15), 0 2px 8px #E5ECFA;
+    box-shadow: 0 12px 32px rgba(37,99,235,0.28);
     transform: translateY(-1px);
 }}
 
 .header-title {{
     font-size: 36px;
     font-weight: 800;
-    color: #111827;
+    color: #FFFFFF;
     display: flex;
     align-items: center;
     line-height: 1;
@@ -5768,15 +5776,15 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     margin-top: 8px;
     font-size: 14px;
     font-weight: 600;
-    color: #6B7280;
+    color: rgba(255,255,255,0.85);
 }}
 
 .period-pill {{
     font-size: 12px;
     font-weight: 700;
-    color: #22C55E;
-    background: rgba(34,197,94,0.10);
-    border: 1px solid rgba(34,197,94,0.30);
+    color: #FFFFFF;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.32);
     border-radius: 12px;
     padding: 5px 14px;
     letter-spacing: .06em;
@@ -6451,6 +6459,8 @@ if DARK_MODE:
     .nav-item.active { background: rgba(249,115,22,0.16) !important; color: #FFFFFF !important; }
     .nav-logo-text, .nav-section-label { color: #E5E7EB !important; }
     .nav-toggle-btn { background: #20232A !important; color: #E5E7EB !important; border-color: rgba(255,255,255,0.10) !important; }
+    /* Header de página = mismo color que el sidebar (#080808) para formar la "L" */
+    .app-header { background: #080808 !important; box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important; }
 
     /* ── Vencer la regla base de mayor especificidad que fuerza texto oscuro
        en th/td de tablas HTML (Opportunity List, ADS/MD tables, etc.) — debe
@@ -6610,7 +6620,7 @@ def render_header(title="Growth OS", subtitle="Commercial Management System · R
         _h_dot = "#22C55E" if _h_age < 48 else ("#F97316" if _h_age < 24 * 7 else "#EF4444")
         _h_stamp = (
             f'<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;'
-            f'margin-top:6px;font-size:11px;color:#6B7280;">'
+            f'margin-top:6px;font-size:11px;color:rgba(255,255,255,0.80);">'
             f'<span style="width:7px;height:7px;border-radius:50%;background:{_h_dot};display:inline-block;"></span>'
             f'{html.escape(os.path.basename(EXCEL_FILE))} · {_h_age_txt} · FX {ARS_PER_USD:,.0f} ARS/USD</div>'
         )
@@ -18773,41 +18783,38 @@ if "_cache_warmed" not in st.session_state:
 # =========================
 # ROUTER
 # =========================
-import time as _time
+# =========================
+# ROUTER
+# =========================
 
-# ── Telón de carga a pantalla completa ────────────────────────────────────────
-# Reemplaza el efecto por defecto de Streamlit (dejar la página vieja en gris /
-# "pegada") por un cuadro gris grande con dona girando que cubre TODO. Se inyecta
-# en el <body> del documento para que ningún contenedor de Streamlit lo recorte.
+# ── Telón de carga (cuadro gris con dona + barra de progreso) ─────────────────
+# Clave: el telón se DISPARA en el click del ítem de navegación (lado cliente,
+# instantáneo) y se QUITA cuando el nuevo render termina. Así no depende del
+# timing de los componentes (que montan al final del run y se cancelaban entre sí).
 
-def _show_loading_overlay(page_name):
-    dark = st.session_state.get("dark_mode", False)
+def _inject_nav_loader(dark):
+    """Controlador persistente: escucha clicks en la navegación y muestra el
+    telón al instante. Se re-inyecta cada run para refrescar el tema (light/dark),
+    pero los listeners se enlazan una sola vez."""
     if dark:
         bg, track, txt = "#191C21", "#343A45", "#A1A1AA"
     else:
         bg, track, txt = "#EEF2F8", "#DCE3EE", "#6B7280"
     css = f"""
-      #gos-loading {{
-        position: fixed; z-index: 2147483200;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 20px; background: {bg};
-        font-family: 'DM Sans', -apple-system, sans-serif;
-        animation: gos-fade-in .12s ease-out;
-      }}
-      #gos-loading .gos-donut {{
-        width: 58px; height: 58px; border-radius: 50%;
-        border: 5px solid {track}; border-top-color: #F97316;
-        animation: gos-spin .8s linear infinite;
-      }}
-      #gos-loading .gos-txt {{
-        font-size: 16px; font-weight: 700; color: {txt}; letter-spacing: .2px;
-      }}
+      #gos-loading {{ position: fixed; z-index: 2147483200; display: flex; align-items: center; justify-content: center;
+        background: {bg}; font-family: 'DM Sans', -apple-system, sans-serif; animation: gos-fade-in .12s ease-out; }}
+      #gos-loading .gos-box {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
+      #gos-loading .gos-donut {{ width: 52px; height: 52px; border-radius: 50%; border: 5px solid {track};
+        border-top-color: #F97316; animation: gos-spin .8s linear infinite; }}
+      #gos-loading .gos-txt {{ font-size: 15px; font-weight: 700; color: {txt}; letter-spacing: .2px; }}
+      #gos-loading .gos-bar {{ width: 220px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
+      #gos-loading .gos-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
+        background: linear-gradient(90deg, #2563EB, #F97316); animation: gos-slide 1.1s ease-in-out infinite; }}
       @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
+      @keyframes gos-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
     """
-    inner = f'<div class="gos-donut"></div><div class="gos-txt">{html.escape("Loading " + str(page_name) + "…")}</div>'
     css_js = json.dumps(css)
-    inner_js = json.dumps(inner)
     st_components.html(f"""
     <script>
     (function() {{
@@ -18816,54 +18823,60 @@ def _show_loading_overlay(page_name):
         var s = D.getElementById('gos-loading-style');
         if (!s) {{ s = D.createElement('style'); s.id = 'gos-loading-style'; D.head.appendChild(s); }}
         s.textContent = {css_js};
-        var el = D.getElementById('gos-loading');
-        if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
-        el.innerHTML = {inner_js};
-        el.style.display = 'flex';
 
-        // ── Posicionar SOLO sobre el área de contenido ──────────────────────
-        //  · izquierda = borde derecho del sidebar (sidebar queda visible)
-        //  · arriba    = justo debajo del título/header (el título queda visible)
-        //  · derecha/abajo = hasta el borde de la ventana
-        function place() {{
-          try {{
-            var el2 = D.getElementById('gos-loading'); if (!el2) return;
-            var left = 0, top = 110;
-            var sb = D.querySelector('section[data-testid="stSidebar"]');
-            if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2) left = r.right; }}
-            var main = D.querySelector('[data-testid="stMain"]')
-                    || D.querySelector('section.main')
-                    || D.querySelector('[data-testid="stAppViewContainer"]');
-            var block = main ? (main.querySelector('[data-testid="stMainBlockContainer"]')
-                             || main.querySelector('.block-container')) : null;
-            if (block) {{
-              var kids = block.children, found = false;
-              for (var i = 0; i < kids.length; i++) {{
-                var rr = kids[i].getBoundingClientRect();
-                if (rr.height > 24) {{ top = rr.bottom + 8; found = true; break; }}  // debajo del header
-              }}
-              if (!found) {{ top = block.getBoundingClientRect().top + 110; }}
+        function place(el) {{
+          var left = 0, top = 110;
+          var sb = D.querySelector('section[data-testid="stSidebar"]');
+          if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2) left = r.right; }}
+          var main = D.querySelector('[data-testid="stMain"]') || D.querySelector('section.main')
+                  || D.querySelector('[data-testid="stAppViewContainer"]');
+          var block = main ? (main.querySelector('[data-testid="stMainBlockContainer"]')
+                           || main.querySelector('.block-container')) : null;
+          if (block) {{
+            var kids = block.children, found = false;
+            for (var i = 0; i < kids.length; i++) {{
+              var rr = kids[i].getBoundingClientRect();
+              if (rr.height > 24) {{ top = rr.bottom + 8; found = true; break; }}
             }}
-            el2.style.left = left + 'px';
-            el2.style.top = Math.max(top, 56) + 'px';
-            el2.style.right = '0px';
-            el2.style.bottom = '0px';
-          }} catch (e) {{}}
-        }}
-        place();
-        W.__gosPlaceLoading = place;
-        if (!W.__gosResizeBound) {{
-          W.addEventListener('resize', function() {{
-            if (W.__gosPlaceLoading && D.getElementById('gos-loading')) W.__gosPlaceLoading();
-          }});
-          W.__gosResizeBound = true;
+            if (!found) {{ top = block.getBoundingClientRect().top + 110; }}
+          }}
+          el.style.left = left + 'px'; el.style.top = Math.max(top, 56) + 'px';
+          el.style.right = '0px'; el.style.bottom = '0px';
         }}
 
-        // Red de seguridad: si algo falla al ocultarlo, se quita solo.
-        clearTimeout(W.__gosLoadingKill);
-        W.__gosLoadingKill = setTimeout(function() {{
-          var e = D.getElementById('gos-loading'); if (e) e.remove();
-        }}, 12000);
+        W.__gosShowLoading = function(label) {{
+          var el = D.getElementById('gos-loading');
+          if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
+          el.innerHTML = '<div class="gos-box"><div class="gos-donut"></div><div class="gos-txt">'
+            + (label || 'Loading…') + '</div><div class="gos-bar"><div class="gos-bar-fill"></div></div></div>';
+          place(el);
+          el.style.display = 'flex';
+          clearTimeout(W.__gosLoadingKill);
+          W.__gosLoadingKill = setTimeout(function() {{ var e = D.getElementById('gos-loading'); if (e) e.remove(); }}, 15000);
+        }};
+
+        if (!W.__gosNavLoaderBound) {{
+          W.__gosNavLoaderBound = true;
+          D.addEventListener('click', function(ev) {{
+            try {{
+              var t = ev.target;
+              var btn = (t && t.closest) ? t.closest('section[data-testid="stSidebar"] .stButton button') : null;
+              if (!btn) return;
+              var raw = (btn.innerText || '').trim();
+              var low = raw.toLowerCase();
+              // Ignorar botones utilitarios (toggle, dark/light, logout, brand update, foto)
+              if (raw === '◀' || raw === '▶' || low.indexOf('dark') >= 0 || low.indexOf('light') >= 0
+                  || low.indexOf('cerrar') >= 0 || low.indexOf('brand update') >= 0
+                  || low.indexOf('foto') >= 0 || low.indexOf('quitar') >= 0) return;
+              var name = raw.replace(/^[^A-Za-z0-9À-ɏ]+/, '').trim();
+              W.__gosShowLoading('Loading ' + name + '…');
+            }} catch (e) {{}}
+          }}, true);
+          W.addEventListener('resize', function() {{
+            var el = D.getElementById('gos-loading');
+            if (el && el.style.display !== 'none') place(el);
+          }});
+        }}
       }} catch (e) {{ /* cross-origin: no se puede inyectar en el padre */ }}
     }})();
     </script>
@@ -18871,13 +18884,13 @@ def _show_loading_overlay(page_name):
 
 
 def _hide_loading_overlay():
+    """Quita el telón cuando el nuevo render ya terminó (corre al final del run)."""
     st_components.html("""
     <script>
     (function() {
       try {
         var W = window.parent, D = W.document;
         function go() { var el = D.getElementById('gos-loading'); if (el) el.remove(); clearTimeout(W.__gosLoadingKill); }
-        // 1 frame para que la página nueva pinte antes de correr el telón
         if (W.requestAnimationFrame) { W.requestAnimationFrame(function() { setTimeout(go, 40); }); }
         else { setTimeout(go, 60); }
       } catch (e) {}
@@ -18886,8 +18899,6 @@ def _hide_loading_overlay():
     """, height=0)
 
 
-# ── Router con loading dinámico: cada cambio de sección muestra el telón gris —
-# sin "pantalla pegada". El telón se ve SIEMPRE, aunque la página cargue en ms.
 _PAGE_FN = {
     "Management Dashboard":     page_management_dashboard,
     "Opportunity List":         page_opportunity_list,
@@ -18905,18 +18916,7 @@ _PAGE_FN = {
 }
 _page_fn = _PAGE_FN.get(page, page_management_dashboard)
 
-# ¿Es un cambio de página? (no en la primera carga ni en reruns dentro de la misma)
-_last_pg = st.session_state.get("_last_rendered_page")
-_is_nav = (_last_pg is not None) and (_last_pg != page)
-
-if _is_nav:
-    _show_loading_overlay(page)
-    _time.sleep(0.20)  # mínimo visible: garantiza que el telón siempre se pinte
-
-with st.spinner(f"Loading {page}…", show_time=False):
-    _page_fn()
-
-if _is_nav:
-    _hide_loading_overlay()
-
+_inject_nav_loader(DARK_MODE)   # arma el controlador de carga (una sola vez)
+_page_fn()                       # renderiza la página
+_hide_loading_overlay()          # quita el telón cuando el render terminó
 st.session_state["_last_rendered_page"] = page
