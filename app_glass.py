@@ -455,35 +455,49 @@ def _save_overlay(stage, done=False):
     else:
         card, bd, txt, sub, track, backdrop = "#FFFFFF", "#E5ECFA", "#111827", "#6B7280", "#E9F0FD", "rgba(15,23,42,0.20)"
 
-    icon = '<div class="sv-check">\u2713</div>' if done else '<div class="sv-donut"></div>'
-    bar = ('<div class="sv-bar"><div class="sv-bar-fill sv-done"></div></div>' if done
-           else '<div class="sv-bar"><div class="sv-bar-fill"></div></div>')
-    title = "Follow-up guardado" if done else "Guardando follow-up"
-    kill_ms = 1500 if done else 25000
+    if done:
+        inner = (
+            '<div class="sv-card">'
+            '<div class="sv-check">\u2713</div>'
+            '<div class="sv-title">\u00a1Follow-up guardado!</div>'
+            '<div class="sv-stage">Se subió y guardó correctamente en el archivo.</div>'
+            '<button class="sv-ok" onclick="var o=this.closest(\'#gos-saving\');'
+            'if(o){o.style.transition=\'opacity .2s\';o.style.opacity=\'0\';'
+            'setTimeout(function(){if(o&&o.parentNode)o.remove();},200);}">OK</button>'
+            '</div>'
+        )
+    else:
+        inner = (f'<div class="sv-card"><div class="sv-donut"></div>'
+                 f'<div class="sv-title">{html.escape("Guardando follow-up")}</div>'
+                 f'<div class="sv-stage">{html.escape(stage)}</div>'
+                 f'<div class="sv-bar"><div class="sv-bar-fill"></div></div></div>')
+    is_done_js = "true" if done else "false"
 
     css = f"""
       #gos-saving {{ position: fixed; inset: 0; z-index: 2147483500; display: flex; align-items: center; justify-content: center;
         background: {backdrop}; font-family: 'DM Sans', -apple-system, sans-serif; animation: sv-fade .15s ease-out; }}
-      #gos-saving .sv-card {{ background: {card}; border: 1px solid {bd}; border-radius: 14px; padding: 26px 30px 24px;
+      #gos-saving .sv-card {{ background: {card}; border: 1px solid {bd}; border-radius: 14px; padding: 28px 32px 26px;
         min-width: 300px; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 13px;
-        box-shadow: 0 20px 50px rgba(15,23,42,0.28); }}
+        box-shadow: 0 20px 50px rgba(15,23,42,0.28); animation: sv-pop .28s cubic-bezier(.34,1.56,.64,1); }}
       #gos-saving .sv-donut {{ width: 46px; height: 46px; border-radius: 50%; border: 5px solid {track};
         border-top-color: #F97316; animation: sv-spin .8s linear infinite; }}
-      #gos-saving .sv-check {{ width: 46px; height: 46px; border-radius: 50%; background: #22C55E; color: #fff;
-        font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: sv-pop .3s cubic-bezier(.34,1.56,.64,1); }}
-      #gos-saving .sv-title {{ font-size: 15px; font-weight: 800; color: {txt}; }}
+      #gos-saving .sv-check {{ width: 50px; height: 50px; border-radius: 50%; background: #22C55E; color: #fff;
+        font-size: 27px; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: sv-pop .3s cubic-bezier(.34,1.56,.64,1); }}
+      #gos-saving .sv-title {{ font-size: 16px; font-weight: 800; color: {txt}; }}
       #gos-saving .sv-stage {{ font-size: 12.5px; font-weight: 600; color: {sub}; text-align: center; min-height: 16px; }}
       #gos-saving .sv-bar {{ width: 100%; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
       #gos-saving .sv-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
         background: linear-gradient(90deg, #2563EB, #F97316); animation: sv-slide 1.1s ease-in-out infinite; }}
-      #gos-saving .sv-bar-fill.sv-done {{ width: 100%; animation: none; background: #22C55E; }}
+      #gos-saving .sv-ok {{ margin-top: 4px; background: #F97316; color: #fff; border: none; border-radius: 10px;
+        padding: 9px 34px; font-family: 'DM Sans', -apple-system, sans-serif; font-size: 13px; font-weight: 800;
+        cursor: pointer; box-shadow: 0 4px 12px rgba(249,115,22,0.30); transition: background .15s, transform .1s; }}
+      #gos-saving .sv-ok:hover {{ background: #FB923C; }}
+      #gos-saving .sv-ok:active {{ transform: translateY(1px); }}
       @keyframes sv-spin {{ to {{ transform: rotate(360deg); }} }}
       @keyframes sv-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes sv-fade {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
-      @keyframes sv-pop {{ from {{ transform: scale(.4); opacity: 0; }} to {{ transform: scale(1); opacity: 1; }} }}
+      @keyframes sv-pop {{ from {{ transform: scale(.6); opacity: 0; }} to {{ transform: scale(1); opacity: 1; }} }}
     """
-    inner = (f'<div class="sv-card">{icon}<div class="sv-title">{html.escape(title)}</div>'
-             f'<div class="sv-stage">{html.escape(stage)}</div>{bar}</div>')
     css_js = json.dumps(css)
     inner_js = json.dumps(inner)
     st_components.html(f"""
@@ -499,11 +513,20 @@ def _save_overlay(stage, done=False):
         el.innerHTML = {inner_js};
         el.style.display = 'flex'; el.style.opacity = '1';
         clearTimeout(W.__gosSavingKill);
-        W.__gosSavingKill = setTimeout(function() {{
-          var e = D.getElementById('gos-saving');
-          if (e) {{ e.style.transition = 'opacity .3s'; e.style.opacity = '0';
-                    setTimeout(function() {{ if (e && e.parentNode) e.remove(); }}, 320); }}
-        }}, {kill_ms});
+        if ({is_done_js}) {{
+          // Nota de confirmación: espera al botón OK. Click fuera de la tarjeta también cierra.
+          el.onclick = function(ev) {{
+            if (ev.target === el) {{ el.style.transition = 'opacity .2s'; el.style.opacity = '0';
+              setTimeout(function() {{ if (el && el.parentNode) el.remove(); }}, 200); }}
+          }};
+        }} else {{
+          el.onclick = null;
+          W.__gosSavingKill = setTimeout(function() {{
+            var e = D.getElementById('gos-saving');
+            if (e) {{ e.style.transition = 'opacity .3s'; e.style.opacity = '0';
+                      setTimeout(function() {{ if (e && e.parentNode) e.remove(); }}, 320); }}
+          }}, 25000);
+        }}
       }} catch (e) {{ /* cross-origin */ }}
     }})();
     </script>
