@@ -165,6 +165,38 @@ st.set_page_config(page_title="My GrowthOS", page_icon="👑", layout="wide")
 
 
 # =========================
+# LOGO G-ROCKET (SVG original, inline)
+# =========================
+# Interpretación propia del concepto G-Rocket de GrowthOS: hexágono abierto en
+# forma de "G" + cohete despegando + llama naranja. Se incrusta inline (sin
+# archivos externos). Versión color para fondos claros, blanca para fondos azules.
+def _logo_svg(size=44, g="#FFFFFF", rocket="#FFFFFF", rocket_stroke="none",
+              window="#2563EB", flame1="#F97316", flame2="#FB923C"):
+    _rs = "" if rocket_stroke == "none" else f' stroke="{rocket_stroke}" stroke-width="7"'
+    return (
+        f'<svg viewBox="0 0 512 512" width="{size}" height="{size}" '
+        f'xmlns="http://www.w3.org/2000/svg" style="display:block;">'
+        # Hexágono en forma de G (trazo grueso, abierto arriba-derecha + barra)
+        f'<path d="M 322 118 L 158 118 L 78 258 L 158 398 L 322 398 L 402 258 L 300 258" '
+        f'fill="none" stroke="{g}" stroke-width="50" stroke-linejoin="round" stroke-linecap="round"/>'
+        # Cohete (rotado 42° → despega hacia arriba-derecha)
+        f'<g transform="rotate(42 360 150)">'
+        f'<path d="M 360 66 C 389 66 405 96 405 133 L 405 179 L 315 179 L 315 133 '
+        f'C 315 96 331 66 360 66 Z" fill="{rocket}"{_rs}/>'
+        f'<path d="M 315 152 L 286 202 L 315 185 Z" fill="{rocket}"{_rs}/>'
+        f'<path d="M 405 152 L 434 202 L 405 185 Z" fill="{rocket}"{_rs}/>'
+        f'<circle cx="360" cy="121" r="19" fill="{window}"/>'
+        f'<path d="M 333 179 L 360 238 L 387 179 Z" fill="{flame1}"/>'
+        f'<path d="M 345 179 L 360 216 L 375 179 Z" fill="{flame2}"/>'
+        f'</g></svg>'
+    )
+
+
+LOGO_SVG_WHITE = _logo_svg(size=40, g="#FFFFFF", rocket="#FFFFFF", rocket_stroke="none")
+LOGO_SVG_COLOR = _logo_svg(size=64, g="#2563EB", rocket="#FFFFFF", rocket_stroke="#2563EB")
+
+
+# =========================
 # ACCESS GATE (login)
 # =========================
 # Puerta de acceso: la app NO se abre directo. Pide correo permitido + código.
@@ -257,7 +289,7 @@ def require_login():
         text-align: center;
         margin-bottom: 22px;
     }
-    .login-logo { font-size: 42px; line-height: 1; }
+    .login-logo { display: flex; justify-content: center; margin-bottom: 4px; }
     .login-title { font-size: 22px; font-weight: 800; color: #111827; margin-top: 12px; letter-spacing: -.02em; }
     .login-sub { font-size: 13px; color: #6B7280; font-weight: 600; margin-top: 4px; }
     .stTextInput label { font-weight: 600 !important; color: #111827 !important; font-size: 13px !important; }
@@ -276,9 +308,9 @@ def require_login():
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
     <div class="login-card">
-        <div class="login-logo">🚀</div>
+        <div class="login-logo">{LOGO_SVG_COLOR}</div>
         <div class="login-title">My GrowthOS</div>
         <div class="login-sub">Acceso restringido · Commercial Excellence</div>
     </div>
@@ -5567,7 +5599,7 @@ with st.sidebar:
         # Logo expanded
         st.markdown(f"""
         <div class="nav-logo-full">
-            <div class="nav-logo-icon">👑</div>
+            <div class="nav-logo-icon">{LOGO_SVG_WHITE}</div>
             <div>
                 <div class="nav-logo-text">My GrowthOS</div>
                 <div class="nav-logo-sub">Commercial Excellence</div>
@@ -5575,7 +5607,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown('<div style="text-align:center;font-size:22px;padding-bottom:10px;border-bottom:1px solid #E5ECFA;margin-bottom:8px;">📈</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="display:flex;justify-content:center;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.22);margin-bottom:8px;">{_logo_svg(size=30, g="#FFFFFF", rocket="#FFFFFF")}</div>', unsafe_allow_html=True)
 
     # Nav groups
     current_page = st.session_state["active_page"]
@@ -5621,37 +5653,30 @@ with st.sidebar:
                   on_click=_nav_set_page, args=("Brand Update",))
 
         if st.session_state.get("auth_ok"):
-            _auth_who = st.session_state.get("auth_name", "")
-            st.caption(f"👤 {_auth_who}")
-            st.button("🔒 Cerrar sesión", key="nav_logout", use_container_width=True,
-                      on_click=lambda: st.session_state.update({"auth_ok": False}))
-
-            with st.expander("🖼️ Foto de perfil"):
-                _pf_up = st.file_uploader("Subí una imagen (PNG o JPG)",
-                                          type=["png", "jpg", "jpeg"], key="pf_upload")
-                if _pf_up is not None:
-                    _pf_ext = "png" if (_pf_up.type or "").endswith("png") else "jpg"
-                    for _e in ("png", "jpg", "jpeg"):
-                        _old = f"profile_photo.{_e}"
-                        if os.path.exists(_old):
-                            try:
-                                os.remove(_old)
-                            except Exception:
-                                pass
-                    with open(f"profile_photo.{_pf_ext}", "wb") as _fh:
-                        _fh.write(_pf_up.getbuffer())
-                    st.success("Foto actualizada.")
-                    st.rerun()
-                if _profile_photo_data_uri() and st.button("Quitar foto", key="pf_remove",
-                                                           use_container_width=True):
-                    for _e in ("png", "jpg", "jpeg"):
-                        _old = f"profile_photo.{_e}"
-                        if os.path.exists(_old):
-                            try:
-                                os.remove(_old)
-                            except Exception:
-                                pass
-                    st.rerun()
+            # Logout y foto ahora viven en la pill de perfil. Acá dejamos SOLO el
+            # uploader (oculto vía CSS) para que "Cambiar foto" de la pill lo dispare.
+            st.markdown("""
+            <style>
+            section[data-testid="stSidebar"] [data-testid="stFileUploader"] {
+                position: absolute !important; width: 1px !important; height: 1px !important;
+                overflow: hidden !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            _pf_up = st.file_uploader("Foto de perfil", type=["png", "jpg", "jpeg"],
+                                      key="pf_upload", label_visibility="collapsed")
+            if _pf_up is not None:
+                _pf_ext = "png" if (_pf_up.type or "").endswith("png") else "jpg"
+                for _e in ("png", "jpg", "jpeg"):
+                    _old = f"profile_photo.{_e}"
+                    if os.path.exists(_old):
+                        try:
+                            os.remove(_old)
+                        except Exception:
+                            pass
+                with open(f"profile_photo.{_pf_ext}", "wb") as _fh:
+                    _fh.write(_pf_up.getbuffer())
+                st.rerun()
 
         # ── 🩺 Diagnóstico del sistema (onboarding auto-servicio del piloto) ──
         @st.dialog("🩺 Diagnóstico del sistema", width="large")
