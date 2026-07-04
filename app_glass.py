@@ -239,10 +239,10 @@ def require_login():
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
     * { font-family: 'DM Sans', sans-serif; }
     .stApp {
-        background: #EEF4FF !important;
+        background: #2563EB !important;
         background-image:
-            radial-gradient(ellipse 90% 80% at 12% 12%, rgba(37,99,235,0.06) 0%, transparent 60%),
-            radial-gradient(ellipse 85% 75% at 88% 82%, rgba(249,115,22,0.06) 0%, transparent 58%) !important;
+            radial-gradient(ellipse 90% 80% at 12% 12%, rgba(255,255,255,0.10) 0%, transparent 60%),
+            radial-gradient(ellipse 85% 75% at 88% 82%, rgba(249,115,22,0.14) 0%, transparent 58%) !important;
     }
     [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
     .block-container { max-width: 440px !important; padding-top: 8vh !important; }
@@ -278,7 +278,7 @@ def require_login():
 
     st.markdown("""
     <div class="login-card">
-        <div class="login-logo">👑</div>
+        <div class="login-logo">🚀</div>
         <div class="login-title">My GrowthOS</div>
         <div class="login-sub">Acceso restringido · Commercial Excellence</div>
     </div>
@@ -377,23 +377,23 @@ def _render_profile_chip(dark):
         avatar = f'<div class="pc-avatar pc-initials">{initials}</div>'
 
     if dark:
-        bg, bd, nm, rl, ic = "rgba(35,38,45,0.94)", "#343A45", "#F5F5F5", "#A1A1AA", "#A1A1AA"
+        bg, bd, nm, rl, ic, menu_bg, menu_hover = "rgba(35,38,45,0.94)", "#343A45", "#F5F5F5", "#A1A1AA", "#A1A1AA", "#23262D", "#2A2E36"
     else:
-        bg, bd, nm, rl, ic = "rgba(255,255,255,0.94)", "#E5ECFA", "#111827", "#6B7280", "#98A2B3"
+        bg, bd, nm, rl, ic, menu_bg, menu_hover = "rgba(255,255,255,0.94)", "#E5ECFA", "#111827", "#6B7280", "#98A2B3", "#FFFFFF", "#F1F5FF"
 
     css = f"""
       #gos-profile-chip {{
-        position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2147483000;
+        position: fixed; top: 8px; left: 12px; z-index: 2147483000;
         display: flex; align-items: center; gap: 10px;
-        padding: 6px 12px 6px 8px;
+        padding: 6px 10px 6px 14px;
         background: {bg};
         -webkit-backdrop-filter: blur(16px) saturate(140%);
         backdrop-filter: blur(16px) saturate(140%);
         border: 1px solid {bd}; border-radius: 999px;
         box-shadow: 0 6px 20px rgba(15,23,42,0.10);
-        font-family: 'DM Sans', -apple-system, sans-serif;
+        font-family: 'DM Sans', -apple-system, sans-serif; cursor: pointer; user-select: none;
       }}
-      #gos-profile-chip .pc-bell {{ font-size: 14px; color: {ic}; opacity: .85; }}
+      #gos-profile-chip .pc-text {{ text-align: right; line-height: 1.1; }}
       #gos-profile-chip .pc-avatar {{
         width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
         border: 2px solid {bd}; flex-shrink: 0;
@@ -403,22 +403,37 @@ def _render_profile_chip(dark):
         background: linear-gradient(135deg, #F97316, #FB923C);
         color: #fff; font-weight: 800; font-size: 13px;
       }}
-      #gos-profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm}; line-height: 1.1; }}
-      #gos-profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl}; line-height: 1.1; margin-top: 1px; }}
-      #gos-profile-chip .pc-caret {{ color: {ic}; font-size: 11px; }}
+      #gos-profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm}; }}
+      #gos-profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl}; margin-top: 1px; }}
+      #gos-profile-chip .pc-caret {{ color: {ic}; font-size: 11px; transition: transform .15s; }}
+      #gos-profile-chip.pc-open .pc-caret {{ transform: rotate(180deg); }}
+      #gos-profile-chip .pc-menu {{
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 190px;
+        background: {menu_bg}; border: 1px solid {bd}; border-radius: 12px;
+        box-shadow: 0 14px 34px rgba(15,23,42,0.20); padding: 6px; z-index: 2147483001;
+      }}
+      #gos-profile-chip .pc-mi {{
+        display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+        background: transparent; border: none; border-radius: 8px; padding: 10px 12px;
+        font-family: inherit; font-size: 13px; font-weight: 600; color: {nm}; cursor: pointer;
+      }}
+      #gos-profile-chip .pc-mi:hover {{ background: {menu_hover}; }}
       @media (max-width: 900px) {{
-        #gos-profile-chip .pc-text, #gos-profile-chip .pc-caret, #gos-profile-chip .pc-bell {{ display: none; }}
+        #gos-profile-chip .pc-text, #gos-profile-chip .pc-caret {{ display: none; }}
       }}
     """
 
     inner = f"""
-      <span class="pc-bell">🔔</span>
-      {avatar}
       <div class="pc-text">
         <div class="pc-name">{html.escape(PROFILE_NAME)}</div>
         <div class="pc-role">{html.escape(PROFILE_ROLE)}</div>
       </div>
+      {avatar}
       <span class="pc-caret">▾</span>
+      <div class="pc-menu">
+        <button class="pc-mi" data-act="photo">🖼️ Cambiar foto</button>
+        <button class="pc-mi" data-act="logout">🔒 Cerrar sesión</button>
+      </div>
     """
 
     css_js = json.dumps(css)
@@ -434,6 +449,44 @@ def _render_profile_chip(dark):
         var el = D.getElementById('gos-profile-chip');
         if (!el) {{ el = D.createElement('div'); el.id = 'gos-profile-chip'; D.body.appendChild(el); }}
         el.innerHTML = {inner_js};
+
+        // Posición: a la derecha del sidebar (esquina izquierda del contenido)
+        try {{
+          var sb = D.querySelector('section[data-testid="stSidebar"]');
+          var lft = 12;
+          if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2 && r.right < 600) lft = r.right + 12; }}
+          el.style.left = lft + 'px';
+        }} catch (e) {{}}
+
+        var menu = el.querySelector('.pc-menu');
+        el.onclick = function(ev) {{
+          var mi = ev.target.closest ? ev.target.closest('.pc-mi') : null;
+          if (mi) {{
+            ev.stopPropagation();
+            var act = mi.getAttribute('data-act');
+            menu.style.display = 'none'; el.classList.remove('pc-open');
+            if (act === 'logout') {{ W.location.reload(); }}
+            else if (act === 'photo') {{
+              var fi = D.querySelector('section[data-testid="stSidebar"] input[type=file]');
+              if (fi) {{ fi.click(); }}
+            }}
+            return;
+          }}
+          ev.stopPropagation();
+          var open = menu.style.display === 'block';
+          menu.style.display = open ? 'none' : 'block';
+          el.classList.toggle('pc-open', !open);
+        }};
+
+        if (!W.__gosChipDocBound) {{
+          W.__gosChipDocBound = true;
+          D.addEventListener('click', function() {{
+            var m = D.querySelector('#gos-profile-chip .pc-menu');
+            var c = D.getElementById('gos-profile-chip');
+            if (m) m.style.display = 'none';
+            if (c) c.classList.remove('pc-open');
+          }});
+        }}
       }} catch (e) {{ /* cross-origin: no se puede inyectar en el padre */ }}
     }})();
     </script>
@@ -5784,8 +5837,14 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{ color: rg
 /* ── BLOCK CONTAINER ── */
 .block-container {{
     max-width: 1400px;
-    padding-top: 2rem;
+    padding-top: 0.6rem;
     padding-bottom: 5rem;
+}}
+
+/* Header nativo de Streamlit más bajo → los títulos suben, pegados al techo */
+[data-testid="stHeader"] {{
+    height: 2.2rem !important;
+    background: transparent !important;
 }}
 
 /* ── VERTICAL SPACING between Streamlit elements ── */
@@ -17737,10 +17796,9 @@ def _render_followup_form(row, brand_id, name):
             success_msg = f"Follow-up guardado · próximo contacto agendado en {_days_label} ({_auto_next_date.strftime('%d/%m/%Y')})."
             if event_required:
                 success_msg += " Evento de calendario manual también añadido."
-            _save_overlay("Todo listo", done=True)
-            import time as _t_flush
-            _t_flush.sleep(0.35)  # deja pintar el check verde antes del rerun
-            st.success(success_msg)
+            # El chulo se muestra en el SIGUIENTE run (una bandera) porque el
+            # st.rerun() de acá tumbaría el componente antes de que monte.
+            st.session_state["_saved_confirm"] = True
             st.rerun()
         else:
             _hide_save_overlay()
@@ -18881,6 +18939,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 _render_profile_chip(DARK_MODE)
+
+# Chulo de "Follow-up guardado" tras un guardado exitoso (bandera del run previo).
+# Se muestra acá, en un run sin st.rerun posterior, para que monte y quede fijo
+# hasta que el usuario le dé OK. Aplica también a No Answer.
+if st.session_state.pop("_saved_confirm", False):
+    _save_overlay("", done=True)
 
 
 # =========================
