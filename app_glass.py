@@ -6342,9 +6342,15 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     align-items: center;
     box-shadow: 0 8px 24px rgba(37,99,235,0.22);
     transition: box-shadow .2s;
-    position: sticky;
-    top: 6px;
+}}
+/* #1 · Header FIJO: sticky va en el contenedor que envuelve al header (no en el
+   header mismo), porque ese contenedor sí abarca toda la altura scrolleable. */
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] .app-header),
+[data-testid="element-container"]:has(.app-header) {{
+    position: sticky !important;
+    top: 4px;
     z-index: 400;
+    background: transparent;
 }}
 .app-header:hover {{
     box-shadow: 0 12px 32px rgba(37,99,235,0.28);
@@ -11363,8 +11369,9 @@ def page_productivity_heatmap():
         </div>
         '''
 
-    if html:
-        st.markdown(html, unsafe_allow_html=True)
+    # #18 · El cuadro verde (benchmark) se renderiza AL FINAL, debajo de las
+    # gráficas. Se guarda en _benchmark_html y se pinta después del heatmap+progreso.
+    _benchmark_html = html if html else ""
 
     # ── Heatmap visual real: eje Y = semanas, eje X = palancas, color = intensidad ──
     # (Complementa la tabla numérica de arriba con una lectura visual rápida
@@ -11410,10 +11417,10 @@ def page_productivity_heatmap():
                 pct = _hm_pcts_by_col[ci][ri] if ri < len(_hm_pcts_by_col[ci]) else 0
                 cx = _HM_LABEL_W + ci * _HM_CELL_W
                 t = min(pct / 100, 1.0)
-                # Intensidad: de blanco/gris (0%) a azul oscuro (100%)
-                _r = int(241 - t * (241 - 27))
-                _g = int(242 - t * (242 - 63))
-                _b = int(245 - t * (245 - 139))
+                # Intensidad: de blanco (0%) a NARANJA (100%), base #F97316 = (249,115,22)
+                _r = int(255 - t * (255 - 249))
+                _g = int(247 - t * (247 - 115))
+                _b = int(237 - t * (237 - 22))
                 _fill = f"#{_r:02x}{_g:02x}{_b:02x}"
                 _text_color = "#FFFFFF" if t > 0.5 else "#6B7280"
                 _hm_parts.append(
@@ -11466,6 +11473,10 @@ def page_productivity_heatmap():
                 unsafe_allow_html=True,
             )
 
+    # #18 · Cuadro verde (benchmark) AL FINAL: orden heatmap → progreso → verde
+    if _benchmark_html:
+        st.markdown(f'<div style="margin-top:1.4rem;">{_benchmark_html}</div>', unsafe_allow_html=True)
+
 
 
 # =========================
@@ -11490,21 +11501,51 @@ def page_earnings_calculator():
     _prod_result_xl   = to_number(cell(raw, 2, 10)) if not raw.empty else 0
     _transport_xl     = to_number(cell(raw, 8, 2)) if not raw.empty else 0
 
+    # #17 · Persistencia real: los edits se guardan en disco (JSON) y se cargan
+    # como defaults. Streamlit descarta el estado del widget al salir de la
+    # sección; el disco lo hace durable entre secciones y recargas.
+    import json as _json_ec
+    _EC_FILE = "earnings_overrides.json"
+    _ov = {}
+    try:
+        if os.path.exists(_EC_FILE):
+            with open(_EC_FILE) as _f:
+                _ov = _json_ec.load(_f)
+    except Exception:
+        _ov = {}
+    def _ecd(k, xl):
+        try:
+            return float(_ov.get(k, xl))
+        except Exception:
+            return float(xl)
+
     with st.expander("✏️ Editar resultados del mes", expanded=False):
         ec1, ec2 = st.columns(2)
         with ec1:
-            ads_target = st.number_input("ADS Target (USD)", value=float(_ads_target_xl), step=100.0, key="ec_ads_target")
-            ads_result = st.number_input("ADS Result (USD)", value=float(_ads_result_xl), step=100.0, key="ec_ads_result")
-            md_target  = st.number_input("MD Target (%)", value=float(_md_target_xl), step=0.001, format="%.4f", key="ec_md_target")
-            md_result  = st.number_input("MD Result (%)", value=float(_md_result_xl), step=0.001, format="%.4f", key="ec_md_result")
-            mdpro_target = st.number_input("MD PRO Target (%)", value=float(_mdpro_target_xl), step=0.001, format="%.4f", key="ec_mdpro_target")
-            mdpro_result = st.number_input("MD PRO Result (%)", value=float(_mdpro_result_xl), step=0.001, format="%.4f", key="ec_mdpro_result")
+            ads_target = st.number_input("ADS Target (USD)", value=_ecd("ads_target", _ads_target_xl), step=100.0, key="ec_ads_target")
+            ads_result = st.number_input("ADS Result (USD)", value=_ecd("ads_result", _ads_result_xl), step=100.0, key="ec_ads_result")
+            md_target  = st.number_input("MD Target (%)", value=_ecd("md_target", _md_target_xl), step=0.001, format="%.4f", key="ec_md_target")
+            md_result  = st.number_input("MD Result (%)", value=_ecd("md_result", _md_result_xl), step=0.001, format="%.4f", key="ec_md_result")
+            mdpro_target = st.number_input("MD PRO Target (%)", value=_ecd("mdpro_target", _mdpro_target_xl), step=0.001, format="%.4f", key="ec_mdpro_target")
+            mdpro_result = st.number_input("MD PRO Result (%)", value=_ecd("mdpro_result", _mdpro_result_xl), step=0.001, format="%.4f", key="ec_mdpro_result")
         with ec2:
-            churn_target = st.number_input("Churn Target (tasa)", value=float(_churn_target_xl), step=0.001, format="%.4f", key="ec_churn_target")
-            churn_result = st.number_input("Churn Result (tasa)", value=float(_churn_result_xl), step=0.001, format="%.4f", key="ec_churn_result")
-            prod_target  = st.number_input("Productividad Target", value=float(_prod_target_xl), step=1.0, key="ec_prod_target")
-            prod_result  = st.number_input("Productividad Result", value=float(_prod_result_xl), step=1.0, key="ec_prod_result")
-            transport    = st.number_input("Transporte + Conexión (COP)", value=float(_transport_xl), step=1000.0, key="ec_transport")
+            churn_target = st.number_input("Churn Target (tasa)", value=_ecd("churn_target", _churn_target_xl), step=0.001, format="%.4f", key="ec_churn_target")
+            churn_result = st.number_input("Churn Result (tasa)", value=_ecd("churn_result", _churn_result_xl), step=0.001, format="%.4f", key="ec_churn_result")
+            prod_target  = st.number_input("Productividad Target", value=_ecd("prod_target", _prod_target_xl), step=1.0, key="ec_prod_target")
+            prod_result  = st.number_input("Productividad Result", value=_ecd("prod_result", _prod_result_xl), step=1.0, key="ec_prod_result")
+            transport    = st.number_input("Transporte + Conexión (COP)", value=_ecd("transport", _transport_xl), step=1000.0, key="ec_transport")
+        try:
+            with open(_EC_FILE, "w") as _f:
+                _json_ec.dump({
+                    "ads_target": ads_target, "ads_result": ads_result,
+                    "md_target": md_target, "md_result": md_result,
+                    "mdpro_target": mdpro_target, "mdpro_result": mdpro_result,
+                    "churn_target": churn_target, "churn_result": churn_result,
+                    "prod_target": prod_target, "prod_result": prod_result,
+                    "transport": transport,
+                }, _f)
+        except Exception:
+            pass
 
     ads_ach   = ads_result / ads_target if ads_target else 0
     churn_ach = churn_target / churn_result if churn_result else 0   # tasa de churn: menos es mejor
@@ -17181,15 +17222,29 @@ def _save_campaign_snapshot(period_label):
 
 
 def _brand_name_map():
+    result = {}
+    # Fuente principal: growth data
     df = load_growth_data()
     id_col = get_id_column_name(df) if not df.empty else None
-    if not id_col:
-        return {}
-    result = {}
-    for _, row in df.iterrows():
-        bid = normalize_brand_id(row.get(id_col))
-        if bid:
-            result[bid] = clean(get_from_row(row, ["name", "brand name", "restaurant name"]), "-")
+    if id_col:
+        for _, row in df.iterrows():
+            bid = normalize_brand_id(row.get(id_col))
+            if bid:
+                nm = clean(get_from_row(row, ["name", "brand name", "restaurant name"]), "")
+                if nm and nm != "-":
+                    result[bid] = nm
+    # #16 · Fallback: Asignación Junio (cubre marcas del tracker que no están en
+    # growth data — de ahí salen los brand names que faltaban en los monitores).
+    try:
+        _aj = load_asignacion_activa()
+        if not _aj.empty:
+            for _, _r in _aj.iterrows():
+                _bid = normalize_brand_id(_r.get("brand_id"))
+                _nm = clean(_r.get("brand_name"), "")
+                if _bid and _nm and _nm != "-" and _bid not in result:
+                    result[_bid] = _nm
+    except Exception:
+        pass
     return result
 
 
@@ -17796,8 +17851,29 @@ def page_brand_finder():
     _render_followup_form(row, brand_id, name)
 
 
+@st.dialog("Follow-up guardado")
+def _saved_confirm_dialog():
+    st.markdown(
+        "<div style='display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 4px;'>"
+        "<div style='width:64px;height:64px;border-radius:50%;background:#22C55E;color:#fff;"
+        "display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;'>\u2713</div>"
+        "<div style='font-size:17px;font-weight:800;color:#111827;'>\u00a1Follow-up guardado!</div>"
+        "<div style='font-size:13px;color:#6B7280;text-align:center;'>Se subió y guardó correctamente en el archivo.</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    if st.button("OK", type="primary", use_container_width=True, key="_saved_ok_btn"):
+        st.rerun()
+
+
 @st.fragment
 def _render_followup_form(row, brand_id, name):
+    # #3 · Chulo de guardado: dialog NATIVO disparado desde el propio fragmento.
+    # No depende de scope ni de inyecciones al body → aparece SIEMPRE, y queda
+    # fijo hasta que se presiona OK.
+    if st.session_state.pop("_saved_confirm", False):
+        _saved_confirm_dialog()
+
     st.markdown("<div class='form-card-static'>", unsafe_allow_html=True)
     st.markdown("<div class='wide-info-title'>Comments History</div>", unsafe_allow_html=True)
 
@@ -18312,17 +18388,12 @@ def _render_followup_form(row, brand_id, name):
             success_msg = f"Follow-up guardado · próximo contacto agendado en {_days_label} ({_auto_next_date.strftime('%d/%m/%Y')})."
             if event_required:
                 success_msg += " Evento de calendario manual también añadido."
-            # El chulo se muestra en el SIGUIENTE run (una bandera). CLAVE: como este
-            # botón vive dentro de un @st.fragment, un st.rerun() normal solo re-ejecuta
-            # el fragmento y el chequeo del chulo (a nivel de módulo) nunca corre. Con
-            # scope="app" forzamos el rerun de la app completa → el chulo sí aparece.
+            # #3 · El chulo ahora es un st.dialog NATIVO que se dispara desde el TOP
+            # del propio fragmento (ver _render_followup_form), así no depende del
+            # scope del rerun ni de inyecciones en el body (que fallaban siempre).
             st.session_state["_saved_confirm"] = True
-            try:
-                st.rerun(scope="app")
-            except TypeError:
-                st.rerun()
+            st.rerun()
         else:
-            _hide_save_overlay()
             st.warning(f"Saved with warnings. Agenda: {msg}. Follow-up: {follow_msg}. Event: {event_msg}. Commercial: {commercial_msg}. Tracker: {tracker_msg}.")
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -19460,12 +19531,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 _render_profile_chip(DARK_MODE)
-
-# Chulo de "Follow-up guardado" tras un guardado exitoso (bandera del run previo).
-# Se muestra aquí, en un run sin st.rerun posterior, para que monte y quede fijo
-# hasta que el usuario le dé OK. Aplica también a No Answer.
-if st.session_state.pop("_saved_confirm", False):
-    _save_overlay("", done=True)
 
 
 # =========================
