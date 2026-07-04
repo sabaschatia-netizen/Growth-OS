@@ -441,6 +441,90 @@ def _render_profile_chip(dark):
 
 
 # =========================
+# SAVING CARD (tarjeta compacta de guardado con pasos en vivo)
+# =========================
+# Se inyecta en el <body> (flota centrada sobre todo, con dim suave detrás).
+# Se llama con el texto del paso actual en cada etapa REAL del guardado; como
+# entre etapas hay trabajo bloqueante, el navegador pinta cada estado en vivo.
+# done=True muestra el check verde y se auto-cierra.
+
+def _save_overlay(stage, done=False):
+    dark = st.session_state.get("dark_mode", False)
+    if dark:
+        card, bd, txt, sub, track, backdrop = "#23262D", "#343A45", "#F5F5F5", "#A1A1AA", "#343A45", "rgba(0,0,0,0.50)"
+    else:
+        card, bd, txt, sub, track, backdrop = "#FFFFFF", "#E5ECFA", "#111827", "#6B7280", "#E9F0FD", "rgba(15,23,42,0.20)"
+
+    icon = '<div class="sv-check">\u2713</div>' if done else '<div class="sv-donut"></div>'
+    bar = ('<div class="sv-bar"><div class="sv-bar-fill sv-done"></div></div>' if done
+           else '<div class="sv-bar"><div class="sv-bar-fill"></div></div>')
+    title = "Follow-up guardado" if done else "Guardando follow-up"
+    kill_ms = 1500 if done else 25000
+
+    css = f"""
+      #gos-saving {{ position: fixed; inset: 0; z-index: 2147483500; display: flex; align-items: center; justify-content: center;
+        background: {backdrop}; font-family: 'DM Sans', -apple-system, sans-serif; animation: sv-fade .15s ease-out; }}
+      #gos-saving .sv-card {{ background: {card}; border: 1px solid {bd}; border-radius: 14px; padding: 26px 30px 24px;
+        min-width: 300px; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 13px;
+        box-shadow: 0 20px 50px rgba(15,23,42,0.28); }}
+      #gos-saving .sv-donut {{ width: 46px; height: 46px; border-radius: 50%; border: 5px solid {track};
+        border-top-color: #F97316; animation: sv-spin .8s linear infinite; }}
+      #gos-saving .sv-check {{ width: 46px; height: 46px; border-radius: 50%; background: #22C55E; color: #fff;
+        font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: sv-pop .3s cubic-bezier(.34,1.56,.64,1); }}
+      #gos-saving .sv-title {{ font-size: 15px; font-weight: 800; color: {txt}; }}
+      #gos-saving .sv-stage {{ font-size: 12.5px; font-weight: 600; color: {sub}; text-align: center; min-height: 16px; }}
+      #gos-saving .sv-bar {{ width: 100%; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
+      #gos-saving .sv-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
+        background: linear-gradient(90deg, #2563EB, #F97316); animation: sv-slide 1.1s ease-in-out infinite; }}
+      #gos-saving .sv-bar-fill.sv-done {{ width: 100%; animation: none; background: #22C55E; }}
+      @keyframes sv-spin {{ to {{ transform: rotate(360deg); }} }}
+      @keyframes sv-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
+      @keyframes sv-fade {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+      @keyframes sv-pop {{ from {{ transform: scale(.4); opacity: 0; }} to {{ transform: scale(1); opacity: 1; }} }}
+    """
+    inner = (f'<div class="sv-card">{icon}<div class="sv-title">{html.escape(title)}</div>'
+             f'<div class="sv-stage">{html.escape(stage)}</div>{bar}</div>')
+    css_js = json.dumps(css)
+    inner_js = json.dumps(inner)
+    st_components.html(f"""
+    <script>
+    (function() {{
+      try {{
+        var W = window.parent, D = W.document;
+        var s = D.getElementById('gos-saving-style');
+        if (!s) {{ s = D.createElement('style'); s.id = 'gos-saving-style'; D.head.appendChild(s); }}
+        s.textContent = {css_js};
+        var el = D.getElementById('gos-saving');
+        if (!el) {{ el = D.createElement('div'); el.id = 'gos-saving'; D.body.appendChild(el); }}
+        el.innerHTML = {inner_js};
+        el.style.display = 'flex'; el.style.opacity = '1';
+        clearTimeout(W.__gosSavingKill);
+        W.__gosSavingKill = setTimeout(function() {{
+          var e = D.getElementById('gos-saving');
+          if (e) {{ e.style.transition = 'opacity .3s'; e.style.opacity = '0';
+                    setTimeout(function() {{ if (e && e.parentNode) e.remove(); }}, 320); }}
+        }}, {kill_ms});
+      }} catch (e) {{ /* cross-origin */ }}
+    }})();
+    </script>
+    """, height=0)
+
+
+def _hide_save_overlay():
+    st_components.html("""
+    <script>
+    (function() {
+      try {
+        var W = window.parent, D = W.document;
+        var el = D.getElementById('gos-saving'); if (el) el.remove();
+        clearTimeout(W.__gosSavingKill);
+      } catch (e) {}
+    })();
+    </script>
+    """, height=0)
+
+
+# =========================
 # FILE HELPERS
 # =========================
 
@@ -17497,11 +17581,12 @@ def _render_followup_form(row, brand_id, name):
         # Call Detail — evita abrir el workbook completo dos veces en el mismo click. ──
         commercial_ok, commercial_msg = True, "No commercial change selected."
         tracker_ok, tracker_msg = True, "No commercial action, negotiation or rejection to track."
-        st.toast("Guardando...", icon="💾")
+        _save_overlay("Preparando el guardado\u2026")
         _wb_save = openpyxl.load_workbook(EXCEL_FILE)
 
         # ── Evaluación IA de transcripción en Call Detail (silenciosa) ─────────
         if contact_channel == "Call" and call_transcript.strip():
+            _save_overlay("Analizando la llamada con IA\u2026")
             try:
                 evaluate_and_save_call_detail(
                     transcript=call_transcript.strip(),
@@ -17520,6 +17605,7 @@ def _render_followup_form(row, brand_id, name):
             except Exception:
                 pass  # Falla silenciosa — no bloquea el guardado del follow-up
 
+        _save_overlay("Escribiendo el follow-up\u2026")
         ok, msg = _update_agenda_notes_inner(_wb_save, brand_id, final_comment, append=True)
         follow_ok, follow_msg = _update_contact_followup_fields_inner(
             _wb_save,
@@ -17531,6 +17617,7 @@ def _render_followup_form(row, brand_id, name):
 
         event_ok, event_msg = True, "No calendar event requested."
         if event_required and event_data:
+            _save_overlay("Agendando seguimiento\u2026")
             event_ok, event_msg = _add_event_to_agenda_inner(_wb_save, event_data)
 
         if opportunity_status == "Deal Closed 🏆" and commercial_action != "No commercial change":
@@ -17611,6 +17698,7 @@ def _render_followup_form(row, brand_id, name):
         except Exception:
             pass
         try:
+            _save_overlay("Confirmando cambios\u2026")
             _wb_save.save(EXCEL_FILE)
             _wb_save.close()
             load_growth_data.clear()
@@ -17626,9 +17714,13 @@ def _render_followup_form(row, brand_id, name):
             success_msg = f"Follow-up guardado · próximo contacto agendado en {_days_label} ({_auto_next_date.strftime('%d/%m/%Y')})."
             if event_required:
                 success_msg += " Evento de calendario manual también añadido."
+            _save_overlay("Todo listo", done=True)
+            import time as _t_flush
+            _t_flush.sleep(0.35)  # deja pintar el check verde antes del rerun
             st.success(success_msg)
             st.rerun()
         else:
+            _hide_save_overlay()
             st.warning(f"Saved with warnings. Agenda: {msg}. Follow-up: {follow_msg}. Event: {event_msg}. Commercial: {commercial_msg}. Tracker: {tracker_msg}.")
 
     st.markdown("</div>", unsafe_allow_html=True)
