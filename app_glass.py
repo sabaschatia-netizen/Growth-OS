@@ -18740,6 +18740,16 @@ def page_role_play_trainer():
 # =========================
 # PROFILE CHIP (esquina superior derecha)
 # =========================
+# Matar el atenuado ("stale") de Streamlit: sin esto, el título y el sidebar
+# que quedan fuera del telón se verían opacos/congelados mientras carga.
+st.markdown("""
+<style>
+[data-stale="true"],
+.stApp [data-stale="true"],
+.element-container.stale-element { opacity: 1 !important; }
+</style>
+""", unsafe_allow_html=True)
+
 _render_profile_chip(DARK_MODE)
 
 
@@ -18773,7 +18783,7 @@ def _show_loading_overlay(page_name):
         bg, track, txt = "#EEF2F8", "#DCE3EE", "#6E7787"
     css = f"""
       #gos-loading {{
-        position: fixed; inset: 0; z-index: 2147483600;
+        position: fixed; z-index: 2147483200;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 20px; background: {bg};
         font-family: 'DM Sans', -apple-system, sans-serif;
@@ -18805,6 +18815,45 @@ def _show_loading_overlay(page_name):
         if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
         el.innerHTML = {inner_js};
         el.style.display = 'flex';
+
+        // ── Posicionar SOLO sobre el área de contenido ──────────────────────
+        //  · izquierda = borde derecho del sidebar (sidebar queda visible)
+        //  · arriba    = justo debajo del título/header (el título queda visible)
+        //  · derecha/abajo = hasta el borde de la ventana
+        function place() {{
+          try {{
+            var el2 = D.getElementById('gos-loading'); if (!el2) return;
+            var left = 0, top = 110;
+            var sb = D.querySelector('section[data-testid="stSidebar"]');
+            if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2) left = r.right; }}
+            var main = D.querySelector('[data-testid="stMain"]')
+                    || D.querySelector('section.main')
+                    || D.querySelector('[data-testid="stAppViewContainer"]');
+            var block = main ? (main.querySelector('[data-testid="stMainBlockContainer"]')
+                             || main.querySelector('.block-container')) : null;
+            if (block) {{
+              var kids = block.children, found = false;
+              for (var i = 0; i < kids.length; i++) {{
+                var rr = kids[i].getBoundingClientRect();
+                if (rr.height > 24) {{ top = rr.bottom + 8; found = true; break; }}  // debajo del header
+              }}
+              if (!found) {{ top = block.getBoundingClientRect().top + 110; }}
+            }}
+            el2.style.left = left + 'px';
+            el2.style.top = Math.max(top, 56) + 'px';
+            el2.style.right = '0px';
+            el2.style.bottom = '0px';
+          }} catch (e) {{}}
+        }}
+        place();
+        W.__gosPlaceLoading = place;
+        if (!W.__gosResizeBound) {{
+          W.addEventListener('resize', function() {{
+            if (W.__gosPlaceLoading && D.getElementById('gos-loading')) W.__gosPlaceLoading();
+          }});
+          W.__gosResizeBound = true;
+        }}
+
         // Red de seguridad: si algo falla al ocultarlo, se quita solo.
         clearTimeout(W.__gosLoadingKill);
         W.__gosLoadingKill = setTimeout(function() {{
