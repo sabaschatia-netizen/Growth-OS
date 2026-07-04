@@ -826,11 +826,28 @@ def _render_profile_chip(dark):
         el.innerHTML = {inner_js};
 
         // Posición: a la derecha del sidebar (esquina izquierda del contenido)
+        function _placeChip() {{
+          try {{
+            var el2 = D.getElementById('gos-profile-chip'); if (!el2) return;
+            var sb = D.querySelector('section[data-testid="stSidebar"]');
+            var lft = 12;
+            if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2 && r.right < 700) lft = r.right + 12; }}
+            el2.style.left = lft + 'px';
+          }} catch (e) {{}}
+        }}
+        _placeChip();
+        // #10 · Reposicionar cuando el sidebar cambia de ancho (estirar/colapsar)
         try {{
-          var sb = D.querySelector('section[data-testid="stSidebar"]');
-          var lft = 12;
-          if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2 && r.right < 600) lft = r.right + 12; }}
-          el.style.left = lft + 'px';
+          if (W.__gosChipRO) W.__gosChipRO.disconnect();
+          var sbo = D.querySelector('section[data-testid="stSidebar"]');
+          if (sbo && W.ResizeObserver) {{
+            W.__gosChipRO = new W.ResizeObserver(function() {{ _placeChip(); }});
+            W.__gosChipRO.observe(sbo);
+          }}
+          if (!W.__gosChipWin) {{ W.__gosChipWin = true; W.addEventListener('resize', function() {{
+            var f = W.__gosPlaceChipFn; if (f) f();
+          }}); }}
+          W.__gosPlaceChipFn = _placeChip;
         }} catch (e) {{}}
 
         var menu = el.querySelector('.pc-menu');
@@ -5958,6 +5975,21 @@ with st.sidebar:
 
     # Nav groups
     current_page = st.session_state["active_page"]
+    _NAV_HELP = {
+        "Management Dashboard": "Para ver el pulso general del portafolio: cobertura, performance y salud de datos.",
+        "Opportunity List": "Para detectar oportunidades comerciales y cerrar el gap de revenue del mes.",
+        "Follow-Up List": "Para gestionar los seguimientos pendientes de cada marca.",
+        "Brand Finder": "Para buscar una marca y revisar toda su ficha comercial en detalle.",
+        "Pareto Hub": "Para trabajar las marcas Tier A que concentran el 80% del GMV.",
+        "Acquisition Tracker": "Para seguir la adquisición de nuevas marcas y su activación.",
+        "Campaign Weekly Tracker": "Para monitorear el desempeño semanal de las campañas.",
+        "Weekly Calendar": "Para ver la agenda de contactos y actividades de la semana.",
+        "Brand Update": "Para actualizar datos y notas de una marca.",
+        "Earnings Calculator": "Para calcular tu variable y salario según metas y resultados.",
+        "Productivity HeatMap": "Para ver tu intensidad de uso de palancas y tus récords.",
+        "Call Quality Trainer": "Para evaluar y mejorar la calidad de tus llamadas.",
+        "Role Play Trainer": "Para practicar el manejo de objeciones reales.",
+    }
     for group_label, items in NAV_GROUPS:
         if not collapsed:
             st.markdown(f'<div class="nav-section-label">{group_label}</div>', unsafe_allow_html=True)
@@ -5976,6 +6008,7 @@ with st.sidebar:
                 on_click=_nav_set_page,
                 args=(page_name,),
                 type="primary" if is_active else "secondary",
+                help=_NAV_HELP.get(page_name),
             )
 
     if not collapsed:
@@ -5992,9 +6025,6 @@ with st.sidebar:
 
         if "dark_mode" not in st.session_state:
             st.session_state["dark_mode"] = False
-        _dm_label = "🌙 Dark mode" if not st.session_state["dark_mode"] else "☀️ Light mode"
-        st.button(_dm_label, key="nav_dark_mode_toggle", use_container_width=True,
-                  on_click=_nav_toggle_dark)
 
         st.button("✏️  Brand Update", key="nav_brand_update_bottom", use_container_width=True,
                   on_click=_nav_set_page, args=("Brand Update",))
@@ -6043,8 +6073,15 @@ with st.sidebar:
                 st.markdown(f"{_icon[lvl]} **{label}** — {detail}")
 
         if st.button("🩺 Diagnóstico", key="nav_diagnostics", use_container_width=True,
-                     help="Verificá que tu Excel tenga todo lo que Growth OS necesita"):
+                     help="Verifica que tu Excel tenga todo lo que Growth OS necesita"):
             _show_diagnostics_dialog()
+
+        # #13 · Modo oscuro como ÚLTIMO control del sidebar, tipo interruptor on/off
+        _dm_new = st.toggle("🌙 Modo oscuro", value=st.session_state["dark_mode"],
+                            key="dm_switch", help="Cambia entre modo claro y oscuro")
+        if _dm_new != st.session_state["dark_mode"]:
+            st.session_state["dark_mode"] = _dm_new
+            st.rerun()
 
         st.caption(f"📁 {EXCEL_FILE}")
 
@@ -6160,35 +6197,39 @@ section[data-testid="stSidebar"] .stRadio input:checked + label {{
     font-weight: 700;
 }}
 
-/* ── SIDEBAR NAV BUTTONS — ghost blanco (inactivo) / naranja (activo) ──
-   Sidebar azul: los ítems inactivos son texto blanco sobre azul; el hover y el
-   activo son naranja (color de acción). Active page = type="primary" en Python. */
+/* ── SIDEBAR NAV BUTTONS — BLANCO siempre / hover NARANJA / activo NARANJA sostenido ── */
 section[data-testid="stSidebar"] .stButton > button {{
-    background: transparent !important;
-    color: rgba(255,255,255,0.90) !important;
-    border: 1px solid transparent !important;
+    background: #FFFFFF !important;
+    color: #111827 !important;
+    border: 1px solid #FFFFFF !important;
     border-radius: 10px !important;
-    box-shadow: none !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.10) !important;
     font-weight: 600 !important;
     justify-content: flex-start !important;
     text-align: left !important;
     padding: 8px 12px !important;
     transition: background .15s, color .15s !important;
 }}
-section[data-testid="stSidebar"] .stButton > button:hover {{
-    background: #FB923C !important;
-    color: #FFFFFF !important;
-    transform: none !important;
-    box-shadow: none !important;
-}}
-/* El label del botón vive en un <p> dentro de stMarkdownContainer, que tiene
-   más especificidad que la regla del botón → hay que pintarlo explícito. */
 section[data-testid="stSidebar"] .stButton > button p,
 section[data-testid="stSidebar"] .stButton > button span,
 section[data-testid="stSidebar"] .stButton > button div,
 section[data-testid="stSidebar"] .stButton > button [data-testid="stMarkdownContainer"] p {{
+    color: #111827 !important;
+}}
+section[data-testid="stSidebar"] .stButton > button:hover {{
+    background: #FB923C !important;
+    color: #FFFFFF !important;
+    border-color: #FB923C !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(251,146,60,0.35) !important;
+}}
+section[data-testid="stSidebar"] .stButton > button:hover p,
+section[data-testid="stSidebar"] .stButton > button:hover span,
+section[data-testid="stSidebar"] .stButton > button:hover div,
+section[data-testid="stSidebar"] .stButton > button:hover [data-testid="stMarkdownContainer"] p {{
     color: #FFFFFF !important;
 }}
+/* Activo (página en uso) = naranja sostenido */
 section[data-testid="stSidebar"] .stButton > button[kind="primary"],
 section[data-testid="stSidebar"] [data-testid="baseButton-primary"],
 section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {{
@@ -6197,6 +6238,12 @@ section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {{
     border: 1px solid #F97316 !important;
     font-weight: 700 !important;
     box-shadow: 0 4px 14px rgba(249,115,22,0.35) !important;
+}}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] p,
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] span,
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] div,
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] [data-testid="stMarkdownContainer"] p {{
+    color: #FFFFFF !important;
 }}
 section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {{
     background: #FB923C !important;
@@ -11679,31 +11726,6 @@ def page_earnings_calculator():
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("## Compiled Result")
-
-    _PERFORMANCE_TIERS = [
-        (1.0,  "LEGEND",       "#22C55E", "Top Performer, superando las metas y destacándose por su excelencia."),
-        (0.8,  "PROFESSIONAL", "#3B82F6", "Cumple con las expectativas y mantiene un rendimiento constante."),
-        (0.6,  "ROOKIE",       "#F97316", "Resultados por debajo del nivel óptimo con un potencial claro de mejora."),
-        (0.0,  "RED FLAG",     "#EF4444", "Resultados por debajo de las expectativas que necesitan atención inmediata."),
-    ]
-    _tier_name, _tier_color, _tier_desc = next(
-        (name, color, desc) for threshold, name, color, desc in _PERFORMANCE_TIERS
-        if variable_percent >= threshold
-    )
-
-    st.markdown(f"""
-<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:22px 26px;margin-bottom:16px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.05);display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-    <div style="background:{_tier_color};color:#FFFFFF;font-weight:900;font-size:13px;letter-spacing:.06em;
-        padding:8px 18px;border-radius:30px;text-transform:uppercase;">{_tier_name}</div>
-    <div style="flex:1;min-width:200px;">
-        <div style="font-size:26px;font-weight:900;color:{_tier_color};">{fmt_percent0(variable_percent)}</div>
-        <div style="font-size:12px;color:#6B7280;margin-top:2px;">{_tier_desc}</div>
-    </div>
-</div>
-    """, unsafe_allow_html=True)
-
     st.markdown("## Salary Summary")
 
     _BASE_SALARY_COP = 2_000_000
@@ -11743,6 +11765,31 @@ def page_earnings_calculator():
         Variable cap: ADS 100% / MD, MD PRO y Churn 150% · Qualifier productividad mínimo 90% ·
         Revenue Share ADS requiere MD ≥ 90%, cap {fmt_usd(2000)}/mes
     </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("## Compiled Result")
+
+    _PERFORMANCE_TIERS = [
+        (1.0,  "LEGEND",       "#22C55E", "Top Performer, superando las metas y destacándose por su excelencia."),
+        (0.8,  "PROFESSIONAL", "#3B82F6", "Cumple con las expectativas y mantiene un rendimiento constante."),
+        (0.6,  "ROOKIE",       "#F97316", "Resultados por debajo del nivel óptimo con un potencial claro de mejora."),
+        (0.0,  "RED FLAG",     "#EF4444", "Resultados por debajo de las expectativas que necesitan atención inmediata."),
+    ]
+    _tier_name, _tier_color, _tier_desc = next(
+        (name, color, desc) for threshold, name, color, desc in _PERFORMANCE_TIERS
+        if variable_percent >= threshold
+    )
+
+    st.markdown(f"""
+<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:22px 26px;margin-bottom:16px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.05);display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+    <div style="background:{_tier_color};color:#FFFFFF;font-weight:900;font-size:13px;letter-spacing:.06em;
+        padding:8px 18px;border-radius:30px;text-transform:uppercase;">{_tier_name}</div>
+    <div style="flex:1;min-width:200px;">
+        <div style="font-size:26px;font-weight:900;color:{_tier_color};">{fmt_percent0(variable_percent)}</div>
+        <div style="font-size:12px;color:#6B7280;margin-top:2px;">{_tier_desc}</div>
+    </div>
+</div>
     """, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
