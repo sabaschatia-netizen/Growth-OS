@@ -585,9 +585,11 @@ def _save_overlay(stage, done=False):
     """
     css_js = json.dumps(css)
     inner_js = json.dumps(inner)
+    nonce = uuid.uuid4().hex[:10]  # único por llamada → Streamlit no deduplica el componente
     st_components.html(f"""
     <script>
     (function() {{
+      var _gosNonce = "{nonce}";
       try {{
         var W = window.parent, D = W.document;
         var s = D.getElementById('gos-saving-style');
@@ -619,15 +621,17 @@ def _save_overlay(stage, done=False):
 
 
 def _hide_save_overlay():
-    st_components.html("""
+    nonce = uuid.uuid4().hex[:10]
+    st_components.html(f"""
     <script>
-    (function() {
-      try {
+    (function() {{
+      var _gosNonce = "{nonce}";
+      try {{
         var W = window.parent, D = W.document;
         var el = D.getElementById('gos-saving'); if (el) el.remove();
         clearTimeout(W.__gosSavingKill);
-      } catch (e) {}
-    })();
+      }} catch (e) {{}}
+    }})();
     </script>
     """, height=0)
 
@@ -16258,6 +16262,113 @@ def render_brand_profile(row, brand_id):
     with _po_c2:
         st.markdown(_wa_card, unsafe_allow_html=True)
 
+    # ══════════════════════════════════════════════════════════════════════
+    # 📋 FICHA RESUMEN — imagen rápida para aliados (compacta, tipo ficha técnica)
+    # Integra identificación · business · 360 · GMV neto · GMV/AOV 3 meses · top
+    # productos. Se AÑADE al final (no reemplaza nada). Defensiva: si falta algún
+    # dato, la ficha simplemente no se dibuja en vez de romper la página.
+    # ══════════════════════════════════════════════════════════════════════
+    try:
+        def _kv(label, value, flex=1, minw=120):
+            return (f"<div style='flex:{flex};min-width:{minw}px;'>"
+                    f"<div style='font-size:10px;font-weight:800;text-transform:uppercase;"
+                    f"letter-spacing:.05em;color:#6B7280;'>{html.escape(str(label))}</div>"
+                    f"<div style='font-size:13px;font-weight:800;color:#111827;margin-top:2px;"
+                    f"line-height:1.25;'>{html.escape(str(value))}</div></div>")
+
+        def _lev_status(d):
+            _act = bool(d.get("active", False))
+            _roi = to_number(d.get("roi"), 0)
+            return ("Activo" if _act else "Inactivo") + (f" · ROI {_roi:.1f}x" if (_act and _roi > 0) else "")
+
+        # 360: dato de arriba por área (sin Priority Signal)
+        _f360 = {"lever-ops": "—", "lever-menu": "—", "lever-md": "—", "lever-ads": "—"}
+        for _a in actions:
+            _lev = _action_area_lever_class(clean(_a.get("area"), ""))
+            if _lev in ("lever-md", "lever-ads"):
+                _f360[_lev] = _lev_status(md_current if _lev == "lever-md" else ads_current)
+            elif _lev in ("lever-ops", "lever-menu"):
+                _f360[_lev] = clean(_a.get("action"), "Following")
+
+        # Top 3 productos (sin VPD)
+        _f_prod_names = []
+        for _p in (get_definitive_top_products_for_brand(brand_id) or []):
+            _pn = clean(_p.get("name"), "-")
+            if _pn not in ("", "-"):
+                _f_prod_names.append(_pn)
+        _f_prod_names = _f_prod_names[:3]
+        while len(_f_prod_names) < 3:
+            _f_prod_names.append("—")
+
+        # Órdenes del mes (para las cajitas de los charts)
+        try:
+            _f_orders = _orders_from_caba
+        except Exception:
+            _f_orders = get_orders_from_detalle_caba(brand_id, brand_name=name)
+
+        # Charts 3 meses — solo ARS (sin USD/COP), con órdenes: lo único gráfico
+        _f_gmv_chart = _dot_line_chart_card("GMV · 3 meses", current_gmv_ars, may_gmv_ars,
+                                            abril_gmv_ars, fmt_ars, "", orders_inline=_f_orders)
+        _f_aov_chart = _dot_line_chart_card("AOV · 3 meses", current_aov_ars, may_aov_ars,
+                                            abril_aov_ars, fmt_ars, "", orders_inline=_f_orders)
+
+        _biz = (_kv("Ads", _lev_status(ads_current)) + _kv("Markdown", _lev_status(md_current))
+                + _kv("Markdown Pro", _lev_status(md_pro_current)) + _kv("Pro Users", pro_users_display)
+                + _kv("Conversion Rate", conversion_display) + _kv("Commission Rate", commission_display))
+        _act360 = (_kv("OPS general", _f360["lever-ops"]) + _kv("Menú", _f360["lever-menu"])
+                   + _kv("Markdown", _f360["lever-md"]) + _kv("Ads", _f360["lever-ads"]))
+        _prods = "".join([
+            "<div style='flex:1;min-width:80px;text-align:center;background:#F6F9FF;"
+            "border:1px solid #E5ECFA;border-radius:10px;padding:9px 6px;'>"
+            f"<div style='font-size:10px;font-weight:800;color:#2563EB;'>#{_i+1}</div>"
+            f"<div style='font-size:12px;font-weight:700;color:#111827;margin-top:3px;"
+            f"line-height:1.2;'>{html.escape(_n)}</div></div>"
+            for _i, _n in enumerate(_f_prod_names)])
+
+        _div = "<div style='border-top:1px solid #E5ECFA;margin:14px 0 12px;'></div>"
+        _sec = ("font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;"
+                "color:#2563EB;margin-bottom:8px;")
+
+        _ficha_html = (
+            "<div class='wide-info-card' style='margin-top:8px;'>"
+            "<div class='wide-info-title'>📋 Ficha resumen — lista para enviar al aliado</div>"
+            # Identificación
+            "<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px;'>"
+            f"<div style='font-size:26px;font-weight:900;color:#111827;line-height:1;'>{html.escape(name)}</div>"
+            f"<span style='font-size:13px;font-weight:800;color:#6B7280;'>{html.escape(str(brand_id))}</span></div>"
+            "<div style='display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;'>"
+            f"{_kv('LTOR Tier', ltor)}{_kv('Category', category)}"
+            "<div style='flex:2;min-width:180px;'><div style='font-size:10px;font-weight:800;"
+            "text-transform:uppercase;letter-spacing:.05em;color:#6B7280;'>Stickers</div>"
+            f"<div style='margin-top:4px;'>{sticker_html}</div></div></div>"
+            + _div +
+            f"<div style='{_sec}'>Business &amp; Portfolio</div>"
+            f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{_biz}</div>"
+            + _div +
+            f"<div style='{_sec}'>360 Action</div>"
+            f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{_act360}</div>"
+            + _div +
+            "<div style='display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;'>"
+            "<div style='flex:1;min-width:190px;background:rgba(34,197,94,0.10);"
+            "border:1px solid rgba(34,197,94,0.30);border-radius:12px;padding:13px 15px;'>"
+            "<div style='font-size:10px;font-weight:800;color:#16A34A;text-transform:uppercase;'>"
+            "GMV neto total · este mes</div>"
+            f"<div style='font-size:20px;font-weight:900;color:#111827;margin-top:4px;'>"
+            f"{fmt_ars(round(_margin_total_neto))}</div></div>"
+            "<div style='flex:2;min-width:260px;'><div style='font-size:10px;font-weight:800;"
+            "text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-bottom:6px;'>"
+            "Top productos</div>"
+            f"<div style='display:flex;gap:8px;'>{_prods}</div></div></div>"
+            + _div +
+            "<div style='display:flex;gap:16px;flex-wrap:wrap;'>"
+            f"<div style='flex:1;min-width:260px;'>{_f_gmv_chart}</div>"
+            f"<div style='flex:1;min-width:260px;'>{_f_aov_chart}</div></div>"
+            "</div>"
+        )
+        st.markdown(_ficha_html, unsafe_allow_html=True)
+    except Exception:
+        pass
+
     return name
 
 
@@ -17300,7 +17411,21 @@ def page_brand_finder():
             return
 
     row = result.iloc[0]
+
+    # ── Telón gris de carga al CAMBIAR de marca (mismo efecto que las secciones) ──
+    # El nonce en _show_loading_overlay evita la deduplicación que congelaba la ficha.
+    _bf_last = st.session_state.get("_last_brand_id")
+    _bf_changed = (_bf_last is not None) and (_bf_last != brand_id)
+    if _bf_changed:
+        _show_loading_overlay(brand_id)
+        import time as _t_bf
+        _t_bf.sleep(0.25)  # deja pintar el telón antes de construir la ficha
+
     name = render_brand_profile(row, brand_id)
+
+    if _bf_changed:
+        _hide_loading_overlay()
+    st.session_state["_last_brand_id"] = brand_id
 
     _render_followup_form(row, brand_id, name)
 
@@ -19020,9 +19145,11 @@ def _show_loading_overlay(page_name):
              + '</div><div class="gos-bar"><div class="gos-bar-fill"></div></div></div>')
     css_js = json.dumps(css)
     inner_js = json.dumps(inner)
+    nonce = uuid.uuid4().hex[:10]  # único → Streamlit no deduplica (clave para cambio de marca)
     st_components.html(f"""
     <script>
     (function() {{
+      var _gosNonce = "{nonce}";
       try {{
         var W = window.parent, D = W.document;
         var s = D.getElementById('gos-loading-style');
@@ -19065,16 +19192,18 @@ def _show_loading_overlay(page_name):
 
 def _hide_loading_overlay():
     """Quita el afiche cuando el nuevo render ya terminó."""
-    st_components.html("""
+    nonce = uuid.uuid4().hex[:10]
+    st_components.html(f"""
     <script>
-    (function() {
-      try {
+    (function() {{
+      var _gosNonce = "{nonce}";
+      try {{
         var W = window.parent, D = W.document;
-        function go() { var el = D.getElementById('gos-loading'); if (el) el.remove(); clearTimeout(W.__gosLoadingKill); }
-        if (W.requestAnimationFrame) { W.requestAnimationFrame(function() { setTimeout(go, 40); }); }
-        else { setTimeout(go, 60); }
-      } catch (e) {}
-    })();
+        function go() {{ var el = D.getElementById('gos-loading'); if (el) el.remove(); clearTimeout(W.__gosLoadingKill); }}
+        if (W.requestAnimationFrame) {{ W.requestAnimationFrame(function() {{ setTimeout(go, 40); }}); }}
+        else {{ setTimeout(go, 60); }}
+      }} catch (e) {{}}
+    }})();
     </script>
     """, height=0)
 
