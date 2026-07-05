@@ -4696,6 +4696,24 @@ def get_last_comments_map(limit=2):
 
 
 @st.cache_data(ttl=300, show_spinner=False)
+def _parse_excel_date_col(series):
+    """
+    Convierte una columna de fecha del Excel de forma robusta, sin importar
+    si llega como serial numérico de Excel o como texto "dd/mm/aaaa".
+
+    Por qué existe: pd.to_datetime sin unit/origin interpreta un serial de
+    Excel (ej. 46029.0) como nanosegundos desde 1970-01-01, mandando la
+    fecha resultante a 1970 — lo que rompe silenciosamente cualquier
+    filtro por fecha (todo queda "en el pasado" y nunca pasa el corte).
+    """
+    s = series.copy()
+    if pd.api.types.is_numeric_dtype(s):
+        # Serial de Excel: día 0 = 1899-12-30 (compat. con el bug histórico de Excel)
+        return pd.to_datetime(s, errors="coerce", unit="D", origin="1899-12-30")
+    # Texto tipo "29/06/2026" → formato día/mes/año
+    return pd.to_datetime(s, errors="coerce", dayfirst=True)
+
+
 def _load_productivity_sheet_raw(excel_path):
     """
     Loader único y cacheado de la hoja 'Productivity' completa.
@@ -4760,13 +4778,22 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
 
     df = raw.copy()
 
-    # Filter from start_date (June 1) using Date column, fall back to Week
-    if date_col:
-        df["_date_dt"] = pd.to_datetime(df[date_col], errors="coerce")
-        df = df[df["_date_dt"].notna() & (df["_date_dt"] >= pd.Timestamp(start_date))].copy()
-    elif week_col:
-        df["_week_dt"] = pd.to_datetime(df[week_col], errors="coerce")
+    # Filter from start_date (June 1) using Week column as primary source.
+    #
+    # IMPORTANTE (confirmado con Sabas sobre el archivo real): la columna
+    # "Date" (col K) NO trae la fecha real del contacto — trae un valor
+    # numérico sin formato (ej. 46029) que no corresponde a ninguna fecha
+    # reciente real. La fecha real y confiable del contacto vive en la
+    # columna "Week" (col J), como texto "dd/mm/aaaa" (ej. "29/06/2026").
+    # Por eso Week va PRIMERO como fuente de filtrado, y Date queda como
+    # fallback secundario únicamente por si algún día se corrige en origen
+    # y empieza a traer la fecha real.
+    if week_col:
+        df["_week_dt"] = _parse_excel_date_col(df[week_col])
         df = df[df["_week_dt"].notna() & (df["_week_dt"] >= pd.Timestamp(start_date))].copy()
+    elif date_col:
+        df["_date_dt"] = _parse_excel_date_col(df[date_col])
+        df = df[df["_date_dt"].notna() & (df["_date_dt"] >= pd.Timestamp(start_date))].copy()
 
     # Count No Answer: col F (Fase) == "Aliado no contactado" — ALL rows after date filter
     if fase_col and fase_col in df.columns:
@@ -4784,7 +4811,8 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
 
     total_effective = len(df_effective)
     calls = int(df_effective["_medio"].str.contains("amazon connect|amazon", case=False, na=False).sum())
-    chats = int(df_effective["_medio"].str.contains("whatsapp", case=False, na=False).sum())
+    # "Treble" es la plataforma que gestiona WhatsApp — se cuenta junto con WhatsApp (confirmado con Sabas)
+    chats = int(df_effective["_medio"].str.contains("whatsapp|treble", case=False, na=False).sum())
     meets = int(df_effective["_medio"].str.contains("videoconferencia|videoconf|video", case=False, na=False).sum())
 
     return {
@@ -9971,13 +9999,21 @@ def get_last_comment_meta_map(limit=2):
 def get_productivity_effective_rows(excel_path):
     """
     Reads the Productivity sheet and returns a DataFrame with:
-      _date_k -> datetime from column K (Date)
-      _week_j -> datetime from column J (Week)
+      _date_k -> datetime from column K (Date) — NO CONFIABLE, ver nota abajo
+      _week_j -> datetime from column J (Week) — fecha real del contacto
       _effective -> bool, True unless col F (Fase) == "Aliado no contactado"
     Used for HOY / SEMANA / MES contact counters in Follow-Up List.
     Col F (idx 5)  = Fase
     Col J (idx 9)  = Week
     Col K (idx 10) = Date
+
+    NOTA (confirmado con Sabas sobre datos reales): la columna "Date" (K)
+    no trae la fecha real del contacto — trae un valor numérico sin
+    formato que no corresponde a la fecha visible en pantalla. La fecha
+    real y confiable es "Week" (J), en texto "dd/mm/aaaa". Por eso todo
+    el filtrado por fecha debe usar _week_j, no _date_k. Se sigue
+    calculando _date_k por compatibilidad, pero no debe usarse para
+    filtrar mientras la columna Date no se corrija en origen.
     """
     if not os.path.exists(excel_path):
         return pd.DataFrame(columns=["_date_k", "_week_j", "_effective"])
@@ -10000,8 +10036,8 @@ def get_productivity_effective_rows(excel_path):
     date_col = raw.columns[10]  # K
 
     out = pd.DataFrame()
-    out["_date_k"] = pd.to_datetime(raw[date_col], errors="coerce")
-    out["_week_j"] = pd.to_datetime(raw[week_col], errors="coerce")
+    out["_date_k"] = _parse_excel_date_col(raw[date_col])
+    out["_week_j"] = _parse_excel_date_col(raw[week_col])
 
     if fase_col and fase_col in raw.columns:
         _fase = raw[fase_col].astype(str).str.strip().str.lower()
@@ -10017,7 +10053,9 @@ def get_productivity_last_contact_map(excel_path):
     """
     Reads the Productivity sheet and returns a dict:
         { normalized_brand_name -> most_recent_contact_date (pd.Timestamp) }
-    Column K (index 10) = contact date
+    Column J (index 9)  = Week — fecha real del contacto (confirmado con Sabas;
+                                  la columna "Date"/K no es confiable, ver nota
+                                  en _parse_excel_date_col / get_productivity_effective_rows)
     Column Q (index 16) = brand name
     Groups by brand name and keeps the most recent date.
     """
@@ -10032,12 +10070,12 @@ def get_productivity_last_contact_map(excel_path):
     if len(cols) < 17:
         return {}
 
-    date_col  = cols[10]   # K
+    date_col  = cols[9]    # J (Week) — fuente confiable de fecha real
     brand_col = cols[16]   # Q
 
     sub = raw[[date_col, brand_col]].copy()
     sub.columns = ["_date", "_brand"]
-    sub["_date"]  = pd.to_datetime(sub["_date"],  errors="coerce")
+    sub["_date"]  = _parse_excel_date_col(sub["_date"])
     sub["_brand"] = sub["_brand"].apply(lambda x: str(x).strip().lower() if pd.notna(x) else "")
     sub = sub[sub["_date"].notna() & (sub["_brand"] != "")]
 
@@ -10057,7 +10095,7 @@ def get_productivity_levers_for_brand(excel_path, brand_name, month=None):
     for the given brand in the current month (or specified month).
 
     Columns used:
-      K (idx 10) = Date  |  Q (idx 16) = Brand name
+      J (idx 9) = Week — fecha real del contacto  |  Q (idx 16) = Brand name
       Lever cols (binary SI/NO): Markdown, Ads, Conectividad, Catálogo,
           Cancelaciones, DR, Tiempos, Pains del aliado, Churn, On Hold
       Multi-value: Ajustes Catálogo
@@ -10082,7 +10120,7 @@ def get_productivity_levers_for_brand(excel_path, brand_name, month=None):
     if len(cols) < 17:
         return None
 
-    date_col  = cols[10]   # K = Date
+    date_col  = cols[9]    # J = Week — fecha real del contacto (ver nota en _parse_excel_date_col)
     brand_col = cols[16]   # Q = Brand name
 
     brand_key = str(brand_name).strip().lower() if brand_name else ""
@@ -10101,7 +10139,7 @@ def get_productivity_levers_for_brand(excel_path, brand_name, month=None):
         today = date.today()
         month = (today.year, today.month)
 
-    brand_rows["_date"] = pd.to_datetime(brand_rows[date_col], errors="coerce")
+    brand_rows["_date"] = _parse_excel_date_col(brand_rows[date_col])
     month_rows = brand_rows[
         (brand_rows["_date"].dt.year == month[0]) &
         (brand_rows["_date"].dt.month == month[1])
@@ -10510,8 +10548,9 @@ def page_follow_up_list():
 
     # Regla Sabas:
     #   HOY    → filas de la tabla de abajo cuyo último contacto es HOY
-    #   SEMANA → Productivity: contactos efectivos con Date (col K) en la semana actual
-    #   MES    → Productivity: contactos efectivos con Date (col K) en el mes actual
+    #   SEMANA → Productivity: contactos efectivos con Week (col J) en la semana actual
+    #   MES    → Productivity: contactos efectivos con Week (col J) en el mes actual
+    #   (col K "Date" no es confiable — ver nota en _parse_excel_date_col)
     _contacts_today = 0
     _contacts_this_week = 0
     _contacts_this_month = 0
@@ -10522,9 +10561,9 @@ def page_follow_up_list():
 
     _prod_rows = get_productivity_effective_rows(EXCEL_FILE)
     if not _prod_rows.empty:
-        _eff = _prod_rows[_prod_rows["_effective"] & _prod_rows["_date_k"].notna()].copy()
+        _eff = _prod_rows[_prod_rows["_effective"] & _prod_rows["_week_j"].notna()].copy()
         if not _eff.empty:
-            _eff_dates = _eff["_date_k"].dt.date
+            _eff_dates = _eff["_week_j"].dt.date
             _contacts_this_week  = int(_eff_dates.apply(lambda d: _week_start <= d <= _week_end).sum())
             _contacts_this_month = int(_eff_dates.apply(lambda d: d.year == _today.year and d.month == _today.month).sum())
 
