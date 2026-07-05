@@ -4698,20 +4698,53 @@ def get_last_comments_map(limit=2):
 @st.cache_data(ttl=300, show_spinner=False)
 def _parse_excel_date_col(series):
     """
-    Convierte una columna de fecha del Excel de forma robusta, sin importar
-    si llega como serial numérico de Excel o como texto "dd/mm/aaaa".
+    Convierte una columna de fecha del Excel a datetime real, corrigiendo el
+    problema de día/mes invertidos.
 
-    Por qué existe: pd.to_datetime sin unit/origin interpreta un serial de
-    Excel (ej. 46029.0) como nanosegundos desde 1970-01-01, mandando la
-    fecha resultante a 1970 — lo que rompe silenciosamente cualquier
-    filtro por fecha (todo queda "en el pasado" y nunca pasa el corte).
+    Contexto real (confirmado con Sabas): la columna "Date" de la hoja
+    Productivity tiene formato de celda m/d/yyyy (formato EE.UU.) aunque las
+    fechas fueron cargadas en formato d/m/yyyy (día primero). Resultado: una
+    fecha que en la realidad es "1 de julio" (día 1, mes 7) queda guardada
+    como datetime(2026, 1, 7) = 7 de enero. openpyxl/pandas la leen ya como
+    7 de enero, con día y mes intercambiados respecto a la fecha real.
+
+    Este parser detecta ese caso y hace el swap día<->mes para recuperar la
+    fecha verdadera. Es seguro:
+      - Si viene como serial numérico de Excel, lo convierte con el origen correcto.
+      - Si viene como texto "dd/mm/aaaa", lo parsea con dayfirst.
+      - Si viene como datetime (ya leído), aplica el swap SOLO cuando es
+        inequívoco o cuando el swap produce una fecha válida; si el día
+        original es > 12 (no puede ser mes), ya está bien y no se toca.
     """
     s = series.copy()
+
+    # Caso 1: serial numérico de Excel
     if pd.api.types.is_numeric_dtype(s):
-        # Serial de Excel: día 0 = 1899-12-30 (compat. con el bug histórico de Excel)
         return pd.to_datetime(s, errors="coerce", unit="D", origin="1899-12-30")
-    # Texto tipo "29/06/2026" → formato día/mes/año
-    return pd.to_datetime(s, errors="coerce", dayfirst=True)
+
+    # Caso 2: texto tipo "01/07/2026" → día primero
+    if s.dtype == object and not pd.api.types.is_datetime64_any_dtype(s):
+        parsed = pd.to_datetime(s, errors="coerce", dayfirst=True)
+        return parsed
+
+    # Caso 3: ya viene como datetime (openpyxl lo leyó con formato m/d/yyyy).
+    # Hay que deshacer el swap: el "mes" leído es en realidad el día, y
+    # el "día" leído es en realidad el mes.
+    s = pd.to_datetime(s, errors="coerce")
+
+    def _swap_day_month(dt):
+        if pd.isna(dt):
+            return pd.NaT
+        # Si el día leído es > 12, no puede ser un mes → la fecha ya está bien
+        if dt.day > 12:
+            return dt
+        try:
+            return pd.Timestamp(year=dt.year, month=dt.day, day=dt.month,
+                                hour=dt.hour, minute=dt.minute, second=dt.second)
+        except (ValueError, AttributeError):
+            return dt  # si el swap no es válido, dejar como está
+
+    return s.apply(_swap_day_month)
 
 
 def _load_productivity_sheet_raw(excel_path):
@@ -4756,19 +4789,17 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
 
     # Resolve columns by NAME first (most reliable), fall back to position
     # Col C (idx 2)  = Medio de Contacto
-    # Col F (idx 5)  = Fase  → "Aliado no contactado" = No Answer
-    # Col I (idx 8)  = Month
-    # Col J (idx 9)  = Week
+    # Col E (idx 4)  = ¿Contactado?  → "SI" = efectivo, "NO" = No Answer
     # Col K (idx 10) = Date
     medio_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if "medio de contacto" in c), None)
     # Fallback by position if name search failed
     if not medio_col and len(raw.columns) > 2:
         medio_col = raw.columns[2]
 
-    # Columna F (índice 5) = Fase — "Aliado no contactado" identifica No Answer
-    fase_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "fase"), None)
-    if not fase_col and len(raw.columns) > 5:
-        fase_col = raw.columns[5]
+    # Columna E = ¿Contactado? — "SI" efectivo, "NO" = No Answer (spec de Sabas)
+    contactado_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if "contactado" in c), None)
+    if not contactado_col and len(raw.columns) > 4:
+        contactado_col = raw.columns[4]
 
     date_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "date"), None)
     week_col = next((raw.columns[i] for i, c in enumerate(cols_lower) if c == "week"), None)
@@ -4778,14 +4809,8 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
 
     df = raw.copy()
 
-    # Filter from start_date (June 1) using Date column as primary source.
-    #
-    # NOTA: en un archivo de prueba anterior, la columna "Date" (col K) traía
-    # un valor numérico sin sentido (ej. 46029 sin relación a la fecha real).
-    # Confirmado con Sabas via screenshot del Excel real: Date SÍ trae la
-    # fecha correcta del contacto (ej. "1/7/2026"), mientras que Week puede
-    # quedar un día atrás (ej. "29/06/2026" en la misma fila). Date vuelve a
-    # ser la fuente primaria; Week queda como fallback si Date no existe.
+    # Filter from start_date using Date column (col K) as primary source.
+    # _parse_excel_date_col corrige el swap día/mes de esa columna.
     if date_col:
         df["_date_dt"] = _parse_excel_date_col(df[date_col])
         df = df[df["_date_dt"].notna() & (df["_date_dt"] >= pd.Timestamp(start_date))].copy()
@@ -4793,12 +4818,12 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
         df["_week_dt"] = _parse_excel_date_col(df[week_col])
         df = df[df["_week_dt"].notna() & (df["_week_dt"] >= pd.Timestamp(start_date))].copy()
 
-    # Count No Answer: col F (Fase) == "Aliado no contactado" — ALL rows after date filter
-    if fase_col and fase_col in df.columns:
-        df["_fase"] = df[fase_col].astype(str).str.strip().str.lower()
-        not_cont = int(df["_fase"].str.contains("aliado no contactado", case=False, na=False).sum())
-        # Effective rows = those NOT marked as "Aliado no contactado"
-        df_effective = df[~df["_fase"].str.contains("aliado no contactado", case=False, na=False)].copy()
+    # Separar efectivos (SI) de No Answer (NO) usando la columna ¿Contactado?
+    # (spec de Sabas: efectivo = "SI", no answer = "NO")
+    if contactado_col and contactado_col in df.columns:
+        df["_cont"] = df[contactado_col].astype(str).str.strip().str.upper()
+        not_cont = int((df["_cont"] == "NO").sum())
+        df_effective = df[df["_cont"] == "SI"].copy()
     else:
         not_cont = 0
         df_effective = df.copy()
@@ -4808,9 +4833,11 @@ def _load_productivity_contact_stats(excel_path, start_date=CONTACTS_START_DATE)
     df_effective["_medio"] = df_effective[medio_col].astype(str).str.strip().str.lower()
 
     total_effective = len(df_effective)
+    # Amazon Connect = llamadas
     calls = int(df_effective["_medio"].str.contains("amazon connect|amazon", case=False, na=False).sum())
-    # "Treble" es la plataforma que gestiona WhatsApp — se cuenta junto con WhatsApp (confirmado con Sabas)
+    # WhatsApp + Treble = chats (Treble es la plataforma que gestiona WhatsApp)
     chats = int(df_effective["_medio"].str.contains("whatsapp|treble", case=False, na=False).sum())
+    # Videoconferencia = meets
     meets = int(df_effective["_medio"].str.contains("videoconferencia|videoconf|video", case=False, na=False).sum())
 
     return {
