@@ -2092,7 +2092,15 @@ def load_detalle_caba():
 
 @st.cache_data(ttl=3000, show_spinner=False)
 def load_cvr_data():
-    """Carga CVR% → {brand_name_clean: avg_cvr_ultimas4semanas}."""
+    """Carga CVR% → {brand_name_clean: cvr_mensual}.
+
+    Formato nuevo del export (mensual, un solo valor por marca):
+        col 0 = Métrica ('CVR %') · col 1 = Brand Name · col 2 = Valor · col 3 = vs LM (%)
+    Antes se promediaban 4-5 columnas semanales; ahora Rappi entrega directamente
+    el dato mensual de la marca/store en la columna 'Valor', así que se lee tal cual.
+    Si una marca aparece más de una vez (varias stores), se conserva el valor de
+    mayor magnitud como referencia de la marca.
+    """
     if not os.path.exists(EXCEL_FILE):
         return {}
     try:
@@ -2102,26 +2110,24 @@ def load_cvr_data():
         cvr = raw[mask].copy()
         if cvr.empty:
             return {}
-        # 5 semanas disponibles; últimas 4 = cols 4,6,8,10
-        val_cols = [4, 6, 8, 10]
+        VAL_COL = 2  # columna 'Valor' — dato mensual directo
         result = {}
         for _, r in cvr.iterrows():
             brand = str(r[1]).strip().lower()
             if not brand or brand in ["nan", "brand name"]:
                 continue
-            vals = []
-            for c in val_cols:
-                try:
-                    v = float(r[c])
-                    if pd.notna(v) and v > 0:
-                        vals.append(v)
-                except (TypeError, ValueError):
-                    pass
-            if vals:
-                result[brand] = sum(vals) / len(vals)
+            try:
+                v = float(r[VAL_COL])
+            except (TypeError, ValueError):
+                continue
+            if pd.isna(v) or v <= 0:
+                continue
+            # Última escritura gana, salvo que ya haya un valor mayor guardado
+            if brand not in result or v > result[brand]:
+                result[brand] = v
         return result
     except Exception as e:
-        _log_data_issue('CVR%', e, 'El export semanal de CVR cambió de formato o no está.')
+        _log_data_issue('CVR%', e, 'El export mensual de CVR cambió de formato o no está.')
         return {}
 
 
@@ -2297,37 +2303,43 @@ def get_cvr_category_benchmark(categoria):
 
 @st.cache_data(ttl=3000, show_spinner=False)
 def load_traffic_data():
-    """Carga Traffic # -> {brand_name_clean: avg_traffic_semanal (promedio 5 semanas)}."""
+    """Carga Traffic # -> {brand_name_clean: traffic_mensual}.
+
+    Formato nuevo del export (mensual, un solo valor por marca):
+        col 0 = Métrica ('Tráfico') · col 1 = Brand Name · col 2 = Valor · col 3 = vs LM (%)
+    Antes se promediaban las columnas semanales; ahora se lee el dato mensual directo
+    de la columna 'Valor'. El texto de la métrica trae tilde ('Tráfico'); se mantiene
+    el fallback por 'fico' para tolerar variantes de export.
+    """
     if not os.path.exists(EXCEL_FILE):
         return {}
     try:
         raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name="Traffic #", header=None)
         raw.columns = list(range(len(raw.columns)))
-        mask = raw[0].astype(str).str.strip() == "Trafico"
+        _col0 = raw[0].astype(str).str.strip()
+        mask = _col0.isin(["Tráfico", "Trafico"])
         if not mask.any():
-            mask = raw[0].astype(str).str.strip().str.contains("fico", na=False)
+            mask = _col0.str.contains("fico", na=False)
         traffic = raw[mask].copy()
         if traffic.empty:
             return {}
-        val_cols = [2, 4, 6, 8, 10]
+        VAL_COL = 2  # columna 'Valor' — dato mensual directo
         result = {}
         for _, r in traffic.iterrows():
             brand = str(r[1]).strip().lower()
             if not brand or brand in ["nan", "brand name", "--"]:
                 continue
-            vals = []
-            for c in val_cols:
-                try:
-                    v = float(r[c])
-                    if pd.notna(v) and v > 0:
-                        vals.append(v)
-                except (TypeError, ValueError):
-                    pass
-            if vals:
-                result[brand] = sum(vals) / len(vals)
+            try:
+                v = float(r[VAL_COL])
+            except (TypeError, ValueError):
+                continue
+            if pd.isna(v) or v <= 0:
+                continue
+            if brand not in result or v > result[brand]:
+                result[brand] = v
         return result
     except Exception as e:
-        _log_data_issue('Traffic #', e, 'El export semanal de Traffic cambió de formato o no está.')
+        _log_data_issue('Traffic #', e, 'El export mensual de Traffic cambió de formato o no está.')
         return {}
 
 
@@ -2909,13 +2921,23 @@ def load_current_md_data(portfolio_only=False, pro=False):
 
     df = raw.copy()
 
-    # ── Positional anchors (0-based): col E = idx 4, col I = idx 8, col J = idx 9 ──
-    COL_E_IDX = 4   # MARKDOWN $ / MARKDOWN PRO USR $  → sales (USD)
-    COL_I_IDX = 8   # TOTAL GMV MD / TOTAL GMV MD PRO  → gmv (col I)
-    COL_J_IDX = 9   # ROI / ROI MD PRIME               → roi
-
-    # Normalise headers for name-based lookups (ID, orders, campaigns)
+    # Normalise headers for name-based lookups.
     df.columns = [normalize(c).replace("_", " ").strip() for c in df.columns]
+
+    # ── Column resolution by NAME (robust to layout changes) ─────────────────
+    # Rappi's export gained coinvestment columns (MD CO-INVESTMENT $/%, Coinvestment
+    # MD Prime …) that shifted every downstream column. Positional anchors (idx 4/8/9)
+    # silently read the wrong column after that shift — e.g. idx 8 became SALES MD $
+    # instead of GMV MD $. Reading by header name keeps the mapping correct even if
+    # Rappi inserts more columns next month. A positional fallback is kept only as a
+    # last resort for legacy exports without these headers.
+    def _col_by_name(candidates, fallback_idx=None):
+        col = _first_existing_col(df, candidates)
+        if col:
+            return col
+        if fallback_idx is not None and fallback_idx < len(df.columns):
+            return df.columns[fallback_idx]
+        return None
 
     id_col = _first_existing_col(df, ["brand id", "brand_id", "code", "id", "tienda id"])
     if not id_col:
@@ -2923,17 +2945,21 @@ def load_current_md_data(portfolio_only=False, pro=False):
 
     df["_id"] = df[id_col].apply(normalize_brand_id)
 
-    # ── Sales: col E (idx 4) → already USD ───────────────────────────────────
-    col_e_name = df.columns[COL_E_IDX] if COL_E_IDX < len(df.columns) else None
-    df["_sales_usd"] = _prepare_numeric_col(df, col_e_name) if col_e_name else pd.Series([0]*len(df), index=df.index)
+    # ── Sales MD (USD): revenue generated by the markdown campaign ───────────
+    # NOT 'markdown $' (that is the invested discount amount). The dashboard 'MD Sales'
+    # card means sales generated, i.e. 'sales md $' / 'sales md prime'.
+    if pro:
+        sales_col = _col_by_name(["sales md prime", "sales md pro", "sales md pro usr $", "sales md $"], fallback_idx=8)
+        gmv_col   = _col_by_name(["gmv pro usr", "gmv md pro $", "gmv md $"], fallback_idx=13)
+        roi_col   = _col_by_name(["roi md prime", "roi md pro", "roi"], fallback_idx=9)
+    else:
+        sales_col = _col_by_name(["sales md $", "sales md", "sales md usd"], fallback_idx=8)
+        gmv_col   = _col_by_name(["gmv md $", "gmv md", "total gmv md"], fallback_idx=13)
+        roi_col   = _col_by_name(["roi", "roi md"], fallback_idx=9)
 
-    # ── GMV total: col I (idx 8) → positional, always correct ───────────────
-    col_i_name = df.columns[COL_I_IDX] if COL_I_IDX < len(df.columns) else None
-    df["_gmv_usd"] = _prepare_numeric_col(df, col_i_name) if col_i_name else pd.Series([0]*len(df), index=df.index)
-
-    # ── ROI: col J (idx 9) ────────────────────────────────────────────────────
-    col_j_name = df.columns[COL_J_IDX] if COL_J_IDX < len(df.columns) else None
-    df["_roi_raw"] = _prepare_numeric_col(df, col_j_name) if col_j_name else pd.Series([0]*len(df), index=df.index)
+    df["_sales_usd"] = _prepare_numeric_col(df, sales_col) if sales_col else pd.Series([0]*len(df), index=df.index)
+    df["_gmv_usd"]   = _prepare_numeric_col(df, gmv_col)   if gmv_col   else pd.Series([0]*len(df), index=df.index)
+    df["_roi_raw"]   = _prepare_numeric_col(df, roi_col)   if roi_col   else pd.Series([0]*len(df), index=df.index)
 
     # ── campaigns, orders: name-based ────────────────────────────────────────
     if pro:
@@ -3096,21 +3122,33 @@ def get_markdown_dollar_total():
 @st.cache_data(ttl=300, show_spinner=False)
 def _read_md_roi_from_j290(pro=False):
     """
-    Reads the ROI value directly from cell J290 of Current MD or Current MD pro.
-    This is the authoritative portfolio-level ROI figure as computed by the sheet.
+    Portfolio-level MD ROI = generated sales ÷ invested markdown.
+
+    Previously this read a fixed cell (J290), which broke with the new export:
+    the sheet now has ~270 rows (no row 290) and the coinvestment columns shifted
+    the layout, so J290 returned None → ROI showed as 0. Computing it from the
+    already-normalised Current MD data (portfolio-filtered) is layout-proof and
+    matches the sheet's own ratio.
     """
-    sheet = CURRENT_MD_PRO_SHEET if pro else CURRENT_MD_SHEET
     if not os.path.exists(EXCEL_FILE):
         return 0
     try:
-        wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
-        if sheet not in wb.sheetnames:
-            # Fallback to non-pro sheet if pro not found
-            sheet = CURRENT_MD_SHEET
-        ws = wb[sheet]
-        roi_val = ws["J290"].value
-        wb.close()
-        return to_number(roi_val, 0)
+        df = load_current_md_data(portfolio_only=True, pro=pro)
+        if df.empty:
+            return 0
+        sales = pd.to_numeric(df["_sales_usd"], errors="coerce").fillna(0).sum()
+        # Invested markdown: 'markdown $' (normal) / 'markdown pro usr $' (pro)
+        inv_col = _first_existing_col(
+            df,
+            ["markdown pro usr $", "markdown pro $"] if pro else ["markdown $", "markdown"]
+        )
+        invested = pd.to_numeric(df[inv_col], errors="coerce").fillna(0).sum() if inv_col else 0
+        if invested and invested > 0:
+            return sales / invested
+        # Fallback: mean of per-brand ROI already parsed from the sheet
+        roi_series = pd.to_numeric(df.get("_roi_raw"), errors="coerce").fillna(0)
+        roi_series = roi_series[roi_series > 0]
+        return float(roi_series.mean()) if not roi_series.empty else 0
     except Exception:
         return 0
 
