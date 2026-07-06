@@ -7583,14 +7583,26 @@ def fmt_roi2(value):
 # =========================
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _read_growth_summary_values():
-    """Reads the Growth OS General KPIs block. This is the last-month/baseline reference.
-    Cacheado: esta página es la de aterrizaje del dashboard, se visita en cada
-    sesión — sin caché abría el workbook completo en cada rerun (cada click,
-    filtro o navegación de vuelta a esta página)."""
+@st.cache_data(ttl=300, show_spinner=False)
+def _read_growth_summary_values(_mtime=None):
+    """Growth OS General KPIs block.
+
+    Growth OS dejó de ser fuente de cálculo del portafolio. Ahora es un directorio
+    (nombres, correos, histórico) y solo aporta al dashboard tres cosas que todavía
+    viven acá:
+      · total_pro          → PRO Users % (donut ROW2) — se mantiene por decisión de negocio
+      · gross_bookings_*    → META/goal de la barra de ADS Gross Bookings (referencia, no data)
+      · effective_contacts  → FALLBACK de Contact Performance (la fuente real es Productivity)
+
+    El resto de celdas (gmv/aov/coverage/cr) son LEGACY: el dashboard las sobreescribe
+    con MAY GMV (baseline), Current GMV (actual), Current ADS/MD (coverage) y la hoja
+    CVR% (CR). Se siguen leyendo solo para no romper claves que otras ramas esperan,
+    pero su valor ya no se muestra. El _mtime en la firma invalida el caché al cambiar
+    el Excel (antes esta lectura no refrescaba con el archivo)."""
     wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
     ws = wb[GROWTH_SHEET]
     values = {
+        # ── LEGACY (sobrescrito aguas abajo — no se muestra) ──────────────────
         "gmv_ars": to_number(ws["AU4"].value, 0),
         "gmv_usd": to_number(ws["AU6"].value, 0),
         "gmv_cop": to_number(ws["AU8"].value, 0),
@@ -7601,13 +7613,14 @@ def _read_growth_summary_values():
         "pct_brands_ads": to_number(ws["AX4"].value, 0),
         "brands_md": to_number(ws["AW6"].value, 0),
         "pct_brands_md": to_number(ws["AX6"].value, 0),
-        "total_pro": to_number(ws["AY6"].value, 0),
-        "total_cr": to_number(ws["AX8"].value, 0),
-        "gross_bookings_ars": to_number(ws["AU10"].value, 0),
+        "total_cr": to_number(ws["AX8"].value, 0),          # legacy: ahora de hoja CVR%
+        "total_comm": to_number(ws["AY10"].value, 0),
+        # ── VIVOS (siguen saliendo de Growth OS) ──────────────────────────────
+        "total_pro": to_number(ws["AY6"].value, 0),          # PRO Users % — se mantiene
+        "gross_bookings_ars": to_number(ws["AU10"].value, 0),  # meta de la barra ADS bookings
         "gross_bookings_usd": to_number(ws["AV10"].value, 0),
         "gross_bookings_cop": to_number(ws["AW10"].value, 0),
-        "effective_contacts": to_number(ws["AX10"].value, 0),
-        "total_comm": to_number(ws["AY10"].value, 0),
+        "effective_contacts": to_number(ws["AX10"].value, 0),  # fallback de contactos
     }
     wb.close()
     return values
@@ -7681,7 +7694,7 @@ def page_management_dashboard():
     compute_summary_fallback = _compute_growth_summary_fallback
 
     try:
-        baseline_vals = read_summary_values()
+        baseline_vals = read_summary_values(_excel_mtime())
         if baseline_vals["gmv_ars"] == 0 or baseline_vals["aov_ars"] == 0 or baseline_vals["gross_bookings_ars"] == 0:
             fallback_vals = compute_summary_fallback()
             for key, value in fallback_vals.items():
@@ -17361,11 +17374,19 @@ def _current_campaign_snapshot_rows(period_label, baseline=False):
     for pro_flag, channel_name in [(False, "Markdown"), (True, "Markdown PRO")]:
         md = load_current_md_data(portfolio_only=True, pro=pro_flag)
         if not md.empty:
-            grouped = md.groupby("_id", as_index=False).agg({"_sales_usd":"sum", "_gmv_usd":"sum", "_orders":"sum", "_campaigns":"sum", "_roi_raw":"mean"})
+            _inv_col = _first_existing_col(
+                md, ["markdown pro usr $", "markdown pro $"] if pro_flag else ["markdown $", "markdown"]
+            )
+            _agg = {"_sales_usd":"sum", "_gmv_usd":"sum", "_orders":"sum", "_campaigns":"sum", "_roi_raw":"mean"}
+            if _inv_col:
+                _agg[_inv_col] = "sum"
+            grouped = md.groupby("_id", as_index=False).agg(_agg)
             for _, r in grouped.iterrows():
                 sales = to_number(r.get("_sales_usd"), 0)
                 gmv = to_number(r.get("_gmv_usd"), 0)
-                roi = (gmv / sales) if sales else to_number(r.get("_roi_raw"), 0)
+                invested = to_number(r.get(_inv_col), 0) if _inv_col else 0
+                # ROI = ventas generadas ÷ inversión en markdown (consistente con el resto del código)
+                roi = (sales / invested) if invested else to_number(r.get("_roi_raw"), 0)
                 rows.append({
                     "snapshot_datetime": ts,
                     "period": period_label,
@@ -17452,8 +17473,9 @@ def page_campaign_weekly_tracker():
     _reset_col, _capture_col = st.columns([2, 1])
     with _reset_col:
         st.caption(
-            f"Histórico reiniciado — el nuevo ciclo empieza con el primer snapshot manual. "
-            f"Capturá cada domingo después de exportar Current ADS y Current MD."
+            f"La foto del período actual se lee siempre en vivo desde Current ADS/MD/MD PRO. "
+            f"El snapshot solo congela el cierre de cada semana para el histórico — no hace falta "
+            f"capturarlo para ver datos frescos."
         )
     with _capture_col:
         if st.button("📸 Capture current week snapshot"):
@@ -17500,12 +17522,26 @@ def page_campaign_weekly_tracker():
     c3.metric("Ads Revenue (vivo)",  fmt_usd(_live_ads_revenue))
     c4.metric("MD GMV (vivo)",       fmt_usd(_live_md_gmv))
 
-    # ── Tabla Ads CPC Monitor (desde snapshots históricos) ───────────────────
-    df = _load_campaign_weekly_tracker_df()
+    # ── Tabla Ads CPC Monitor (histórico de snapshots + foto viva actual) ─────
+    # La comparativa SIEMPRE usa la foto en vivo de Current como período más reciente.
+    # Los snapshots guardados sirven de histórico (períodos cerrados); el período en
+    # curso se recalcula desde Current ADS/MD en cada carga, sin depender de que se
+    # haya capturado un snapshot manual. Si el snapshot del período actual ya existe,
+    # se descarta y se reemplaza por la foto viva (comparación igual-sobre-igual).
+    df_hist = _load_campaign_weekly_tracker_df()
+    _live_label = _campaign_period_label()
+    _live_rows = _current_campaign_snapshot_rows(_live_label)
+    df_live = pd.DataFrame(_live_rows)
+    if not df_hist.empty and "period" in df_hist.columns:
+        df_hist = df_hist[df_hist["period"].astype(str) != str(_live_label)].copy()
+    if df_live.empty and df_hist.empty:
+        df = pd.DataFrame(columns=["snapshot_datetime","period","channel","brand_id","bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"])
+    else:
+        df = pd.concat([df_hist, df_live], ignore_index=True)
     names = _brand_name_map()
     if df.empty:
         st.markdown("### Ads CPC Monitor")
-        st.info("Sin historial de snapshots todavía. Capturá el primer snapshot este domingo para empezar a ver la tabla.")
+        st.info("Sin datos de campañas activas en Current ADS/MD todavía.")
         return
     periods = _last_four_periods(df)
     work = df[df["period"].astype(str).isin(periods)].copy()
