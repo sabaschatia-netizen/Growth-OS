@@ -1970,6 +1970,77 @@ def load_current_gmv_data():
     return _load_gmv_sheet_data(CURRENT_GMV_SHEET)
 
 
+@st.cache_data(ttl=3000, show_spinner=False)
+def _read_gmv_total_row(sheet_name):
+    """Lee la fila 'Total' precalculada de MAY GMV / Current GMV.
+
+    Ambas hojas ya vienen filtradas por el portafolio del Farmer (líder + correo,
+    CABA + Rosario) y traen una fila 'Total' al final con los agregados que Rappi
+    ya calculó. Leer esa fila evita re-sumar/re-filtrar y respeta exactamente el
+    número oficial que ve el Farmer en la fuente.
+
+    MAY GMV:     Brand | GMV | GMV USD | Ordenes | AOV | AOV USD
+    Current GMV: Brand | GMV | Ordenes            (sin USD ni AOV nativos)
+
+    GMV USD y AOV USD se derivan de ARS con ARS_PER_USD para que baseline (mes
+    pasado) y actual sean comparables con el mismo tipo de cambio. El AOV ARS se
+    toma nativo si la hoja lo trae; si no, se calcula como GMV/Órdenes.
+    """
+    empty = {"gmv_ars": 0, "gmv_usd": 0, "gmv_cop": 0,
+             "aov_ars": 0, "aov_usd": 0, "aov_cop": 0, "orders": 0}
+    if not os.path.exists(EXCEL_FILE):
+        return empty
+    try:
+        df = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=sheet_name, header=0)
+    except Exception:
+        return empty
+    if df.empty:
+        return empty
+
+    df.columns = [normalize(c) for c in df.columns]
+    brand_col = _first_existing_col(df, ["brand", "brand name", "nombre", "marca"])
+    gmv_col   = _first_existing_col(df, ["gmv", "gmv ars", "gmv local"])
+    ord_col   = _first_existing_col(df, ["ordenes", "órdenes", "orders", "ordenes #"])
+    aov_col   = _first_existing_col(df, ["aov", "aov ars", "aov local"])
+    if not brand_col or not gmv_col:
+        return empty
+
+    # Fila cuyo Brand == 'Total' (fila de agregados de Rappi)
+    mask = df[brand_col].astype(str).str.strip().str.lower() == "total"
+    total_rows = df[mask]
+    if total_rows.empty:
+        return empty
+    row = total_rows.iloc[0]
+
+    gmv_ars = to_number(row.get(gmv_col), 0)
+    orders  = to_number(row.get(ord_col), 0) if ord_col else 0
+    aov_ars = to_number(row.get(aov_col), 0) if aov_col else 0
+    if aov_ars <= 0 and orders > 0:
+        aov_ars = gmv_ars / orders
+
+    gmv_usd = gmv_ars / ARS_PER_USD if ARS_PER_USD else 0
+    aov_usd = aov_ars / ARS_PER_USD if ARS_PER_USD else 0
+    return {
+        "gmv_ars": gmv_ars,
+        "gmv_usd": gmv_usd,
+        "gmv_cop": gmv_usd * COP_PER_USD,
+        "aov_ars": aov_ars,
+        "aov_usd": aov_usd,
+        "aov_cop": aov_usd * COP_PER_USD,
+        "orders":  orders,
+    }
+
+
+def get_baseline_gmv_aov_from_may():
+    """Baseline 'mes pasado' = fila Total de MAY GMV (cierre del mes anterior)."""
+    return _read_gmv_total_row(MAY_GMV_SHEET)
+
+
+def get_current_gmv_aov_from_current_sheet():
+    """Actual MTD = fila Total de Current GMV."""
+    return _read_gmv_total_row(CURRENT_GMV_SHEET)
+
+
 def load_may_gmv_data():
     return _load_gmv_sheet_data(MAY_GMV_SHEET)
 
@@ -7624,9 +7695,20 @@ def page_management_dashboard():
             st.caption(f"First attempt error: {e}")
             return
 
-    # GMV y AOV desde Detalle CABA filtrado por Asignacion Junio (fuente de verdad)
-    detalle_vals = get_portfolio_gmv_aov_from_detalle_caba()
-    current_vals = detalle_vals or get_current_gmv_totals() or {}
+    # ── GMV / AOV ─────────────────────────────────────────────────────────────
+    # Baseline "mes pasado" = fila Total de MAY GMV (cierre del mes anterior, ya
+    # filtrado por portafolio en la fuente). Reemplaza las celdas-fórmula de Growth OS,
+    # que quedaban desactualizadas y no reflejaban el cierre real.
+    may_baseline = get_baseline_gmv_aov_from_may()
+    if may_baseline.get("gmv_ars", 0) > 0:
+        for key in ["gmv_ars", "gmv_usd", "gmv_cop", "aov_ars", "aov_usd", "aov_cop"]:
+            baseline_vals[key] = may_baseline.get(key, baseline_vals.get(key, 0))
+
+    # Actual MTD = fila Total de Current GMV. Fallback a Detalle CABA / Current GMV
+    # crudo solo si la hoja no trae la fila Total (export parcial).
+    current_vals = get_current_gmv_aov_from_current_sheet()
+    if not current_vals or current_vals.get("gmv_ars", 0) == 0:
+        current_vals = get_portfolio_gmv_aov_from_detalle_caba() or get_current_gmv_totals() or {}
     vals = baseline_vals.copy()
     if current_vals:
         for key in ["gmv_ars", "gmv_usd", "gmv_cop", "aov_ars", "aov_usd", "aov_cop"]:
