@@ -3346,6 +3346,7 @@ def _parse_coinversion_value(raw):
     }
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _brand_has_active_md(brand_id):
     """True si la marca tiene una promo MD (normal o pro) realmente corriendo,
     medido por órdenes MD > 0 en Current MD / Current MD pro. Se usa para distinguir
@@ -3366,6 +3367,7 @@ def _brand_has_active_md(brand_id):
     return False
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_coinversion_group_for_brand(brand_id, name=""):
     """Resuelve el grupo de coinversión de una marca desde Priority Data.
 
@@ -13790,8 +13792,39 @@ def render_campaign_designer_html(design):
             "⚠️ Action reminder</div>"
             f"<div style='font-size:12px;color:#374151;margin-top:4px;line-height:1.5;'>"
             f"{html.escape(clean(design.get('md2_alert_text'), ''))}</div></div>")
+
+    # ── Bloque de coinversión (oferta prioritaria) DENTRO de la card MD ────────
+    # No es una card aparte: la coinversión es información que enriquece el Markdown
+    # Plan. Va arriba del ladder como oferta primaria; el % concreto lo sigue dando
+    # la lógica de salud. Solo aparece si la marca tiene grupo con coinversión.
+    _cc = design.get("coin_card", {}) or {}
+    _coin_block = ""
+    if _cc.get("has_group") and _cc.get("has_coinv"):
+        _cc_color = _cc.get("color", "#6B7280")
+        _cc_state = _cc.get("state", "none")
+        _cc_ratio = html.escape(str(_cc.get("ratio") or "-"))
+        _cc_label = html.escape(clean(_cc.get("label"), "-"))
+        _cc_icon  = _cc.get("icon", "")
+        _state_badge = {
+            "offer":  ("Oferta prioritaria", "#16A34A"),
+            "active": ("Ya activa · renegociar", "#F97316"),
+        }.get(_cc_state, ("Habilitada", "#2563EB"))
+        _coin_block = (
+            f"<div style='background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.16);"
+            f"border-left:3px solid {_cc_color};border-radius:10px;padding:10px 12px;margin-top:12px;'>"
+            f"<div style='display:flex;align-items:center;gap:7px;flex-wrap:wrap;'>"
+            f"<span style='font-size:10px;font-weight:900;color:#2563EB;text-transform:uppercase;'>🤝 Coinversión</span>"
+            f"<span style='background:{_cc_color};color:#FFF;font-size:10px;font-weight:800;"
+            f"border-radius:999px;padding:2px 9px;'>{_cc_icon} {_cc_label}</span>"
+            f"<span style='background:{_state_badge[1]};color:#FFF;font-size:9px;font-weight:800;"
+            f"border-radius:999px;padding:2px 8px;text-transform:uppercase;'>{_state_badge[0]}</span>"
+            f"<span style='font-size:13px;font-weight:900;color:#111827;'>ratio {_cc_ratio}</span></div>"
+            f"<div style='font-size:12px;color:#374151;margin-top:6px;line-height:1.5;'>"
+            f"{html.escape(clean(_cc.get('pitch'), ''))}</div></div>")
+
     md_body = (
-        f"<div style='font-size:28px;font-weight:900;color:#111827;line-height:1.1;margin-top:10px;'>"
+        f"{_coin_block}"
+        f"<div style='font-size:28px;font-weight:900;color:#111827;line-height:1.1;margin-top:14px;'>"
         f"{_d}% OFF <span style='font-size:15px;color:#22C55E;'>+ {_px}% PRO</span></div>"
         f"<div style='margin-top:10px;'>{_ladder}</div>"
         f"<div style='font-size:12px;color:#6B7280;margin-top:10px;line-height:1.5;'>"
@@ -13881,42 +13914,8 @@ def render_campaign_designer_html(design):
             "Esta marca todavía no figura en Definitive Top Products del último mes</div></div>")
     tops_card = _card.format(lever="lever-menu", label="🏅 Top 5 Products", body=tops_body)
 
-    # ══ 0. COINVERSIÓN · oferta prioritaria (primera si aplica) ═══════════════
-    _cc = design.get("coin_card", {}) or {}
-    coin_card_html = ""
-    if _cc.get("has_group"):
-        _cc_color = _cc.get("color", "#6B7280")
-        _cc_state = _cc.get("state", "none")
-        _cc_ratio = _cc.get("ratio")
-        _cc_label = html.escape(clean(_cc.get("label"), "-"))
-        _cc_icon  = _cc.get("icon", "")
-        _state_badge = {
-            "offer":  ("Oferta prioritaria", "#16A34A"),
-            "active": ("Ya activa · renegociar", "#F97316"),
-            "none":   ("Sin coinversión", "#9CA3AF"),
-        }.get(_cc_state, ("—", "#9CA3AF"))
-        if _cc.get("has_coinv"):
-            _cc_head = (f"{int(to_number(_cc.get('discount'), 20))}% OFF "
-                        f"<span style='font-size:15px;color:{_cc_color};'>· coinv {html.escape(str(_cc_ratio))}</span>")
-        else:
-            _cc_head = "Sin coinversión"
-        coin_body = (
-            f"<div style='display:flex;align-items:center;gap:8px;margin-top:10px;'>"
-            f"<span style='background:{_cc_color};color:#FFF;font-size:11px;font-weight:800;"
-            f"border-radius:999px;padding:3px 10px;'>{_cc_icon} {_cc_label}</span>"
-            f"<span style='background:{_state_badge[1]};color:#FFF;font-size:10px;font-weight:800;"
-            f"border-radius:999px;padding:3px 9px;text-transform:uppercase;'>{_state_badge[0]}</span></div>"
-            f"<div style='font-size:26px;font-weight:900;color:#111827;line-height:1.1;margin-top:12px;'>{_cc_head}</div>"
-            f"<div style='font-size:12px;color:#374151;margin-top:10px;line-height:1.6;'>"
-            f"{html.escape(clean(_cc.get('pitch'), ''))}</div>"
-            f"<div style='font-size:11px;color:rgba(107,114,128,0.65);margin-top:auto;padding-top:10px;'>"
-            f"Ratio = inversión Rappi : marca · el % concreto sigue la lógica de salud (fallback)</div>")
-        coin_card_html = _card.format(lever="lever-md", label="🤝 Coinversión · Oferta Prioritaria", body=coin_body)
-
-    # Coinversión primero (si aplica), luego salud como fallback.
-    _cards_order = f"{coin_card_html}{ads_card}{md_card}{cross_card}{tops_card}"
     grid = ("<div style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;"
-            f"margin-top:4px'>{_cards_order}</div>")
+            f"margin-top:4px'>{ads_card}{md_card}{cross_card}{tops_card}</div>")
     return ("<div class='wide-info-card campaign-designer-card'>"
             "<div class='wide-info-title'>🚀 Campaign Designer</div>"
             f"{grid}"
@@ -17928,34 +17927,9 @@ def page_campaign_weekly_tracker():
 
         ads_latest["Revenue at Risk"] = ads_latest.apply(_ads_revenue_at_risk, axis=1)
         ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Accionables","Delivery Rate","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
-    # ── ROI drop alert banner ─────────────────────────────────────────────────
-    if not ads_latest.empty and "ROI Alert" in ads_latest.columns:
-        _drop_brands = ads_latest[ads_latest["ROI Alert"].str.startswith("🔻", na=False)][["Brand", "ROI Alert"]].copy()
-        _warn_brands = ads_latest[ads_latest["ROI Alert"].str.startswith("⚠️", na=False)][["Brand", "ROI Alert"]].copy()
-        if not _drop_brands.empty:
-            # Solo texto (nombre + caída WoW). El sparkline vive en su columna de la
-            # tabla; incrustarlo acá rompía el renglón con SVG en medio del texto.
-            _drop_items = " &nbsp;·&nbsp; ".join(
-                f"<b>{html.escape(str(r['Brand']))}</b> {html.escape(str(r['ROI Alert']))}"
-                for _, r in _drop_brands.iterrows()
-            )
-            st.markdown(
-                f'<div style="background:rgba(229,51,42,0.10);border-left:4px solid #EF4444;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#EF4444;line-height:1.9;">'
-                f'🔻 <b>Caída de ROI crítica esta semana:</b> {_drop_items}</div>',
-                unsafe_allow_html=True,
-            )
-        if not _warn_brands.empty:
-            _warn_items = " &nbsp;·&nbsp; ".join(
-                f"<b>{html.escape(str(r['Brand']))}</b> {html.escape(str(r['ROI Alert']))}"
-                for _, r in _warn_brands.iterrows()
-            )
-            st.markdown(
-                f'<div style="background:rgba(249,115,22,0.10);border-left:4px solid #FB923C;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#FB923C;line-height:1.9;">'
-                f'⚠️ <b>Caída de ROI moderada:</b> {_warn_items}</div>',
-                unsafe_allow_html=True,
-            )
+    # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
+    # de marcas en un bloque de texto que parecía error de render. La misma señal ya
+    # vive por marca en la columna "ROI Alert" de la tabla de abajo.
 
     # Sort by Bookings USD descending so highest-spend brands appear first
     if not ads_view.empty and "Bookings USD" in ads_view.columns:
@@ -18381,6 +18355,21 @@ def _render_followup_form(row, brand_id, name):
         height=160,
         key=f"call_transcript_{brand_id}",
     )
+
+    # ── Gate: la parte inferior (calendario, accionable, Save) solo se despliega
+    # una vez que hay una transcripción/nota pegada. Los estados "No Answer" no
+    # requieren transcripción, así que para esos sí se muestra el flujo. Esto evita
+    # que el usuario vea el calendario y el accionable antes de pegar el resumen. ──
+    _is_no_answer_early = opportunity_status.startswith("📵") or opportunity_status.startswith("⏰") or opportunity_status.startswith("🙅")
+    _is_separator_early = opportunity_status == "── No Answer ──"
+    if not call_transcript.strip() and not _is_no_answer_early and not _is_separator_early:
+        st.markdown(
+            "<div style='background:rgba(37,99,235,0.03);border:1px dashed rgba(37,99,235,0.20);"
+            "border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:#6B7280;'>"
+            "📋 Pegá el resumen del contacto para desplegar el agendamiento y el accionable.</div>",
+            unsafe_allow_html=True,
+        )
+        return
 
     # ── Transcripción / resumen: se pega tal cual el resumen ya elaborado por
     # Claude — no hay análisis local en vivo ni auto-detección de palancas.
@@ -20126,9 +20115,9 @@ _is_nav = (_last_pg is not None) and (_last_pg != page)
 
 if _is_nav:
     _show_loading_overlay(page)   # afiche con dona + barra
-    _time.sleep(0.28)             # deja que pinte antes de construir la página
+    _time.sleep(0.12)             # breve pausa para que el overlay pinte antes de construir
 
-with st.spinner(f"Loading {page}…", show_time=False):
+with st.spinner(f"Cargando {page}…", show_time=False):
     _page_fn()
 
 if _is_nav:
