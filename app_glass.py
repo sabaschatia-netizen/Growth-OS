@@ -3270,9 +3270,137 @@ def load_seasonal_events_data():
     if df.empty:
         return pd.DataFrame()
     return df
-@st.cache_data(ttl=300, show_spinner=False)
+
+
+# =========================
+# COINVERSIÓN — nueva metodología (6 grupos con ratio)
+# =========================
+# Rappi entrega el grupo en Priority Data › columna 'Coinversion MD', fila Total de
+# cada marca, con formato "SI - N. Nombre" (el 'SI' es el flag de activación).
+# El ratio NO viene en el Excel: se mapea acá por grupo. Si Rappi cambia un ratio o
+# agrega un grupo el mes que viene, se ajusta este diccionario (los 6 quedan listos
+# aunque un mes solo lleguen algunos).
+
+COINV_GROUPS = {
+    "new hunters":      {"order": 1, "ratio": "4:1", "label": "New Hunters",      "icon": "🎯", "color": "#22C55E", "has_coinv": True},
+    "new rest":         {"order": 2, "ratio": "2:1", "label": "New Rest",         "icon": "🌱", "color": "#3B82F6", "has_coinv": True},
+    "churn":            {"order": 3, "ratio": None,  "label": "Churn (Sin Coinv.)","icon": "🚫", "color": "#9CA3AF", "has_coinv": False},
+    "churn prevention": {"order": 4, "ratio": "2:3", "label": "Churn Prevention", "icon": "🛡️", "color": "#F97316", "has_coinv": True},
+    "prioritized":      {"order": 5, "ratio": "2:1", "label": "Prioritized",      "icon": "⭐", "color": "#2563EB", "has_coinv": True},
+    "rest":             {"order": 6, "ratio": "3:1", "label": "Rest",             "icon": "📦", "color": "#6B7280", "has_coinv": True},
+}
+
+
+def _parse_coinversion_value(raw):
+    """Parsea el valor crudo de 'Coinversion MD' → dict con grupo, ratio, estado.
+
+    Formato esperado: "SI - N. Nombre" (ej. "SI - 5. Prioritized", "SI - 6. Rest").
+    El prefijo 'SI'/'NO' es el flag de activación. El texto tras el número es el grupo.
+    Devuelve siempre un dict; si no matchea ningún grupo conocido, has_group=False.
+    """
+    empty = {"has_group": False, "active_flag": False, "group_key": None,
+             "label": "-", "ratio": None, "icon": "", "color": "#9CA3AF", "has_coinv": False}
+    if raw is None:
+        return empty
+    s = str(raw).strip()
+    if not s or s.lower() in ["nan", "none", "-", ""]:
+        return empty
+
+    # Flag de activación: prefijo SI/NO antes del guion
+    active_flag = False
+    body = s
+    if "-" in s:
+        prefix, _, rest = s.partition("-")
+        pflag = norm_text(prefix)
+        if pflag in ["si", "sí"]:
+            active_flag = True
+        elif pflag in ["no"]:
+            active_flag = False
+        body = rest.strip()
+    # Quitar numeración inicial "N." o "N -"
+    body_clean = re.sub(r"^\s*\d+\s*[\.\-–]\s*", "", body).strip()
+    gkey = norm_text(body_clean)
+
+    # Match contra grupos conocidos (exacto o por contención)
+    matched = None
+    if gkey in COINV_GROUPS:
+        matched = gkey
+    else:
+        for k in COINV_GROUPS:
+            if k in gkey or gkey in k:
+                matched = k
+                break
+    if not matched:
+        return {**empty, "active_flag": active_flag, "label": body_clean or "-"}
+
+    g = COINV_GROUPS[matched]
+    return {
+        "has_group":   True,
+        "active_flag": active_flag,
+        "group_key":   matched,
+        "label":       g["label"],
+        "ratio":       g["ratio"],
+        "icon":        g["icon"],
+        "color":       g["color"],
+        "has_coinv":   g["has_coinv"],
+    }
+
+
+def _brand_has_active_md(brand_id):
+    """True si la marca tiene una promo MD (normal o pro) realmente corriendo,
+    medido por órdenes MD > 0 en Current MD / Current MD pro. Se usa para distinguir
+    coinversión 'asignada' (offer) de 'ya corriendo' (active)."""
+    target = normalize_brand_id(brand_id)
+    if not target:
+        return False
+    try:
+        for pro_flag in (False, True):
+            df = load_current_md_data(portfolio_only=False, pro=pro_flag)
+            if df.empty:
+                continue
+            hit = df[df["_id"].astype(str) == target]
+            if not hit.empty and pd.to_numeric(hit["_orders"], errors="coerce").fillna(0).sum() > 0:
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def get_coinversion_group_for_brand(brand_id, name=""):
+    """Resuelve el grupo de coinversión de una marca desde Priority Data.
+
+    Devuelve el dict de _parse_coinversion_value enriquecido con 'state', que es el
+    estado de negociación usado por el guardrail 360°:
+      · none    → sin grupo, o grupo Churn sin coinversión → no se ofrece coin
+      · offer   → grupo con coinversión habilitada pero SIN promo MD corriendo → pitch de apertura
+      · active  → grupo con coinversión Y promo MD ya corriendo → solo renegociar, nunca reofrecer
+
+    El flag 'SI' del Excel significa 'coinversión habilitada', no 'promo corriendo';
+    por eso 'active' se determina cruzando con Current MD (órdenes MD > 0), no con el
+    flag. Medido en el archivo: 181 marcas habilitadas, solo 58 con promo MD activa.
+    """
+    base = {"has_group": False, "state": "none", "label": "-", "ratio": None,
+            "icon": "", "color": "#9CA3AF", "has_coinv": False, "active_flag": False}
+    signals = get_priority_signals_for_brand(brand_id, name)
+    parsed = signals.get("coinv_parsed") if signals.get("found") else None
+    if not parsed or not parsed.get("has_group"):
+        return base
+
+    # Estado de negociación
+    if not parsed.get("has_coinv"):
+        state = "none"                       # Churn sin coinversión
+    elif _brand_has_active_md(brand_id):
+        state = "active"                     # coin habilitada + promo MD corriendo
+    else:
+        state = "offer"                      # habilitada, aún sin promo corriendo
+    return {**parsed, "state": state}
+
+
 def load_coinversion_data():
-    """Loads COINVERSION sheet. No header row — data starts at row 0."""
+    """[LEGACY] Hoja COINVERSION (20 marcas GOLDEN/HIDDEN_GEM). Obsoleta desde la
+    nueva metodología de 6 grupos: la fuente ahora es Priority Data › Coinversion MD.
+    Se conserva la función para no romper referencias externas, pero ya no alimenta
+    el sticker ni el 360°."""
     if not os.path.exists(EXCEL_FILE):
         return pd.DataFrame()
     try:
@@ -3281,9 +3409,7 @@ def load_coinversion_data():
         return pd.DataFrame()
     if df.empty:
         return pd.DataFrame()
-    # Drop fully empty rows (row 0 is blank per inspection)
     df = df.dropna(how="all").reset_index(drop=True)
-    # Assign known column positions: 0=ID, 1=Name, 2=Country, 3=Tier, 4=Status
     df.columns = ["brand_id", "brand_name", "country", "tier", "status"] + [f"extra_{i}" for i in range(max(0, len(df.columns) - 5))]
     df["_id"] = df["brand_id"].apply(normalize_brand_id)
     df["_name_norm"] = df["brand_name"].apply(lambda x: norm_text(clean(x, "")))
@@ -12733,10 +12859,22 @@ def get_priority_signals_for_brand(brand_id, name=""):
         last_contact = _format_priority_date(total_row.get(contact_col) if contact_col in total_row.index else (non_empty.iloc[0] if not non_empty.empty else None))
 
     coinversion = "No"
+    coinv_parsed = _parse_coinversion_value(None)
     if coinv_col:
-        coin_values = rows[coinv_col].dropna().astype(str).tolist()
-        if any(norm_text(v) in ["si", "sí", "yes", "true", "1"] or norm_text(v).startswith("si") for v in coin_values):
+        # El grupo vive en la fila Total (formato "SI - N. Nombre"). Se parsea desde
+        # ahí; el binario 'Sí/No' se conserva para compatibilidad con vistas viejas.
+        total_coinv_raw = total_row.get(coinv_col) if coinv_col in total_row.index else None
+        if total_coinv_raw is None or (isinstance(total_coinv_raw, float) and pd.isna(total_coinv_raw)):
+            # Fallback: primer valor no vacío entre las filas de la marca
+            _non_empty = rows[coinv_col].dropna()
+            total_coinv_raw = _non_empty.iloc[0] if not _non_empty.empty else None
+        coinv_parsed = _parse_coinversion_value(total_coinv_raw)
+        if coinv_parsed.get("has_group") or coinv_parsed.get("active_flag"):
             coinversion = "Sí"
+        else:
+            coin_values = rows[coinv_col].dropna().astype(str).tolist()
+            if any(norm_text(v) in ["si", "sí", "yes", "true", "1"] or norm_text(v).startswith("si") for v in coin_values):
+                coinversion = "Sí"
 
     promo_vencida = _count_unique_priority_promos(rows[vencida_col].tolist()) if vencida_col else 0
     promo_por_vencer = _count_unique_priority_promos(rows[vencer_col].tolist()) if vencer_col else 0
@@ -12762,6 +12900,7 @@ def get_priority_signals_for_brand(brand_id, name=""):
         "last_contact": last_contact,
         "levers": levers,
         "coinversion": coinversion,
+        "coinv_parsed": coinv_parsed,
         "promo_vencida": promo_vencida,
         "promo_por_vencer": promo_por_vencer,
     }
@@ -13444,9 +13583,23 @@ def design_campaign_for_brand(name, category, current_gmv_ars, current_aov_ars, 
     md2_penetration = (_md_gmv_ars / gmv) if gmv > 0 else 0
     md2_alert = bool(md_active and md_roi and md_roi < _MD_ROI_BENCHMARK
                      and md2_penetration < _MD_PEN_BENCHMARK)
-    md2_alert_text = (f"Active promo underperforming: ROI {md_roi:.1f}x < {_MD_ROI_BENCHMARK}x benchmark "
-                      f"and penetration {md2_penetration*100:.0f}% < 10% — renegotiate structure or product"
-                      if md2_alert else "")
+    # El guardrail refuerza el mensaje según el estado de coinversión: si ya está
+    # activa, recuerda usar el ratio para renegociar (nunca reofrecer desde cero).
+    _guard_coin = get_coinversion_group_for_brand(brand_id or "", name or "")
+    if md2_alert:
+        _base_alert = (f"Active promo underperforming: ROI {md_roi:.1f}x < {_MD_ROI_BENCHMARK}x benchmark "
+                       f"and penetration {md2_penetration*100:.0f}% < 10%")
+        if _guard_coin.get("state") == "active" and _guard_coin.get("ratio"):
+            md2_alert_text = (f"{_base_alert} — tenés coinversión {_guard_coin.get('ratio')} "
+                              f"({_guard_coin.get('label')}) para renegociar producto o % sin que la marca "
+                              f"sienta que pierde margen. No reofrecer coin: ya está activa.")
+        elif _guard_coin.get("state") == "offer" and _guard_coin.get("ratio"):
+            md2_alert_text = (f"{_base_alert} — ofrecé coinversión {_guard_coin.get('ratio')} "
+                              f"({_guard_coin.get('label')}) como palanca de apertura para mejorar la estructura.")
+        else:
+            md2_alert_text = f"{_base_alert} — renegotiate structure or product"
+    else:
+        md2_alert_text = ""
 
     # ── CARD CROSS & AOV · combo existente + alerta vs categoría ──────────
     _cat_aov = _cmap.get(normalize(str(category or "")), 0)
@@ -13459,9 +13612,41 @@ def design_campaign_for_brand(name, category, current_gmv_ars, current_aov_ars, 
 
     booking_display, booking_note = _ads_booking_display_parts(ads_current)
 
+    # ── CARD COINVERSIÓN · oferta prioritaria (va primero, salud como fallback) ──
+    # Rappi empuja activamente este presupuesto compartido, así que la coinversión
+    # se ofrece primero. Aplica solo a descuentos de alto valor (≥20%). El % concreto
+    # sigue saliendo de la MD ladder de salud; la coinversión le agrega el ratio (cuánto
+    # pone Rappi vs la marca) y el estado de negociación (offer/active/none).
+    _coin = get_coinversion_group_for_brand(brand_id or "", name or "")
+    _coin_min_discount = 20  # piso de alto valor (a confirmar 15 vs 20 con Rappi)
+    _coin_base_discount = max(md2_discount, _coin_min_discount) if _coin.get("has_coinv") else md2_discount
+    coin_card = {
+        "has_group":   _coin.get("has_group", False),
+        "has_coinv":   _coin.get("has_coinv", False),
+        "state":       _coin.get("state", "none"),
+        "label":       _coin.get("label", "-"),
+        "ratio":       _coin.get("ratio"),
+        "icon":        _coin.get("icon", ""),
+        "color":       _coin.get("color", "#6B7280"),
+        "discount":    _coin_base_discount,
+        "is_primary":  bool(_coin.get("has_coinv")),   # si hay coinv, es la oferta primaria
+    }
+    if _coin.get("state") == "offer" and _coin.get("has_coinv"):
+        coin_card["pitch"] = (
+            f"Oferta prioritaria: arrancá con {_coin_base_discount}% OFF con coinversión "
+            f"{_coin.get('ratio')} — Rappi pone parte de la inversión. Grupo {_coin.get('label')}."
+        )
+    elif _coin.get("state") == "active":
+        coin_card["pitch"] = (
+            f"Coinversión {_coin.get('ratio')} ya activa (grupo {_coin.get('label')}). "
+            f"No reofrecer: usá el ratio para renegociar producto o estructura."
+        )
+    elif _coin.get("state") == "none" and _coin.get("has_group"):
+        coin_card["pitch"] = f"Grupo {_coin.get('label')} — sin coinversión habilitada. Ir con la promo de salud."
+    else:
+        coin_card["pitch"] = ""
+
     return {
-        "following_mode": False,
-        "strategy": strategy,
         "focus": focus,
         "event": event,
         "event_type": event_type,
@@ -13510,6 +13695,8 @@ def design_campaign_for_brand(name, category, current_gmv_ars, current_aov_ars, 
         "md2_alert": md2_alert, "md2_alert_text": md2_alert_text,
         "md2_penetration": md2_penetration,
         "aov2": aov2, "aov_detalle": aov_detalle,
+        # ── Coinversión (oferta prioritaria) ──
+        "coin_card": coin_card,
     }
 
 
@@ -13694,8 +13881,42 @@ def render_campaign_designer_html(design):
             "Esta marca todavía no figura en Definitive Top Products del último mes</div></div>")
     tops_card = _card.format(lever="lever-menu", label="🏅 Top 5 Products", body=tops_body)
 
+    # ══ 0. COINVERSIÓN · oferta prioritaria (primera si aplica) ═══════════════
+    _cc = design.get("coin_card", {}) or {}
+    coin_card_html = ""
+    if _cc.get("has_group"):
+        _cc_color = _cc.get("color", "#6B7280")
+        _cc_state = _cc.get("state", "none")
+        _cc_ratio = _cc.get("ratio")
+        _cc_label = html.escape(clean(_cc.get("label"), "-"))
+        _cc_icon  = _cc.get("icon", "")
+        _state_badge = {
+            "offer":  ("Oferta prioritaria", "#16A34A"),
+            "active": ("Ya activa · renegociar", "#F97316"),
+            "none":   ("Sin coinversión", "#9CA3AF"),
+        }.get(_cc_state, ("—", "#9CA3AF"))
+        if _cc.get("has_coinv"):
+            _cc_head = (f"{int(to_number(_cc.get('discount'), 20))}% OFF "
+                        f"<span style='font-size:15px;color:{_cc_color};'>· coinv {html.escape(str(_cc_ratio))}</span>")
+        else:
+            _cc_head = "Sin coinversión"
+        coin_body = (
+            f"<div style='display:flex;align-items:center;gap:8px;margin-top:10px;'>"
+            f"<span style='background:{_cc_color};color:#FFF;font-size:11px;font-weight:800;"
+            f"border-radius:999px;padding:3px 10px;'>{_cc_icon} {_cc_label}</span>"
+            f"<span style='background:{_state_badge[1]};color:#FFF;font-size:10px;font-weight:800;"
+            f"border-radius:999px;padding:3px 9px;text-transform:uppercase;'>{_state_badge[0]}</span></div>"
+            f"<div style='font-size:26px;font-weight:900;color:#111827;line-height:1.1;margin-top:12px;'>{_cc_head}</div>"
+            f"<div style='font-size:12px;color:#374151;margin-top:10px;line-height:1.6;'>"
+            f"{html.escape(clean(_cc.get('pitch'), ''))}</div>"
+            f"<div style='font-size:11px;color:rgba(107,114,128,0.65);margin-top:auto;padding-top:10px;'>"
+            f"Ratio = inversión Rappi : marca · el % concreto sigue la lógica de salud (fallback)</div>")
+        coin_card_html = _card.format(lever="lever-md", label="🤝 Coinversión · Oferta Prioritaria", body=coin_body)
+
+    # Coinversión primero (si aplica), luego salud como fallback.
+    _cards_order = f"{coin_card_html}{ads_card}{md_card}{cross_card}{tops_card}"
     grid = ("<div style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;"
-            f"margin-top:4px'>{ads_card}{md_card}{cross_card}{tops_card}</div>")
+            f"margin-top:4px'>{_cards_order}</div>")
     return ("<div class='wide-info-card campaign-designer-card'>"
             "<div class='wide-info-title'>🚀 Campaign Designer</div>"
             f"{grid}"
@@ -15085,12 +15306,23 @@ def render_brand_profile(row, brand_id):
 
     signals_html = "".join([f"<div class='signal-pill'>{b}</div>" for b in badges[:5]]) or "<div class='signal-pill'>✅ No critical commercial signal</div>"
 
-    # Coinversion sticker
-    coin_info = get_coinversion_info(brand_id, name)
+    # Coinversion sticker — nueva metodología: muestra siempre el grupo real de la
+    # marca (New Hunters, Prioritized, Rest, etc.) con su color/ícono. Ya no es binario
+    # golden/hidden; si la marca no tiene grupo asignado, simplemente no se muestra.
+    coin_group = get_coinversion_group_for_brand(brand_id, name)
     extra_stickers_html = ""
-    if coin_info.get("found"):
-        tier_color = "linear-gradient(145deg,#2563EB,#FFFFFF)" if "GOLDEN" in (coin_info.get("tier") or "") else "linear-gradient(145deg,#22C55E,#22C55E)"
-        extra_stickers_html += f"<span class='hero-mundialista-badge' style='background:{tier_color};margin-left:8px'>{coin_info['sticker']}</span>"
+    if coin_group.get("has_group"):
+        _ratio = coin_group.get("ratio")
+        _ratio_txt = f" · {_ratio}" if _ratio else ""
+        _label = coin_group.get("label", "-")
+        _icon = coin_group.get("icon", "")
+        _color = coin_group.get("color", "#6B7280")
+        extra_stickers_html += (
+            f"<span class='hero-mundialista-badge' "
+            f"style='background:{_color};color:#FFFFFF;margin-left:8px' "
+            f"title='Grupo de coinversión: {html.escape(_label)}{html.escape(_ratio_txt)}'>"
+            f"{_icon} {html.escape(_label)}{html.escape(_ratio_txt)}</span>"
+        )
 
     # General Information fields — computed here so they can be embedded in the hero-card
     sticker_html = "".join([f"<span class='category-chip'>{html.escape(str(s))}</span>" for s in stickers]) or "<span class='category-chip'>-</span>"
@@ -17698,27 +17930,29 @@ def page_campaign_weekly_tracker():
         ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Accionables","Delivery Rate","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
     # ── ROI drop alert banner ─────────────────────────────────────────────────
     if not ads_latest.empty and "ROI Alert" in ads_latest.columns:
-        _drop_brands = ads_latest[ads_latest["ROI Alert"].str.startswith("🔻", na=False)][["Brand", "ROI Alert", "ROI Trend"]].copy()
-        _warn_brands = ads_latest[ads_latest["ROI Alert"].str.startswith("⚠️", na=False)][["Brand", "ROI Alert", "ROI Trend"]].copy()
+        _drop_brands = ads_latest[ads_latest["ROI Alert"].str.startswith("🔻", na=False)][["Brand", "ROI Alert"]].copy()
+        _warn_brands = ads_latest[ads_latest["ROI Alert"].str.startswith("⚠️", na=False)][["Brand", "ROI Alert"]].copy()
         if not _drop_brands.empty:
+            # Solo texto (nombre + caída WoW). El sparkline vive en su columna de la
+            # tabla; incrustarlo acá rompía el renglón con SVG en medio del texto.
             _drop_items = " &nbsp;·&nbsp; ".join(
-                f"<b>{r['Brand']}</b> {r['ROI Alert']} ({r['ROI Trend']})"
+                f"<b>{html.escape(str(r['Brand']))}</b> {html.escape(str(r['ROI Alert']))}"
                 for _, r in _drop_brands.iterrows()
             )
             st.markdown(
                 f'<div style="background:rgba(229,51,42,0.10);border-left:4px solid #EF4444;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#EF4444;">'
+                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#EF4444;line-height:1.9;">'
                 f'🔻 <b>Caída de ROI crítica esta semana:</b> {_drop_items}</div>',
                 unsafe_allow_html=True,
             )
         if not _warn_brands.empty:
             _warn_items = " &nbsp;·&nbsp; ".join(
-                f"<b>{r['Brand']}</b> {r['ROI Alert']} ({r['ROI Trend']})"
+                f"<b>{html.escape(str(r['Brand']))}</b> {html.escape(str(r['ROI Alert']))}"
                 for _, r in _warn_brands.iterrows()
             )
             st.markdown(
                 f'<div style="background:rgba(249,115,22,0.10);border-left:4px solid #FB923C;border-radius:0 8px 8px 0;'
-                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#FB923C;">'
+                f'padding:10px 16px;margin-bottom:10px;font-size:12px;color:#FB923C;line-height:1.9;">'
                 f'⚠️ <b>Caída de ROI moderada:</b> {_warn_items}</div>',
                 unsafe_allow_html=True,
             )
