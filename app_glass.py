@@ -758,9 +758,10 @@ def _render_profile_chip(dark):
 
     css = f"""
       #gos-profile-chip {{
-        position: fixed; top: 8px; left: 12px; z-index: 2147483000;
+        position: fixed; top: 10px; left: 14px; z-index: 2147483000;
         display: flex; align-items: center; gap: 10px;
         padding: 6px 10px 6px 14px;
+        max-width: 250px;
         background: {bg};
         -webkit-backdrop-filter: blur(16px) saturate(140%);
         backdrop-filter: blur(16px) saturate(140%);
@@ -825,14 +826,26 @@ def _render_profile_chip(dark):
         if (!el) {{ el = D.createElement('div'); el.id = 'gos-profile-chip'; D.body.appendChild(el); }}
         el.innerHTML = {inner_js};
 
-        // Posición: a la derecha del sidebar (esquina izquierda del contenido)
+        // Posición: DENTRO del sidebar (esquina superior izquierda), no sobre el
+        // contenido — así el header de cada página no necesita reservar espacio
+        // para no chocar con el chip, y puede quedar pegado arriba del todo.
         function _placeChip() {{
           try {{
             var el2 = D.getElementById('gos-profile-chip'); if (!el2) return;
             var sb = D.querySelector('section[data-testid="stSidebar"]');
-            var lft = 12;
-            if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2 && r.right < 700) lft = r.right + 12; }}
-            el2.style.left = lft + 'px';
+            if (sb) {{
+              var r = sb.getBoundingClientRect();
+              if (r.width > 2) {{
+                el2.style.left = (r.left + 12) + 'px';
+                el2.style.maxWidth = Math.max(r.width - 24, 120) + 'px';
+                el2.style.display = 'flex';
+              }} else {{
+                el2.style.display = 'none';  // sidebar colapsado: ocultar el chip
+              }}
+            }} else {{
+              el2.style.left = '12px';
+            }}
+            el2.style.top = '10px';
           }} catch (e) {{}}
         }}
         _placeChip();
@@ -7033,7 +7046,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     border: none;
     border-radius: 12px;
     padding: 20px 32px;
-    margin-top: 46px;
+    margin-top: 8px;
     margin-bottom: 22px;
     display: flex;
     justify-content: space-between;
@@ -7054,7 +7067,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
    así el fondo del header no se estira hacia arriba tapando contenido. */
 [data-testid="stElementContainer"]:has(> .app-header) {{
     position: sticky !important;
-    top: 46px !important;
+    top: 8px !important;
     z-index: 500 !important;
     background: #EEF4FF !important;
     margin-bottom: 8px !important;
