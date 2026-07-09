@@ -2344,7 +2344,11 @@ def get_cvr_for_brand(brand_name, cr_fallback=None):
 
 
 def get_cvr_category_benchmark(categoria):
-    """CVR promedio de marcas de la misma categoría cruzando Detalle CABA × CVR%."""
+    """CVR promedio de marcas de la misma categoría cruzando Detalle CABA × CVR%.
+
+    Cruce por nombre normalizado en ambos lados para maximizar el match y evitar
+    's/d' espurios por diferencias de formato de nombre.
+    """
     try:
         detalle = load_detalle_caba()
         cvr_map = load_cvr_data()
@@ -2354,17 +2358,19 @@ def get_cvr_category_benchmark(categoria):
         brand_col = next((c for c in detalle.columns if "brand" in c), None)
         if not cat_col or not brand_col:
             return None
+        cvr_norm = {normalize(k): v for k, v in cvr_map.items()}
         cat_norm = normalize(categoria)
         sub = detalle[detalle[cat_col].apply(lambda v: cat_norm in normalize(str(v)))]
         if sub.empty:
             return None
         bench_vals = []
         for brand_raw in sub[brand_col].unique():
-            bkey = str(brand_raw).strip().lower()
+            bkey = str(brand_raw).strip()
             if " - " in bkey:
                 bkey = bkey.split(" - ", 1)[1].strip()
-            if bkey in cvr_map:
-                bench_vals.append(cvr_map[bkey])
+            bkey_n = normalize(bkey)
+            if bkey_n in cvr_norm:
+                bench_vals.append(cvr_norm[bkey_n])
         if not bench_vals:
             return None
         return sum(bench_vals) / len(bench_vals)
@@ -2422,7 +2428,12 @@ def get_traffic_for_brand(brand_name):
 
 
 def get_traffic_category_benchmark(categoria):
-    """Traffic semanal promedio de marcas de la misma categoria (Detalle CABA x Traffic #)."""
+    """Traffic mensual promedio de marcas de la misma categoria (Detalle CABA x Traffic #).
+
+    El cruce Detalle CABA → Traffic # se hace por nombre de marca. Se normaliza en ambos
+    lados (colapsando espacios, quitando el prefijo 'ID - ') para maximizar el match y
+    evitar 's/d' espurios por diferencias de formato.
+    """
     try:
         detalle = load_detalle_caba()
         traffic_map = load_traffic_data()
@@ -2432,17 +2443,20 @@ def get_traffic_category_benchmark(categoria):
         brand_col = next((c for c in detalle.columns if "brand" in c), None)
         if not cat_col or not brand_col:
             return None
+        # Map normalizado del traffic para un match tolerante a espacios/mayúsculas
+        traffic_norm = {normalize(k): v for k, v in traffic_map.items()}
         cat_norm = normalize(categoria)
         sub = detalle[detalle[cat_col].apply(lambda v: cat_norm in normalize(str(v)))]
         if sub.empty:
             return None
         bench_vals = []
         for brand_raw in sub[brand_col].unique():
-            bkey = str(brand_raw).strip().lower()
+            bkey = str(brand_raw).strip()
             if " - " in bkey:
                 bkey = bkey.split(" - ", 1)[1].strip()
-            if bkey in traffic_map:
-                bench_vals.append(traffic_map[bkey])
+            bkey_n = normalize(bkey)
+            if bkey_n in traffic_norm:
+                bench_vals.append(traffic_norm[bkey_n])
         if not bench_vals:
             return None
         return sum(bench_vals) / len(bench_vals)
@@ -11906,6 +11920,10 @@ def page_earnings_calculator():
     # #17 · Persistencia real: los edits se guardan en disco (JSON) y se cargan
     # como defaults. Streamlit descarta el estado del widget al salir de la
     # sección; el disco lo hace durable entre secciones y recargas.
+    # FIX: el override guardaba el valor manual y lo priorizaba SIEMPRE sobre el Excel,
+    # incluso después de subir un Excel nuevo — por eso Opportunity List mostraba targets
+    # viejos. Ahora se guarda el mtime del Excel con el que se hizo el override; si el
+    # Excel es más nuevo, manda el Excel (el override quedó obsoleto y se descarta).
     import json as _json_ec
     _EC_FILE = "earnings_overrides.json"
     _ov = {}
@@ -11915,11 +11933,22 @@ def page_earnings_calculator():
                 _ov = _json_ec.load(_f)
     except Exception:
         _ov = {}
+
+    # ¿El Excel es más nuevo que el override guardado? → el override quedó obsoleto.
+    _excel_mt = _excel_mtime()
+    _ov_mt = _ov.get("_excel_mtime", 0)
+    _override_stale = (not _ov) or (_excel_mt > _ov_mt + 1)  # +1s de tolerancia
+    if _override_stale:
+        _ov = {}  # el Excel manda: se ignora el override viejo
+
     def _ecd(k, xl):
         try:
             return float(_ov.get(k, xl))
         except Exception:
             return float(xl)
+
+    if _override_stale and os.path.exists(_EC_FILE):
+        st.caption("🔄 Se detectó un Excel más reciente — los targets se recargaron desde el archivo (los edits manuales previos quedaron obsoletos).")
 
     with st.expander("✏️ Editar resultados del mes", expanded=False):
         ec1, ec2 = st.columns(2)
@@ -11936,16 +11965,32 @@ def page_earnings_calculator():
             prod_target  = st.number_input("Productividad Target", value=_ecd("prod_target", _prod_target_xl), step=1.0, key="ec_prod_target")
             prod_result  = st.number_input("Productividad Result", value=_ecd("prod_result", _prod_result_xl), step=1.0, key="ec_prod_result")
             transport    = st.number_input("Transporte + Conexión (COP)", value=_ecd("transport", _transport_xl), step=1000.0, key="ec_transport")
+
+        # Solo se persiste el override si el usuario realmente cambió algún valor respecto
+        # al Excel — así, abrir la página sin editar no re-crea un override que pise el Excel.
+        _current = {
+            "ads_target": ads_target, "ads_result": ads_result,
+            "md_target": md_target, "md_result": md_result,
+            "mdpro_target": mdpro_target, "mdpro_result": mdpro_result,
+            "churn_target": churn_target, "churn_result": churn_result,
+            "prod_target": prod_target, "prod_result": prod_result,
+            "transport": transport,
+        }
+        _xl_vals = {
+            "ads_target": _ads_target_xl, "ads_result": _ads_result_xl,
+            "md_target": _md_target_xl, "md_result": _md_result_xl,
+            "mdpro_target": _mdpro_target_xl, "mdpro_result": _mdpro_result_xl,
+            "churn_target": _churn_target_xl, "churn_result": _churn_result_xl,
+            "prod_target": _prod_target_xl, "prod_result": _prod_result_xl,
+            "transport": _transport_xl,
+        }
+        _user_edited = any(abs(_current[k] - _xl_vals.get(k, 0)) > 1e-9 for k in _current)
         try:
-            with open(_EC_FILE, "w") as _f:
-                _json_ec.dump({
-                    "ads_target": ads_target, "ads_result": ads_result,
-                    "md_target": md_target, "md_result": md_result,
-                    "mdpro_target": mdpro_target, "mdpro_result": mdpro_result,
-                    "churn_target": churn_target, "churn_result": churn_result,
-                    "prod_target": prod_target, "prod_result": prod_result,
-                    "transport": transport,
-                }, _f)
+            if _user_edited:
+                with open(_EC_FILE, "w") as _f:
+                    _json_ec.dump({**_current, "_excel_mtime": _excel_mt}, _f)
+            elif os.path.exists(_EC_FILE):
+                os.remove(_EC_FILE)  # sin edits reales → no dejar override que pise el Excel
         except Exception:
             pass
 
@@ -16021,35 +16066,32 @@ def render_brand_profile(row, brand_id):
     pro_users_raw = _normalize_rate_value(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"], 0))
     conversion_raw = _normalize_rate_value(get_from_row(row, ["cr %", "conversion rate", "conversion"], 0))
     commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
+    # Labels dinámicos de mes desde la fecha actual (antes estaban hardcodeados
+    # "Abr"/"May" y no corrían al cambiar de mes). El punto más viejo salía de
+    # Growth OS, que dejó de ser fuente confiable de GMV/AOV — se elimina. El gráfico
+    # queda como comparativa de 2 puntos: mes pasado (MAY GMV) → actual (Current GMV).
+    _today_chart = datetime.now(TZ_APP).date()
+    _MESES_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+    _prev_month_idx = (_today_chart.month - 2) % 12  # mes pasado (0-based)
+    _prev_month_lbl = _MESES_ES[_prev_month_idx]
+
     def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None):
         """
-        Gráfico de línea con puntos mostrando hasta 3 meses:
-          Abril (Growth OS) → Mayo (MAY GMV) → Actual (Current GMV)
-        - Si los 3 tienen valor > 0, se muestran los 3.
-        - Si falta Abril pero hay Mayo y Actual, se muestran 2.
-        - Si falta Mayo pero hay Abril y Actual, se muestran los 3 igualmente
-          con Mayo en 0 (para que el gráfico refleje la caída/suba).
-        - Si solo hay Actual, se muestra solo el punto.
-        Cada punto muestra el % de cambio respecto al punto anterior
-        (excepto el primero, que no tiene comparación previa).
+        Gráfico de línea con puntos: mes pasado (MAY GMV) → actual (Current GMV).
+        Labels de mes dinámicos según la fecha actual. El parámetro val_abril se
+        mantiene por firma pero ya no se usa (era Growth OS legacy).
+        Cada punto muestra el % de cambio respecto al punto anterior.
         """
         points_raw = []
-        has_abril = val_abril and val_abril > 0
-        has_may   = val_may   and val_may   > 0
+        has_may = val_may and val_may > 0
 
-        if has_abril:
-            points_raw.append(("Abr", val_abril))
         if has_may:
-            points_raw.append(("May", val_may))
-        elif has_abril:
-            # Mayo no tiene dato pero sí hay Abril: incluir Mayo con 0
-            # para que el eje X muestre los 3 meses correctamente
-            points_raw.append(("May", 0))
+            points_raw.append((_prev_month_lbl, val_may))
         points_raw.append(("Actual", val_current or 0))
 
-        # Si solo queda 1 punto, agregar un punto ficticio para dibujar la línea
+        # Si solo queda 1 punto, agregar el mes pasado en 0 para dibujar la línea
         if len(points_raw) < 2:
-            points_raw = [("May", val_may or 0), ("Actual", val_current or 0)]
+            points_raw = [(_prev_month_lbl, val_may or 0), ("Actual", val_current or 0)]
 
         n = len(points_raw)
         vals = [p[1] for p in points_raw]
@@ -16134,12 +16176,12 @@ def render_brand_profile(row, brand_id):
             '</div>'
         )
 
-    # ── Datos de mayo (MAY GMV) y abril (Growth OS) para el gráfico de 3 meses ──
+    # ── Datos de mes pasado (MAY GMV) para el gráfico comparativo de 2 puntos ──
     may_metrics = get_may_brand_metrics(brand_id, brand_name=name)
     may_gmv_ars = may_metrics["gmv_ars"] if may_metrics else 0
     may_aov_ars = may_metrics["aov_ars"] if may_metrics else 0
 
-    # Abril viene de Growth OS (Last GMV/AOV) — puede no existir
+    # abril_* (Growth OS) ya no alimenta el gráfico — se mantiene por firma pero se ignora.
     abril_gmv_ars = growth_gmv_ars
     abril_aov_ars = growth_aov_ars
 
