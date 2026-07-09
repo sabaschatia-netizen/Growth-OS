@@ -5267,6 +5267,25 @@ def _scc_reset_current_month():
     return "Commercial"
 
 
+def _commercial_action_type(commercial_action):
+    """Clasifica el tipo de acción comercial (Ads / MD / ADS + MD / Update).
+
+    Esta función faltaba en el código (se usaba en save_acquisition_tracker_event
+    pero nunca se definió) — causaba NameError cada vez que se guardaba un evento
+    del tracker. Sigue el mismo patrón de _commercial_action_movement.
+    """
+    low = norm_text(commercial_action)
+    has_ads = "ads" in low
+    has_md = "md" in low or "markdown" in low
+    if has_ads and has_md:
+        return "ADS + MD"
+    if has_ads:
+        return "ADS"
+    if has_md:
+        return "MD"
+    return "Update"
+
+
 def _commercial_action_movement(commercial_action):
     low = norm_text(commercial_action)
     if "reject" in low or "rechaz" in low or "❌" in commercial_action:
@@ -5369,6 +5388,7 @@ def save_acquisition_tracker_event(
     pipeline_stage="",
     negotiation_type="",
     rejection_reason="",
+    scc_front="",
 ):
     reset_acquisition_tracker_once()
 
@@ -5391,7 +5411,10 @@ def save_acquisition_tracker_event(
         "brand_name": brand_name,
         "pipeline_stage": stage,
         "type": _commercial_action_type(commercial_action),
-        "movement": _commercial_action_movement(commercial_action),
+        # Si viene del Sales Control Center (scc_front seteado), el movement es el
+        # frente elegido (Ads/MD/Ads+MD) — _commercial_action_movement no reconoce
+        # ese vocabulario nuevo y devolvería "Update" por error.
+        "movement": scc_front if scc_front else _commercial_action_movement(commercial_action),
         "commercial_action": commercial_action,
         "negotiation_type": clean(negotiation_type, ""),
         "ads_booking_ars": ads_budget_ars,
@@ -7878,6 +7901,47 @@ if DARK_MODE:
 # =========================
 # UI HELPERS
 # =========================
+
+def render_table_skeleton(rows=8, cols=6):
+    """Silueta gris con shimmer, del tamaño de una tabla, para mostrar mientras
+    carga la data pesada de una sección (ANTES de que la tabla real se pinte).
+
+    Se usa con st.empty(): placeholder = st.empty(); placeholder.markdown(skeleton);
+    ...cargar datos...; placeholder.empty() (o placeholder.markdown(tabla_real)).
+    Complementa al overlay de navegación (que cubre el cambio ENTRE páginas): esto
+    cubre la espera DENTRO de una página ya abierta mientras una sección específica
+    todavía está trayendo sus datos.
+    """
+    _col_w = [22] + [round(78 / max(cols - 1, 1))] * max(cols - 1, 1)
+    header_cells = "".join(
+        f'<div class="gos-skel-cell gos-skel-shimmer" style="width:{w}%;height:14px;"></div>'
+        for w in _col_w
+    )
+    body_rows = ""
+    for r in range(rows):
+        row_cells = "".join(
+            f'<div class="gos-skel-cell gos-skel-shimmer" style="width:{w}%;height:12px;'
+            f'animation-delay:{(r*0.05):.2f}s;"></div>'
+            for w in _col_w
+        )
+        body_rows += f'<div class="gos-skel-row">{row_cells}</div>'
+
+    return f"""
+    <style>
+      .gos-skel-wrap {{ background:rgba(255,255,255,0.92); border-radius:14px; padding:18px 20px; }}
+      .gos-skel-row {{ display:flex; gap:14px; align-items:center; padding:9px 0;
+        border-bottom:1px solid rgba(0,0,0,0.04); }}
+      .gos-skel-cell {{ border-radius:5px; background:linear-gradient(90deg,
+        rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.11) 37%, rgba(0,0,0,0.06) 63%); }}
+      .gos-skel-shimmer {{ background-size:400% 100%; animation:gos-skel-shimmer 1.4s ease-in-out infinite; }}
+      @keyframes gos-skel-shimmer {{ 0% {{ background-position:100% 50%; }} 100% {{ background-position:0% 50%; }} }}
+    </style>
+    <div class="gos-skel-wrap">
+      <div class="gos-skel-row" style="border-bottom:2px solid rgba(0,0,0,0.08);margin-bottom:4px;">{header_cells}</div>
+      {body_rows}
+    </div>
+    """
+
 
 def render_header(title="Growth OS", subtitle="Commercial Management System · Rappi"):
     """Renderiza el header glass de cada página."""
@@ -18246,6 +18310,14 @@ def page_campaign_weekly_tracker():
     # curso se recalcula desde Current ADS/MD en cada carga, sin depender de que se
     # haya capturado un snapshot manual. Si el snapshot del período actual ya existe,
     # se descarta y se reemplaza por la foto viva (comparación igual-sobre-igual).
+    #
+    # Skeleton loader: esta sección lee Current ADS/MD completos (potencialmente
+    # lento), así que se muestra una silueta de tabla mientras se computa, en vez
+    # de dejar la pantalla estática — complementa al overlay de navegación, que
+    # solo cubre el cambio ENTRE páginas, no la espera DENTRO de una ya abierta.
+    _skel_ph = st.empty()
+    _skel_ph.markdown(render_table_skeleton(rows=8, cols=9), unsafe_allow_html=True)
+
     df_hist = _load_campaign_weekly_tracker_df()
     _live_label = _campaign_period_label()
     _live_rows = _current_campaign_snapshot_rows(_live_label)
@@ -18257,6 +18329,7 @@ def page_campaign_weekly_tracker():
     else:
         df = pd.concat([df_hist, df_live], ignore_index=True)
     names = _brand_name_map()
+    _skel_ph.empty()
     if df.empty:
         st.markdown("### Ads CPC Monitor")
         st.info("Sin datos de campañas activas en Current ADS/MD todavía.")
@@ -19281,13 +19354,14 @@ def _render_followup_form(row, brand_id, name):
             tracker_ok, tracker_msg = save_acquisition_tracker_event(
                 brand_id,
                 name,
-                _movement,
+                _movement,           # commercial_action: se usa solo para _commercial_action_type
                 ads_budget_ars=0,
                 md_discount="",
                 opportunity_status=opportunity_status,
                 comment=final_comment,
                 pipeline_stage=_scc_stage,
                 negotiation_type="",
+                scc_front=_movement,  # movement real del funnel (no pasa por _commercial_action_movement)
             )
 
         if opportunity_status == "Deal Closed 🏆" and commercial_action != "No commercial change":
