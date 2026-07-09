@@ -904,7 +904,7 @@ def _save_overlay(stage, done=False):
         inner = (
             '<div class="sv-card">'
             '<div class="sv-check">\u2713</div>'
-            '<div class="sv-title">\u00a1Follow-up guardado!</div>'
+            '<div class="sv-title">Follow-up finalizado</div>'
             '<div class="sv-stage">Se subió y guardó correctamente en el archivo.</div>'
             '<button class="sv-ok" onclick="var o=this.closest(\'#gos-saving\');'
             'if(o){o.style.transition=\'opacity .2s\';o.style.opacity=\'0\';'
@@ -18708,17 +18708,9 @@ def page_brand_finder():
 
 @st.dialog("Follow-up guardado")
 def _saved_confirm_dialog():
-    st.markdown(
-        "<div style='display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 4px;'>"
-        "<div style='width:64px;height:64px;border-radius:50%;background:#22C55E;color:#fff;"
-        "display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;'>\u2713</div>"
-        "<div style='font-size:17px;font-weight:800;color:#111827;'>\u00a1Follow-up guardado!</div>"
-        "<div style='font-size:13px;color:#6B7280;text-align:center;'>Se subió y guardó correctamente en el archivo.</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-    if st.button("OK", type="primary", use_container_width=True, key="_saved_ok_btn"):
-        st.rerun()
+    # Reusa el MISMO cuadro del overlay de guardado, en estado "done": donut detenido,
+    # check verde, "¡Follow-up guardado!", botón OK y cierre al click afuera de la carta.
+    _save_overlay("", done=True)
 
 
 @st.fragment
@@ -19278,7 +19270,12 @@ def _render_followup_form(row, brand_id, name):
             ok = False
             msg = f"'{os.path.basename(EXCEL_FILE)}' está abierto en Excel. Cerralo y reintentá el guardado."
 
-        if ok and follow_ok and event_ok and commercial_ok and tracker_ok:
+        # Éxito "core": lo que importa es que el follow-up y el tracker se guardaron.
+        # Los demás pasos (agenda, evento, cambio comercial) devuelven False en situaciones
+        # normales (marca sin entrada previa en agenda, sin evento manual, sin cambio
+        # comercial) — eso NO es un error, así que no debe disparar el aviso técnico.
+        _core_ok = follow_ok and tracker_ok
+        if _core_ok:
             _days_label = "7 días (No Answer)" if (_is_no_answer or _is_separator) else "14 días"
             success_msg = f"Follow-up guardado · próximo contacto agendado en {_days_label} ({_auto_next_date.strftime('%d/%m/%Y')})."
             if event_required:
@@ -19289,7 +19286,11 @@ def _render_followup_form(row, brand_id, name):
             st.session_state["_saved_confirm"] = True
             st.rerun()
         else:
-            st.warning(f"Saved with warnings. Agenda: {msg}. Follow-up: {follow_msg}. Event: {event_msg}. Commercial: {commercial_msg}. Tracker: {tracker_msg}.")
+            # Fallo real (no se pudo escribir el follow-up o el tracker): recién ahí se avisa.
+            _fail_parts = []
+            if not follow_ok: _fail_parts.append(f"Follow-up: {follow_msg}")
+            if not tracker_ok: _fail_parts.append(f"Registro: {tracker_msg}")
+            st.warning("No se pudo completar el guardado. " + " · ".join(_fail_parts))
 
     st.markdown("</div>", unsafe_allow_html=True)
 
