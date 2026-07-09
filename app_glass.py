@@ -5483,26 +5483,32 @@ SCC_STAGE_COLORS = {
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _scc_universe_maps():
-    """Universo elegible por marca: {brand_id: {'ads_acquire':bool, 'ads_upsell':bool}}.
+    """Universo elegible por marca para los 4 funnels (Ads + MD).
 
-    Mismo criterio que Opportunity List, corriendo sobre todo el portafolio (sin Tier):
-      · Ads Acquire   = marca SIN campaña Ads activa
-      · Ads Upselling = marca CON Ads activo y ROI > 4.5x (candidata a subir inversión)
+    {brand_id: {'ads_acquire','ads_upsell','md_acquire','md_upsell': bool}}
+    Criterios (corren sobre todo el portafolio, sin discriminar Tier):
+      · Ads Acquire   = marca SIN Ads activo
+      · Ads Upsell    = Ads activo y ROAS > 3.5x
+      · MD Acquire    = marca SIN promo MD activa
+      · MD Upsell     = MD activo y (penetración < 10% Ó ROI < 3.5x)
     """
-    ROI_UPSELL = 4.5
+    ROAS_UPSELL = 3.5
+    MD_PEN_MAX = 0.10
+    MD_ROI_MAX = 3.5
     result = {}
-    try:
-        current_ads = load_current_ads_data(portfolio_only=True)
-    except Exception:
-        current_ads = pd.DataFrame()
-    # Todas las marcas del portafolio
+
     port_ids = set()
     try:
         port_ids = set(get_portfolio_ids())
     except Exception:
         port_ids = set()
 
+    # ── Ads ──
     ads_active, ads_roi = {}, {}
+    try:
+        current_ads = load_current_ads_data(portfolio_only=True)
+    except Exception:
+        current_ads = pd.DataFrame()
     if not current_ads.empty:
         for _, row in current_ads.iterrows():
             bid = normalize_brand_id(row.get("_id"))
@@ -5514,12 +5520,37 @@ def _scc_universe_maps():
             ads_roi[bid] = roi
             port_ids.add(bid)
 
+    # ── MD ── (penetración y ROI desde Current MD)
+    md_active, md_pen, md_roi = {}, {}, {}
+    try:
+        current_md = load_current_md_data(portfolio_only=True, pro=False)
+    except Exception:
+        current_md = pd.DataFrame()
+    if not current_md.empty:
+        _gmv_tot_col = _first_existing_col(current_md, ["gmv total $", "gmv total"])
+        for _, row in current_md.iterrows():
+            bid = normalize_brand_id(row.get("_id"))
+            orders = to_number(row.get("_orders"), 0)
+            gmv_md = to_number(row.get("_gmv_usd"), 0)
+            gmv_tot = to_number(row.get(_gmv_tot_col), 0) if _gmv_tot_col else 0
+            roi = to_number(row.get("_roi_raw"), 0)
+            active = orders > 0
+            md_active[bid] = active
+            md_pen[bid] = (gmv_md / gmv_tot) if gmv_tot else 0
+            md_roi[bid] = roi
+            port_ids.add(bid)
+
     for bid in port_ids:
-        active = ads_active.get(bid, False)
-        roi = ads_roi.get(bid, 0)
+        a_active = ads_active.get(bid, False)
+        a_roi = ads_roi.get(bid, 0)
+        m_active = md_active.get(bid, False)
+        m_pen = md_pen.get(bid, 0)
+        m_roi = md_roi.get(bid, 0)
         result[bid] = {
-            "ads_acquire": not active,                    # sin Ads activo → adquisición
-            "ads_upsell":  bool(active and roi > ROI_UPSELL),  # activo + buen ROI → upsell
+            "ads_acquire": not a_active,
+            "ads_upsell":  bool(a_active and a_roi > ROAS_UPSELL),
+            "md_acquire":  not m_active,
+            "md_upsell":   bool(m_active and (m_pen < MD_PEN_MAX or m_roi < MD_ROI_MAX)),
         }
     return result
 
@@ -5558,81 +5589,84 @@ def _scc_typified_map():
         bid = normalize_brand_id(r.get("brand_id"))
         if not bid:
             continue
-        # Mapear pipeline_stage viejo/nuevo a las 3 etapas del funnel
         raw_stage = norm_text(r.get("pipeline_stage"))
         raw_status = norm_text(r.get("opportunity_status"))
+        # Follow Up: registra contacto pero NO entra en la cascada del funnel
+        if "follow up" in raw_status or "follow-up" in raw_status or raw_stage == "follow up":
+            continue
         if "closed" in raw_stage or "deal closed" in raw_status or raw_stage == "closed":
             stage = "Closed"
         elif "pipeline" in raw_stage or "negotiation" in raw_stage or "negoci" in raw_status or "pipeline" in raw_status:
             stage = "Pipeline"
-        elif "prospect" in raw_stage or "prospect" in raw_status or "follow up" in raw_status:
+        elif "prospect" in raw_stage or "prospect" in raw_status:
             stage = "Prospected"
         elif "reject" in raw_stage:
-            continue  # rechazo no cuenta como etapa del funnel de avance
+            continue
         else:
-            stage = "Prospected"  # cualquier contacto tipificado cuenta al menos como Prospected
-        mv = clean(r.get("movement"), "")
+            stage = "Prospected"
+        # Frente comercial: se guarda en 'movement' como 'Ads' / 'MD' / 'Ads+MD'
+        mv = norm_text(r.get("movement"))
+        fronts = set()
+        if "ads" in mv:
+            fronts.add("ads")
+        if "md" in mv or "markdown" in mv:
+            fronts.add("md")
+        # Compatibilidad: registros viejos con 'Acquisition'/'Upselling' → Ads por defecto
+        if not fronts:
+            fronts.add("ads")
         prev = out.get(bid)
         if not prev or STAGE_RANK.get(stage, 0) > STAGE_RANK.get(prev["stage"], 0):
-            out[bid] = {"stage": stage, "movement": mv}
+            out[bid] = {"stage": stage, "fronts": fronts}
+        elif prev:
+            prev["fronts"] |= fronts
     return out
 
 
 def _scc_build_funnel(kind):
-    """Construye un funnel ('acquire' o 'upsell') con las 5 etapas y desglose por Tier.
+    """Construye un funnel con las 5 etapas y desglose por Tier.
 
-    Devuelve {'stages': {stage: count}, 'by_tier': {stage: {'A':n,'B':n,'C':n}}}.
+    kind ∈ {'ads_acquire','ads_upsell','md_acquire','md_upsell'}.
+    Devuelve {'stages','by_tier','pipeline_ids','closed_ids'}.
     """
     universe = _scc_universe_maps()
     typified = _scc_typified_map()
     tier_map = get_pareto_tiers_map()
 
-    uni_key = "ads_acquire" if kind == "acquire" else "ads_upsell"
-    # Target Market: universo elegible fijo, sin discriminar Tier
-    target_ids = {bid for bid, u in universe.items() if u.get(uni_key)}
+    # Frente relevante según el tipo de funnel
+    front = "ads" if kind.startswith("ads") else "md"
+    # Target Market: universo elegible fijo para este tipo
+    target_ids = {bid for bid, u in universe.items() if u.get(kind)}
 
     stages = {s: 0 for s in SCC_STAGE_ORDER}
     by_tier = {s: {"A": 0, "B": 0, "C": 0} for s in SCC_STAGE_ORDER}
-
-    # Marcas tipificadas relevantes a este funnel (por movement o por elegibilidad)
-    def _relevant_to_kind(bid, mv):
-        mv_l = norm_text(mv)
-        if kind == "acquire":
-            if "upsell" in mv_l: return False
-            return True
-        else:
-            if "upsell" in mv_l: return True
-            # si el movement no lo dice, usar elegibilidad del universo
-            return bool(universe.get(bid, {}).get("ads_upsell"))
-
     STAGE_RANK = {"Prospected": 1, "Pipeline": 2, "Closed": 3}
 
-    # 1) Target Market: universo fijo
+    def _relevant(bid, info):
+        # La marca cuenta en este funnel si su frente tipificado incluye el frente del funnel
+        return front in info.get("fronts", set())
+
+    # 1) Target Market
     for bid in target_ids:
         stages["Target Market"] += 1
         t = tier_map.get(bid)
         if t in by_tier["Target Market"]:
             by_tier["Target Market"][t] += 1
 
-    # 2) TOFU base: Tier A automático que esté en el universo
-    tofu_ids = set()
-    for bid in target_ids:
-        if tier_map.get(bid) == "A":
-            tofu_ids.add(bid)
+    # 2) TOFU base: Tier A automático en el universo
+    tofu_ids = {bid for bid in target_ids if tier_map.get(bid) == "A"}
 
-    # 3) Tipificadas: destapan TOFU (B/C) y llenan cascada Prospected→Pipeline→Closed
+    # 3) Tipificadas relevantes al frente: cascada + destape de TOFU y Target (B/C)
     prospected_ids, pipeline_ids, closed_ids = set(), set(), set()
     for bid, info in typified.items():
-        if not _relevant_to_kind(bid, info.get("movement")):
+        if not _relevant(bid, info):
             continue
-        stage = info["stage"]
-        rank = STAGE_RANK.get(stage, 0)
-        # cualquier tipificación destapa TOFU (aunque sea B/C)
+        # Solo cuenta si la marca es elegible para este tipo de funnel (o se destapa)
+        eligible = universe.get(bid, {}).get(kind, False)
+        rank = STAGE_RANK.get(info["stage"], 0)
         tofu_ids.add(bid)
         if rank >= 1: prospected_ids.add(bid)
         if rank >= 2: pipeline_ids.add(bid)
         if rank >= 3: closed_ids.add(bid)
-        # marca tipificada B/C que no estaba en Target: destaparla también en Target
         if bid not in target_ids:
             stages["Target Market"] += 1
             t = tier_map.get(bid)
@@ -5655,44 +5689,43 @@ def _scc_build_funnel(kind):
             "pipeline_ids": pipeline_ids, "closed_ids": closed_ids}
 
 
-def _scc_insights(acq, ups):
-    """Motor de reglas de insights con piso mínimo de volumen (evita sesgo por muestra chica)."""
-    MIN_VOL = 5  # no generar insight de una etapa con menos de 5 casos
+def _scc_insights(funnels):
+    """Motor de reglas de insights con piso mínimo de volumen. funnels = dict de 4 funnels."""
+    MIN_VOL = 5
     insights = []
 
     def _conv(a, b):
         return (b / a) if a > 0 else 0
 
-    for label, fn in [("Adquisición", acq), ("Upselling", ups)]:
+    labels = {
+        "ads_acquire": "Ads · Adquisición", "ads_upsell": "Ads · Upselling",
+        "md_acquire": "MD · Adquisición", "md_upsell": "MD · Upselling",
+    }
+    for key, fn in funnels.items():
+        label = labels.get(key, key)
         s = fn["stages"]
-        # TOFU → Prospected
         if s["TOFU"] >= MIN_VOL and _conv(s["TOFU"], s["Prospected"]) < 0.30:
-            insights.append(("🎯", label,
-                "La principal limitación está en la prospección. Hay oportunidades priorizadas que todavía no estás contactando."))
-        # Prospected → Pipeline
+            insights.append(("🎯", label, "Oportunidades priorizadas que todavía no estás contactando."))
         if s["Prospected"] >= MIN_VOL and _conv(s["Prospected"], s["Pipeline"]) < 0.35:
-            insights.append(("💬", label,
-                "Las oportunidades contactadas no avanzan a negociación. Revisá segmentación o pitch comercial."))
-        # Pipeline → Closed
+            insights.append(("💬", label, "Contactás pero no avanza a negociación. Revisá pitch o segmentación."))
         if s["Pipeline"] >= MIN_VOL and _conv(s["Pipeline"], s["Closed"]) < 0.30:
-            insights.append(("🔒", label,
-                "Las negociaciones abiertas no están cerrando. Revisá seguimiento, presupuesto o estrategia."))
-        # Pipeline acumulado alto vs Closed bajo
+            insights.append(("🔒", label, "Negociaciones abiertas que no cierran. Revisá seguimiento o estrategia."))
         if s["Pipeline"] >= MIN_VOL and s["Closed"] < s["Pipeline"] * 0.2:
-            insights.append(("📊", label,
-                "Acumulación de oportunidades abiertas: el pipeline crece pero los cierres no lo siguen."))
+            insights.append(("📊", label, "El pipeline crece pero los cierres no lo siguen."))
 
-    # Regla de coinversión: marcas en pipeline con coinversión en 'offer' sin usar
+    # Regla de coinversión (marcas en pipeline con coin en 'offer' sin usar)
     try:
-        coinv_offer = 0
-        for bid in list(acq["pipeline_ids"]) + list(ups["pipeline_ids"]):
-            cg = get_coinversion_group_for_brand(bid, "")
-            if cg.get("state") == "offer" and cg.get("has_coinv"):
-                coinv_offer += 1
+        all_pipe = set()
+        for fn in funnels.values():
+            all_pipe |= fn["pipeline_ids"]
+        coinv_offer = sum(
+            1 for bid in all_pipe
+            if get_coinversion_group_for_brand(bid, "").get("state") == "offer"
+            and get_coinversion_group_for_brand(bid, "").get("has_coinv")
+        )
         if coinv_offer >= 3:
             insights.append(("🤝", "Coinversión",
-                f"{coinv_offer} marcas en pipeline tienen coinversión habilitada sin activar. "
-                f"Ofrecerla podría destrabar el cierre — Rappi pone parte de la inversión."))
+                f"{coinv_offer} marcas en pipeline tienen coinversión sin activar. Ofrecerla puede destrabar el cierre."))
     except Exception:
         pass
 
@@ -5700,10 +5733,14 @@ def _scc_insights(acq, ups):
 
 
 def page_acquisition_tracker():
-    render_header("Sales Control Center", "Diagnóstico del proceso comercial · Ads Acquisition & Upselling")
+    render_header("Sales Control Center", "Diagnóstico del proceso comercial · Ads & Markdown")
 
-    acq = _scc_build_funnel("acquire")
-    ups = _scc_build_funnel("upsell")
+    funnels = {
+        "ads_acquire": _scc_build_funnel("ads_acquire"),
+        "ads_upsell":  _scc_build_funnel("ads_upsell"),
+        "md_acquire":  _scc_build_funnel("md_acquire"),
+        "md_upsell":   _scc_build_funnel("md_upsell"),
+    }
 
     def _funnel_html(title, data, accent):
         stages = data["stages"]
@@ -5721,10 +5758,8 @@ def page_acquisition_tracker():
             tiers = by_tier[s]
             tier_chips = ""
             if any(tiers.values()):
-                tier_chips = (
-                    f'<span style="font-size:10px;color:#6B7280;margin-left:8px;">'
-                    f'A:{tiers["A"]} · B:{tiers["B"]} · C:{tiers["C"]}</span>'
-                )
+                tier_chips = (f'<span style="font-size:10px;color:#6B7280;margin-left:8px;">'
+                              f'A:{tiers["A"]} · B:{tiers["B"]} · C:{tiers["C"]}</span>')
             rows.append(
                 f'<div style="margin-bottom:10px;">'
                 f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
@@ -5742,20 +5777,30 @@ def page_acquisition_tracker():
             f'{"".join(rows)}</div>'
         )
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(_funnel_html("🎯 Ads Acquisition Funnel", acq, "#2563EB"), unsafe_allow_html=True)
-    with c2:
-        st.markdown(_funnel_html("🧉 Ads Upselling Funnel", ups, "#F97316"), unsafe_allow_html=True)
+    _tab_ads, _tab_md = st.tabs(["🎯 Ads", "🏷️ Markdown"])
+    with _tab_ads:
+        a1, a2 = st.columns(2)
+        with a1:
+            st.markdown(_funnel_html("Ads Acquisition Funnel", funnels["ads_acquire"], "#2563EB"), unsafe_allow_html=True)
+        with a2:
+            st.markdown(_funnel_html("Ads Upselling Funnel", funnels["ads_upsell"], "#3B82F6"), unsafe_allow_html=True)
+    with _tab_md:
+        m1, m2 = st.columns(2)
+        with m1:
+            st.markdown(_funnel_html("MD Acquisition Funnel", funnels["md_acquire"], "#F97316"), unsafe_allow_html=True)
+        with m2:
+            st.markdown(_funnel_html("MD Upselling Funnel", funnels["md_upsell"], "#FB923C"), unsafe_allow_html=True)
 
     # ── Commercial KPIs ───────────────────────────────────────────────────────
     st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size:13px;font-weight:900;color:#111827;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">📊 Commercial KPIs</div>', unsafe_allow_html=True)
 
-    pipeline_total = acq["stages"]["Pipeline"] + ups["stages"]["Pipeline"]
-    closed_total   = acq["stages"]["Closed"] + ups["stages"]["Closed"]
+    all_pipeline = set()
+    all_closed = set()
+    for fn in funnels.values():
+        all_pipeline |= fn["pipeline_ids"]
+        all_closed |= fn["closed_ids"]
 
-    # Pipeline Value: se reporta separado Ads vs MD para no mezclar unidades.
     def _pipeline_value_usd(ids):
         total = 0.0
         try:
@@ -5770,11 +5815,10 @@ def page_acquisition_tracker():
             pass
         return total
 
-    pipe_val_ads = _pipeline_value_usd(acq["pipeline_ids"] | ups["pipeline_ids"])
-
+    pipe_val_ads = _pipeline_value_usd(all_pipeline)
     kpis = [
-        ("Pipeline Total", str(pipeline_total), "#F97316", "marcas en negociación"),
-        ("Closed Won", str(closed_total), "#22C55E", "ventas cerradas este mes"),
+        ("Pipeline Total", str(len(all_pipeline)), "#F97316", "marcas en negociación"),
+        ("Closed Won", str(len(all_closed)), "#22C55E", "ventas cerradas este mes"),
         ("Pipeline Value (Ads)", fmt_usd(pipe_val_ads), "#2563EB", "bookings ADS en pipeline"),
     ]
     kcols = st.columns(len(kpis))
@@ -5793,7 +5837,7 @@ def page_acquisition_tracker():
     st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size:13px;font-weight:900;color:#111827;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">🧠 Commercial Insights</div>', unsafe_allow_html=True)
 
-    insights = _scc_insights(acq, ups)
+    insights = _scc_insights(funnels)
     if not insights:
         st.markdown(
             '<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.20);'
@@ -5812,8 +5856,8 @@ def page_acquisition_tracker():
                 unsafe_allow_html=True,
             )
 
-    st.caption("El proceso se alimenta de las tipificaciones (Prospected/Pipeline/Closed) que registrás en Brand Finder. "
-               "Target Market es el universo elegible fijo; TOFU suma Tier A + las B/C que vas trabajando.")
+    st.caption("Se alimenta de las tipificaciones (Prospected/Pipeline/Closed) que registrás en Brand Finder, "
+               "con su frente (Ads / MD / Ads+MD). Target Market es el universo elegible fijo; TOFU suma Tier A + las B/C que trabajás.")
 
 
 
@@ -16340,30 +16384,39 @@ def render_brand_profile(row, brand_id):
     commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
     # Labels dinámicos de mes desde la fecha actual (antes estaban hardcodeados
     # "Abr"/"May" y no corrían al cambiar de mes). El punto más viejo salía de
-    # Growth OS, que dejó de ser fuente confiable de GMV/AOV — se elimina. El gráfico
-    # queda como comparativa de 2 puntos: mes pasado (MAY GMV) → actual (Current GMV).
+    # Ventana dinámica de 3 meses con labels calculados desde la fecha actual:
+    #   Growth OS  → mes -2 (ej. "May" en julio)
+    #   MAY GMV    → mes -1 (ej. "Jun" en julio)
+    #   Current GMV→ "Actual"
+    # Antes los labels estaban hardcodeados ("Abr"/"May") y no corrían al cambiar de mes.
     _today_chart = datetime.now(TZ_APP).date()
     _MESES_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-    _prev_month_idx = (_today_chart.month - 2) % 12  # mes pasado (0-based)
-    _prev_month_lbl = _MESES_ES[_prev_month_idx]
+    _m2_idx = (_today_chart.month - 3) % 12  # mes -2 (Growth OS)
+    _m1_idx = (_today_chart.month - 2) % 12  # mes -1 (MAY GMV)
+    _m2_lbl = _MESES_ES[_m2_idx]
+    _m1_lbl = _MESES_ES[_m1_idx]
 
     def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None):
         """
-        Gráfico de línea con puntos: mes pasado (MAY GMV) → actual (Current GMV).
-        Labels de mes dinámicos según la fecha actual. El parámetro val_abril se
-        mantiene por firma pero ya no se usa (era Growth OS legacy).
+        Gráfico de línea de 3 puntos con labels de mes dinámicos:
+          val_abril (Growth OS) → mes -2  ·  val_may (MAY GMV) → mes -1  ·  val_current (Current) → Actual
         Cada punto muestra el % de cambio respecto al punto anterior.
         """
         points_raw = []
-        has_may = val_may and val_may > 0
+        has_m2 = val_abril and val_abril > 0
+        has_m1 = val_may and val_may > 0
 
-        if has_may:
-            points_raw.append((_prev_month_lbl, val_may))
+        if has_m2:
+            points_raw.append((_m2_lbl, val_abril))
+        if has_m1:
+            points_raw.append((_m1_lbl, val_may))
+        elif has_m2:
+            points_raw.append((_m1_lbl, 0))
         points_raw.append(("Actual", val_current or 0))
 
-        # Si solo queda 1 punto, agregar el mes pasado en 0 para dibujar la línea
+        # Si solo queda 1 punto, agregar el mes -1 en 0 para dibujar la línea
         if len(points_raw) < 2:
-            points_raw = [(_prev_month_lbl, val_may or 0), ("Actual", val_current or 0)]
+            points_raw = [(_m1_lbl, val_may or 0), ("Actual", val_current or 0)]
 
         n = len(points_raw)
         vals = [p[1] for p in points_raw]
@@ -17420,7 +17473,8 @@ def render_brand_profile(row, brand_id):
         f"{FARMER_NAME}\nRappi"
     )
     _po_wa_body = (
-        f"Hola Equipo de {name}, Hablas con {FARMER_NAME} de Rappi. "
+        f"Hola Equipo de {name},\n\n"
+        f"Hablas con {FARMER_NAME} de Rappi. "
         f"Hoy quiero resolver contigo: {_po_lines_wa} "
         f"Son definiciones rápidas y cada día que pasa nos cuesta pedidos. "
         f"¿Tienes 10 minutos ahora para cerrarlo?"
@@ -17429,7 +17483,7 @@ def render_brand_profile(row, brand_id):
     # Dos cards fijas sólidas (estilo Brand Finder), con la plantilla escrita
     # adentro — nada de scroll interno ni bloques de código.
     _po_email_html = html.escape(_po_email_body).replace("\n", "<br>")
-    _po_wa_html = html.escape(_po_wa_body)
+    _po_wa_html = html.escape(_po_wa_body).replace("\n", "<br>")
     _po_subject_html = html.escape(_po_subject)
     _po_email_label = html.escape(_po_email) if _po_email else "sin email registrado"
     _po_phone_label = html.escape(_po_phone) if _po_phone else "sin teléfono registrado"
@@ -18741,9 +18795,18 @@ def _render_followup_form(row, brand_id, name):
                 "📋 Prospected",
                 "📈 Pipeline",
                 "🏆 Closed",
+                "📅 Follow Up",
             ],
             index=0,
             key=f"comment_status_{brand_id}"
+        )
+        # Frente comercial: define en qué funnels del Sales Control Center cuenta la marca.
+        _scc_front = st.selectbox(
+            "Frente comercial",
+            ["Ads", "MD", "Ads + MD"],
+            index=0,
+            key=f"comment_front_{brand_id}",
+            help="Ads / MD / Ambos — en qué funnel(es) suma esta tipificación."
         )
     template_type = "None"
 
@@ -19153,22 +19216,19 @@ def _render_followup_form(row, brand_id, name):
             _save_overlay("Agendando seguimiento\u2026")
             event_ok, event_msg = _add_event_to_agenda_inner(_wb_save, event_data)
 
-        # ── Sales Control Center: guardado de tipificación (Prospected/Pipeline/Closed) ──
-        # El nuevo selector reemplaza al viejo. Cada tipificación registra la etapa del
-        # funnel. El movement (Acquisition/Upselling) se infiere del estado de Ads de la
-        # marca: sin Ads activo → Acquisition; con Ads activo → Upselling.
+        # ── Sales Control Center: guardado de tipificación ──
+        # El frente elegido (Ads/MD/Ads+MD) se guarda en 'movement' y define en qué
+        # funnels cuenta. "Follow Up" registra el contacto pero no entra en la cascada.
         _scc_stage_map = {
             "📋 Prospected": "Prospected",
             "📈 Pipeline":   "Pipeline",
             "🏆 Closed":     "Closed",
+            "📅 Follow Up":  "Follow Up",
         }
         if opportunity_status in _scc_stage_map:
             _scc_stage = _scc_stage_map[opportunity_status]
-            try:
-                _uni = _scc_universe_maps().get(normalize_brand_id(brand_id), {})
-                _movement = "Upselling" if _uni.get("ads_upsell") else "Acquisition"
-            except Exception:
-                _movement = "Acquisition"
+            _front_val = st.session_state.get(f"comment_front_{brand_id}", "Ads")
+            _movement = {"Ads": "Ads", "MD": "MD", "Ads + MD": "Ads+MD"}.get(_front_val, "Ads")
             tracker_ok, tracker_msg = save_acquisition_tracker_event(
                 brand_id,
                 name,
