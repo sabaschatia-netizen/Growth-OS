@@ -3703,10 +3703,16 @@ def get_col(df, options, default=None):
 
 
 def get_from_row(row, options, default="-"):
+    # Soporta tanto pd.Series (tiene .index) como dict plano (viene de .to_dict("records"),
+    # p.ej. en el Weekly Calendar). Antes asumía siempre Series y crasheaba con dict porque
+    # los dicts no tienen atributo .index.
+    keys = row.index if hasattr(row, "index") else row.keys()
     for option in options:
         col = normalize(option)
-        if col in row.index and not pd.isna(row.get(col)):
-            return row.get(col)
+        if col in keys:
+            val = row.get(col)
+            if not (val is None or (not isinstance(val, (list, dict)) and pd.isna(val))):
+                return val
     return default
 
 
@@ -9166,6 +9172,50 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
     )
 
     st.markdown(table_html, unsafe_allow_html=True)
+
+
+def _quick_goto_finder(df, key_prefix, id_col_candidates=("Brand ID", "brand_id", "ID", "Store ID"),
+                       name_col_candidates=("Brand", "Brand Name", "Name", "Marca", "brand")):
+    """Acceso rápido a la ficha de una marca desde cualquier tabla.
+
+    Las tablas se pintan con st.markdown(HTML) — no pueden devolver clicks a Python.
+    Este helper agrega debajo un selector + botón que reusa el patrón _bf_goto_brand_id
+    (el mismo que ya usa Pareto Hub) para saltar al Brand Finder con la marca cargada.
+    Así toda tabla queda conectada al Finder sin reescribir el motor de render.
+    """
+    if df is None or df.empty:
+        return
+    _id_col = next((c for c in id_col_candidates if c in df.columns), None)
+    _name_col = next((c for c in name_col_candidates if c in df.columns), None)
+    if not _id_col:
+        return
+
+    # Etiqueta legible: "Nombre (ID)" → id; se limpia cualquier HTML de las celdas pill.
+    import re as _re
+    def _strip_html(v):
+        return _re.sub(r"<[^>]+>", "", str(v)).strip()
+    opts = {}
+    for _, r in df.iterrows():
+        _bid = _strip_html(r.get(_id_col))
+        if not _bid or _bid == "-":
+            continue
+        _nm = _strip_html(r.get(_name_col)) if _name_col else _bid
+        opts[f"{_nm} ({_bid})"] = _bid
+    if not opts:
+        return
+
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        _pick = st.selectbox("Ir a ficha de marca", ["—"] + list(opts.keys()),
+                             key=f"{key_prefix}_goto_sel", label_visibility="collapsed")
+    with c2:
+        if st.button("Ver ficha →", key=f"{key_prefix}_goto_btn", use_container_width=True):
+            if _pick and _pick != "—":
+                st.session_state["_bf_goto_brand_id"] = opts[_pick]
+                st.session_state["active_page"] = "Brand Finder"
+                st.rerun()
+
+
 def _render_light_table(df, height=420):
     _render_html_table(df)
 
@@ -17937,6 +17987,7 @@ def page_campaign_weekly_tracker():
         ads_view.index = ads_view.index + 1  # N. starts at 1
 
     _render_html_table(ads_view)
+    _quick_goto_finder(ads_view, "tracker_ads")
 
     # Separate MD Normal and MD PRO sections
     md_normal_latest = latest[latest["channel"] == "Markdown"].copy()
@@ -18082,16 +18133,39 @@ def page_campaign_weekly_tracker():
             for _, r in prev.iterrows():
                 prev_map[(clean(r.get("channel")), normalize_brand_id(r.get("brand_id")))] = to_number(r.get("gmv_usd"), 0)
 
-        # GMV Trend from last 4 periods
+        # GMV Trend — inline SVG sparkline (dots + line, colored by direction),
+        # mismo estilo que ROI Trend en Ads: verde si el último ≥ el primero, rojo si no.
+        def _fmt_gmv_lbl(v):
+            return f"{v/1000:.1f}k" if v >= 1000 else f"{v:.0f}"
         def _gmv_trend_for_brand(brand_id_val, channel_val):
             bid = normalize_brand_id(brand_id_val)
-            trend_vals = []
+            gmv_vals = []
             for p in periods:
                 subset = work[(work["period"].astype(str) == p) & (work["channel"] == channel_val) & (work["brand_id"].apply(normalize_brand_id) == bid)]
                 if not subset.empty:
-                    gmv = to_number(subset.iloc[0].get("gmv_usd", 0), 0)
-                    trend_vals.append(f"{gmv:.0f}k" if gmv >= 1000 else f"{gmv:.1f}")
-            return " → ".join(trend_vals) if trend_vals else "-"
+                    gmv_vals.append(to_number(subset.iloc[0].get("gmv_usd", 0), 0))
+            if not gmv_vals:
+                return "-"
+            if len(gmv_vals) == 1:
+                return _fmt_gmv_lbl(gmv_vals[0])
+            W, H, PAD = 90, 22, 4
+            _mn, _mx = min(gmv_vals), max(gmv_vals)
+            _rng = max(_mx - _mn, 0.1)
+            def _sx(i): return PAD + i * (W - 2*PAD) / max(len(gmv_vals)-1, 1)
+            def _sy(v): return H - PAD - (v - _mn) / _rng * (H - 2*PAD)
+            line_color = "#22C55E" if gmv_vals[-1] >= gmv_vals[0] else "#EF4444"
+            pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(gmv_vals))
+            dots = "".join(
+                f'<circle cx="{_sx(i):.1f}" cy="{_sy(v):.1f}" r="2.8" fill="{line_color}"/>'
+                for i, v in enumerate(gmv_vals)
+            )
+            label_first = _fmt_gmv_lbl(gmv_vals[0])
+            label_last  = _fmt_gmv_lbl(gmv_vals[-1])
+            return (
+                f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" style="vertical-align:middle;" title="{label_first} → {label_last}">'
+                f'<polyline points="{pts}" fill="none" stroke="{line_color}" stroke-width="1.8" stroke-linejoin="round"/>'
+                + dots + f'</svg> <small style="color:{line_color};font-weight:700;">{label_last}</small>'
+            )
 
         rows = []
         for _, r in md_subset.iterrows():
@@ -18121,7 +18195,7 @@ def page_campaign_weekly_tracker():
                 "Sales USD":       f"{to_number(r.get('sales_usd'), 0):,.0f}",
                 "Orders":          fmt_number(to_number(r.get("orders"), 0)),
                 "ROI":             fmt_roi2(roi),
-                "WoW GMV":         fmt_signed_percent(change) if change is not None else "-",
+                "WoW GMV":         (f'<span style="color:{"#22C55E" if change >= 0 else "#EF4444"};font-weight:700;">{fmt_signed_percent(change)}</span>' if change is not None else "-"),
                 "Penetración MD":  pene["label"],
                 "Gap al 10%":      fmt_usd(pene["gap_usd"]) if pene["gap_usd"] > 0 else "—",
                 "Revenue at Risk": revenue_at_risk,
@@ -18130,6 +18204,7 @@ def page_campaign_weekly_tracker():
             })
         md_view_out = pd.DataFrame(rows)
         _render_html_table(md_view_out)
+        _quick_goto_finder(md_view_out, f"tracker_md_{'pro' if is_pro else 'normal'}")
 
     _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
     _build_md_monitor_view(md_pro_latest, "Markdown PRO Monitor", is_pro=True)
