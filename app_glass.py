@@ -5251,6 +5251,14 @@ def _pipeline_stage_from_values(opportunity_status="", commercial_action="", pip
 
     status_low = norm_text(opportunity_status)
     action_low = norm_text(commercial_action)
+    # Nuevos estados del Sales Control Center
+    if "prospect" in status_low:
+        return "Prospected"
+    if "pipeline" in status_low:
+        return "Pipeline"
+    if "closed" in status_low or "🏆" in str(opportunity_status):
+        return "Closed"
+    # Compatibilidad con estados viejos
     if "reject" in status_low or "rechaz" in status_low or "reject" in action_low or "rechaz" in action_low or "❌" in str(commercial_action):
         return "Rejected"
     if "negotiation" in status_low or "negoci" in status_low or "negotiation" in action_low or "negoci" in action_low or "⏳" in str(commercial_action):
@@ -5445,104 +5453,363 @@ def _tracker_metric_count(df, col, pattern):
     return int(df[col].astype(str).str.contains(pattern, case=False, na=False, regex=True).sum())
 
 
+# ============================================================================
+# SALES CONTROL CENTER — funnels comerciales de proceso (reemplaza Acquisition Tracker)
+# ============================================================================
+# No es un CRM: es un panel de diagnóstico del proceso comercial del Farmer.
+# Dos funnels (Ads Acquisition, Ads Upselling), cada uno con 5 etapas:
+#   Target Market → TOFU → Prospected → Pipeline → Closed
+# - Target Market: universo fijo elegible (mismo criterio que Opportunity List),
+#   sin discriminar Tier. No se mueve por tipificación.
+# - TOFU: Tier A automático (siempre) + Tier B/C que se destapan al tipificarlas.
+# - Prospected/Pipeline/Closed: cascada acumulativa (Closed ⊆ Pipeline ⊆ Prospected).
+# La tipificación real (Prospected/Pipeline/Closed) vive en el CSV del tracker,
+# escrito desde Brand Finder — esa cañería se reusa, solo cambia la nomenclatura.
+
+SCC_STAGE_ORDER = ["Target Market", "TOFU", "Prospected", "Pipeline", "Closed"]
+SCC_STAGE_COLORS = {
+    "Target Market": "#6B7280",
+    "TOFU":          "#2563EB",
+    "Prospected":    "#3B82F6",
+    "Pipeline":      "#F97316",
+    "Closed":        "#22C55E",
+}
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _scc_universe_maps():
+    """Universo elegible por marca: {brand_id: {'ads_acquire':bool, 'ads_upsell':bool}}.
+
+    Mismo criterio que Opportunity List, corriendo sobre todo el portafolio (sin Tier):
+      · Ads Acquire   = marca SIN campaña Ads activa
+      · Ads Upselling = marca CON Ads activo y ROI > 4.5x (candidata a subir inversión)
+    """
+    ROI_UPSELL = 4.5
+    result = {}
+    try:
+        current_ads = load_current_ads_data(portfolio_only=True)
+    except Exception:
+        current_ads = pd.DataFrame()
+    # Todas las marcas del portafolio
+    port_ids = set()
+    try:
+        port_ids = set(get_portfolio_ids())
+    except Exception:
+        port_ids = set()
+
+    ads_active, ads_roi = {}, {}
+    if not current_ads.empty:
+        for _, row in current_ads.iterrows():
+            bid = normalize_brand_id(row.get("_id"))
+            bookings = to_number(row.get("bookings net"), 0)
+            revenue  = to_number(row.get("revenue net"), 0)
+            sales    = to_number(row.get("sales ads usd"), 0)
+            roi      = to_number(row.get("roi"), 0)
+            ads_active[bid] = any(v > 0 for v in [bookings, revenue, sales])
+            ads_roi[bid] = roi
+            port_ids.add(bid)
+
+    for bid in port_ids:
+        active = ads_active.get(bid, False)
+        roi = ads_roi.get(bid, 0)
+        result[bid] = {
+            "ads_acquire": not active,                    # sin Ads activo → adquisición
+            "ads_upsell":  bool(active and roi > ROI_UPSELL),  # activo + buen ROI → upsell
+        }
+    return result
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _scc_typified_map():
+    """Estado tipificado más avanzado por marca este mes, desde el CSV del tracker.
+
+    Devuelve {brand_id: {'stage': 'Prospected'|'Pipeline'|'Closed', 'movement': str}}
+    tomando solo registros del mes en curso. El 'stage' es el más avanzado alcanzado.
+    """
+    STAGE_RANK = {"Prospected": 1, "Pipeline": 2, "Closed": 3}
+    out = {}
+    if not os.path.exists(ACQUISITION_TRACKER_FILE):
+        return out
+    try:
+        df = pd.read_csv(ACQUISITION_TRACKER_FILE)
+    except Exception:
+        return out
+    if df.empty or "brand_id" not in df.columns:
+        return out
+    # Filtrar mes en curso
+    _today = datetime.now(TZ_APP).date()
+    if "date" in df.columns:
+        def _in_month(d):
+            try:
+                dd = pd.to_datetime(d).date()
+                return dd.year == _today.year and dd.month == _today.month
+            except Exception:
+                return False
+        df = df[df["date"].apply(_in_month)]
+    if df.empty:
+        return out
+
+    for _, r in df.iterrows():
+        bid = normalize_brand_id(r.get("brand_id"))
+        if not bid:
+            continue
+        # Mapear pipeline_stage viejo/nuevo a las 3 etapas del funnel
+        raw_stage = norm_text(r.get("pipeline_stage"))
+        raw_status = norm_text(r.get("opportunity_status"))
+        if "closed" in raw_stage or "deal closed" in raw_status or raw_stage == "closed":
+            stage = "Closed"
+        elif "pipeline" in raw_stage or "negotiation" in raw_stage or "negoci" in raw_status or "pipeline" in raw_status:
+            stage = "Pipeline"
+        elif "prospect" in raw_stage or "prospect" in raw_status or "follow up" in raw_status:
+            stage = "Prospected"
+        elif "reject" in raw_stage:
+            continue  # rechazo no cuenta como etapa del funnel de avance
+        else:
+            stage = "Prospected"  # cualquier contacto tipificado cuenta al menos como Prospected
+        mv = clean(r.get("movement"), "")
+        prev = out.get(bid)
+        if not prev or STAGE_RANK.get(stage, 0) > STAGE_RANK.get(prev["stage"], 0):
+            out[bid] = {"stage": stage, "movement": mv}
+    return out
+
+
+def _scc_build_funnel(kind):
+    """Construye un funnel ('acquire' o 'upsell') con las 5 etapas y desglose por Tier.
+
+    Devuelve {'stages': {stage: count}, 'by_tier': {stage: {'A':n,'B':n,'C':n}}}.
+    """
+    universe = _scc_universe_maps()
+    typified = _scc_typified_map()
+    tier_map = get_pareto_tiers_map()
+
+    uni_key = "ads_acquire" if kind == "acquire" else "ads_upsell"
+    # Target Market: universo elegible fijo, sin discriminar Tier
+    target_ids = {bid for bid, u in universe.items() if u.get(uni_key)}
+
+    stages = {s: 0 for s in SCC_STAGE_ORDER}
+    by_tier = {s: {"A": 0, "B": 0, "C": 0} for s in SCC_STAGE_ORDER}
+
+    # Marcas tipificadas relevantes a este funnel (por movement o por elegibilidad)
+    def _relevant_to_kind(bid, mv):
+        mv_l = norm_text(mv)
+        if kind == "acquire":
+            if "upsell" in mv_l: return False
+            return True
+        else:
+            if "upsell" in mv_l: return True
+            # si el movement no lo dice, usar elegibilidad del universo
+            return bool(universe.get(bid, {}).get("ads_upsell"))
+
+    STAGE_RANK = {"Prospected": 1, "Pipeline": 2, "Closed": 3}
+
+    # 1) Target Market: universo fijo
+    for bid in target_ids:
+        stages["Target Market"] += 1
+        t = tier_map.get(bid)
+        if t in by_tier["Target Market"]:
+            by_tier["Target Market"][t] += 1
+
+    # 2) TOFU base: Tier A automático que esté en el universo
+    tofu_ids = set()
+    for bid in target_ids:
+        if tier_map.get(bid) == "A":
+            tofu_ids.add(bid)
+
+    # 3) Tipificadas: destapan TOFU (B/C) y llenan cascada Prospected→Pipeline→Closed
+    prospected_ids, pipeline_ids, closed_ids = set(), set(), set()
+    for bid, info in typified.items():
+        if not _relevant_to_kind(bid, info.get("movement")):
+            continue
+        stage = info["stage"]
+        rank = STAGE_RANK.get(stage, 0)
+        # cualquier tipificación destapa TOFU (aunque sea B/C)
+        tofu_ids.add(bid)
+        if rank >= 1: prospected_ids.add(bid)
+        if rank >= 2: pipeline_ids.add(bid)
+        if rank >= 3: closed_ids.add(bid)
+        # marca tipificada B/C que no estaba en Target: destaparla también en Target
+        if bid not in target_ids:
+            stages["Target Market"] += 1
+            t = tier_map.get(bid)
+            if t in by_tier["Target Market"]:
+                by_tier["Target Market"][t] += 1
+
+    def _fill(stage_name, ids):
+        stages[stage_name] = len(ids)
+        for bid in ids:
+            t = tier_map.get(bid)
+            if t in by_tier[stage_name]:
+                by_tier[stage_name][t] += 1
+
+    _fill("TOFU", tofu_ids)
+    _fill("Prospected", prospected_ids)
+    _fill("Pipeline", pipeline_ids)
+    _fill("Closed", closed_ids)
+
+    return {"stages": stages, "by_tier": by_tier,
+            "pipeline_ids": pipeline_ids, "closed_ids": closed_ids}
+
+
+def _scc_insights(acq, ups):
+    """Motor de reglas de insights con piso mínimo de volumen (evita sesgo por muestra chica)."""
+    MIN_VOL = 5  # no generar insight de una etapa con menos de 5 casos
+    insights = []
+
+    def _conv(a, b):
+        return (b / a) if a > 0 else 0
+
+    for label, fn in [("Adquisición", acq), ("Upselling", ups)]:
+        s = fn["stages"]
+        # TOFU → Prospected
+        if s["TOFU"] >= MIN_VOL and _conv(s["TOFU"], s["Prospected"]) < 0.30:
+            insights.append(("🎯", label,
+                "La principal limitación está en la prospección. Hay oportunidades priorizadas que todavía no estás contactando."))
+        # Prospected → Pipeline
+        if s["Prospected"] >= MIN_VOL and _conv(s["Prospected"], s["Pipeline"]) < 0.35:
+            insights.append(("💬", label,
+                "Las oportunidades contactadas no avanzan a negociación. Revisá segmentación o pitch comercial."))
+        # Pipeline → Closed
+        if s["Pipeline"] >= MIN_VOL and _conv(s["Pipeline"], s["Closed"]) < 0.30:
+            insights.append(("🔒", label,
+                "Las negociaciones abiertas no están cerrando. Revisá seguimiento, presupuesto o estrategia."))
+        # Pipeline acumulado alto vs Closed bajo
+        if s["Pipeline"] >= MIN_VOL and s["Closed"] < s["Pipeline"] * 0.2:
+            insights.append(("📊", label,
+                "Acumulación de oportunidades abiertas: el pipeline crece pero los cierres no lo siguen."))
+
+    # Regla de coinversión: marcas en pipeline con coinversión en 'offer' sin usar
+    try:
+        coinv_offer = 0
+        for bid in list(acq["pipeline_ids"]) + list(ups["pipeline_ids"]):
+            cg = get_coinversion_group_for_brand(bid, "")
+            if cg.get("state") == "offer" and cg.get("has_coinv"):
+                coinv_offer += 1
+        if coinv_offer >= 3:
+            insights.append(("🤝", "Coinversión",
+                f"{coinv_offer} marcas en pipeline tienen coinversión habilitada sin activar. "
+                f"Ofrecerla podría destrabar el cierre — Rappi pone parte de la inversión."))
+    except Exception:
+        pass
+
+    return insights
+
+
 def page_acquisition_tracker():
-    render_header("Acquisition Tracker", "Closed actions and negotiation pipeline")
+    render_header("Sales Control Center", "Diagnóstico del proceso comercial · Ads Acquisition & Upselling")
 
-    df = _load_acquisition_tracker_df()
-    tracker_is_empty = df.empty
-    if tracker_is_empty:
-        # Keep the tracker visually complete even after reset: metrics and tables stay visible at zero.
-        df = pd.DataFrame(columns=ACQUISITION_TRACKER_COLUMNS)
-        df["_dt"] = pd.to_datetime(pd.Series([], dtype="datetime64[ns]"))
+    acq = _scc_build_funnel("acquire")
+    ups = _scc_build_funnel("upsell")
 
-    today_ts = pd.Timestamp(date.today())
-    month_start = pd.Timestamp(date.today().replace(day=1))
-    week_start_date = date.today() - timedelta(days=date.today().weekday())
-    week_start = pd.Timestamp(week_start_date)
-
-    if tracker_is_empty:
-        st.info("Acquisition Tracker reset: no records yet. Metrics and tables below start at 0 and will fill from new Brand Finder actions.")
-
-    month_df = df[df["_dt"].notna() & (df["_dt"] >= month_start)].copy()
-    if month_df.empty:
-        month_df = df.copy()
-
-    week_df = df[df["_dt"].notna() & (df["_dt"] >= week_start) & (df["_dt"] <= today_ts + pd.Timedelta(days=1))].copy()
-
-    stage_series = month_df["pipeline_stage"].astype(str).str.lower() if "pipeline_stage" in month_df.columns else pd.Series([], dtype=str)
-    closed_df = month_df[~stage_series.isin(["negotiation", "rejected"])].copy()
-    negotiation_df = month_df[stage_series == "negotiation"].copy()
-    rejected_df = month_df[stage_series == "rejected"].copy()
-    negotiation_week_df = week_df[week_df["pipeline_stage"].astype(str).str.lower() == "negotiation"].copy() if "pipeline_stage" in week_df.columns else pd.DataFrame(columns=month_df.columns)
-
-    total_actions = len(closed_df)
-    total_ads = closed_df["ads_booking_ars"].sum() if "ads_booking_ars" in closed_df.columns else 0
-
-    md_actions = _tracker_metric_count(closed_df, "type", "MD")
-    ads_actions = _tracker_metric_count(closed_df, "type", "ADS")
-
-    acquisitions_count = _tracker_metric_count(closed_df, "movement", "Acquisition")
-    upsellings_count = _tracker_metric_count(closed_df, "movement", "Upselling")
-
-    negotiations_wtd = len(negotiation_week_df)
-    negotiation_ads_budget_wtd = negotiation_week_df["ads_booking_ars"].sum() if "ads_booking_ars" in negotiation_week_df.columns else 0
-    negotiation_ads_count = _tracker_metric_count(negotiation_week_df, "type", "ADS")
-    negotiation_md_count = _tracker_metric_count(negotiation_week_df, "type", "MD")
-
-    st.markdown("### Closed Actions")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Closed MTD", fmt_number(total_actions), help="Tracked closed commercial moves this month")
-    with c2:
-        st.metric("ADS Booked MTD", fmt_ars(total_ads), help="Ads is measured in ARS")
-    with c3:
-        st.metric("ADS / MD Activations", f"{fmt_number(ads_actions)} / {fmt_number(md_actions)}", help="Commercial actions by type")
-    with c4:
-        st.metric(
-            "Acq / Upsell",
-            f"{fmt_number(acquisitions_count)} / {fmt_number(upsellings_count)}",
-            help="Acquisitions vs Upsellings tracked this month. Deactivations are excluded from this calculator."
+    def _funnel_html(title, data, accent):
+        stages = data["stages"]
+        by_tier = data["by_tier"]
+        top = max(stages["Target Market"], 1)
+        rows = []
+        prev_count = None
+        for s in SCC_STAGE_ORDER:
+            c = stages[s]
+            width = max(c / top * 100, 3)
+            color = SCC_STAGE_COLORS[s]
+            conv = ""
+            if prev_count is not None and prev_count > 0:
+                conv = f'<span style="font-size:11px;color:#6B7280;margin-left:8px;">{c/prev_count*100:.0f}% ↓</span>'
+            tiers = by_tier[s]
+            tier_chips = ""
+            if any(tiers.values()):
+                tier_chips = (
+                    f'<span style="font-size:10px;color:#6B7280;margin-left:8px;">'
+                    f'A:{tiers["A"]} · B:{tiers["B"]} · C:{tiers["C"]}</span>'
+                )
+            rows.append(
+                f'<div style="margin-bottom:10px;">'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
+                f'<span style="font-size:12px;font-weight:700;color:#111827;">{s}{conv}{tier_chips}</span>'
+                f'<span style="font-size:15px;font-weight:900;color:{color};">{c}</span></div>'
+                f'<div style="background:rgba(0,0,0,0.05);border-radius:6px;height:22px;overflow:hidden;">'
+                f'<div style="width:{width:.1f}%;height:100%;background:{color};border-radius:6px;'
+                f'transition:width .3s;"></div></div></div>'
+            )
+            prev_count = c
+        return (
+            f'<div style="background:rgba(255,255,255,0.92);border-radius:14px;padding:20px 22px;'
+            f'border-top:3px solid {accent};box-shadow:0 2px 12px rgba(0,0,0,0.05);">'
+            f'<div style="font-size:15px;font-weight:900;color:#111827;margin-bottom:16px;">{title}</div>'
+            f'{"".join(rows)}</div>'
         )
 
-    st.markdown("### Negotiation Pipeline")
-    n1, n2, n3, n4 = st.columns(4)
-    with n1:
-        st.metric("Negotiations WTD", fmt_number(negotiations_wtd), help="Negotiations opened this week")
-    with n2:
-        st.metric("ADS in Negotiation", fmt_ars(negotiation_ads_budget_wtd), help="Ads budget currently negotiated this week")
-    with n3:
-        st.metric("ADS / MD Negotiations", f"{fmt_number(negotiation_ads_count)} / {fmt_number(negotiation_md_count)}", help="Negotiation mix by lever")
-    with n4:
-        st.metric("Rejected MTD", fmt_number(len(rejected_df)), help="Rejected opportunities tracked this month")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(_funnel_html("🎯 Ads Acquisition Funnel", acq, "#2563EB"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(_funnel_html("🧉 Ads Upselling Funnel", ups, "#F97316"), unsafe_allow_html=True)
 
-    view_cols = [
-        "datetime", "brand_id", "brand_name", "pipeline_stage", "type", "movement", "commercial_action",
-        "negotiation_type", "ads_booking_ars", "md_discount", "rejection_reason", "opportunity_status", "comment"
+    # ── Commercial KPIs ───────────────────────────────────────────────────────
+    st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:13px;font-weight:900;color:#111827;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">📊 Commercial KPIs</div>', unsafe_allow_html=True)
+
+    pipeline_total = acq["stages"]["Pipeline"] + ups["stages"]["Pipeline"]
+    closed_total   = acq["stages"]["Closed"] + ups["stages"]["Closed"]
+
+    # Pipeline Value: se reporta separado Ads vs MD para no mezclar unidades.
+    def _pipeline_value_usd(ids):
+        total = 0.0
+        try:
+            ads_df = load_current_ads_data(portfolio_only=True)
+            ads_book = {}
+            if not ads_df.empty:
+                for _, r in ads_df.iterrows():
+                    ads_book[normalize_brand_id(r.get("_id"))] = to_number(r.get("bookings net"), 0)
+            for bid in ids:
+                total += ads_book.get(bid, 0)
+        except Exception:
+            pass
+        return total
+
+    pipe_val_ads = _pipeline_value_usd(acq["pipeline_ids"] | ups["pipeline_ids"])
+
+    kpis = [
+        ("Pipeline Total", str(pipeline_total), "#F97316", "marcas en negociación"),
+        ("Closed Won", str(closed_total), "#22C55E", "ventas cerradas este mes"),
+        ("Pipeline Value (Ads)", fmt_usd(pipe_val_ads), "#2563EB", "bookings ADS en pipeline"),
     ]
+    kcols = st.columns(len(kpis))
+    for (label, val, color, sub), col in zip(kpis, kcols):
+        with col:
+            st.markdown(
+                f'<div style="background:rgba(255,255,255,0.92);border-radius:12px;padding:16px 18px;'
+                f'border-left:3px solid {color};box-shadow:0 2px 10px rgba(0,0,0,0.04);">'
+                f'<div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;">{label}</div>'
+                f'<div style="font-size:26px;font-weight:900;color:{color};margin-top:4px;">{val}</div>'
+                f'<div style="font-size:11px;color:#9CA3AF;margin-top:2px;">{sub}</div></div>',
+                unsafe_allow_html=True,
+            )
 
-    st.markdown("#### Closed Actions Detail")
-    closed_view = closed_df.copy()
-    for col in view_cols:
-        if col not in closed_view.columns:
-            closed_view[col] = ""
-    closed_view = closed_view[view_cols].sort_values(by="datetime", ascending=False)
-    _render_html_table(closed_view)
+    # ── Commercial Insights ───────────────────────────────────────────────────
+    st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:13px;font-weight:900;color:#111827;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">🧠 Commercial Insights</div>', unsafe_allow_html=True)
 
-    st.markdown("#### Negotiation Pipeline Detail")
-    negotiation_view = negotiation_df.copy()
-    for col in view_cols:
-        if col not in negotiation_view.columns:
-            negotiation_view[col] = ""
-    negotiation_view = negotiation_view[view_cols].sort_values(by="datetime", ascending=False)
-    _render_html_table(negotiation_view)
+    insights = _scc_insights(acq, ups)
+    if not insights:
+        st.markdown(
+            '<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.20);'
+            'border-radius:10px;padding:14px 16px;font-size:12px;color:#16A34A;">'
+            '✅ Sin cuellos de botella detectados con el volumen actual. A medida que tipifiques más marcas, '
+            'los insights de proceso van a aparecer acá.</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        for icon, label, text in insights:
+            st.markdown(
+                f'<div style="background:rgba(37,99,235,0.05);border-left:3px solid #2563EB;'
+                f'border-radius:0 10px 10px 0;padding:12px 16px;margin-bottom:8px;">'
+                f'<span style="font-size:11px;font-weight:800;color:#2563EB;text-transform:uppercase;">{icon} {label}</span>'
+                f'<div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.5;">{text}</div></div>',
+                unsafe_allow_html=True,
+            )
 
-    st.markdown("#### Rejected Opportunities")
-    rejected_view = rejected_df.copy()
-    for col in view_cols:
-        if col not in rejected_view.columns:
-            rejected_view[col] = ""
-    rejected_view = rejected_view[view_cols].sort_values(by="datetime", ascending=False)
-    _render_html_table(rejected_view)
+    st.caption("El proceso se alimenta de las tipificaciones (Prospected/Pipeline/Closed) que registrás en Brand Finder. "
+               "Target Market es el universo elegible fijo; TOFU suma Tier A + las B/C que vas trabajando.")
+
 
 
 
@@ -6123,7 +6390,7 @@ NAV_GROUPS = [
         ("Pareto Hub",           "🧭"),
     ]),
     ("Tracking", [
-        ("Acquisition Tracker",      "🚀"),
+        ("Sales Control Center",     "🎯"),
         ("Campaign Weekly Tracker",  "📣"),
         ("Weekly Calendar",          "📅"),
     ]),
@@ -6291,7 +6558,7 @@ with st.sidebar:
         "Follow-Up List": "Para gestionar los seguimientos pendientes de cada marca.",
         "Brand Finder": "Para buscar una marca y revisar toda su ficha comercial en detalle.",
         "Pareto Hub": "Para trabajar las marcas Tier A que concentran el 80% del GMV.",
-        "Acquisition Tracker": "Para seguir la adquisición de nuevas marcas y su activación.",
+        "Sales Control Center": "Diagnóstico de tu proceso comercial: funnels de adquisición y upselling.",
         "Campaign Weekly Tracker": "Para monitorear el desempeño semanal de las campañas.",
         "Weekly Calendar": "Para ver la agenda de contactos y actividades de la semana.",
         "Brand Update": "Para actualizar datos y notas de una marca.",
@@ -18474,14 +18741,9 @@ def _render_followup_form(row, brand_id, name):
         opportunity_status = st.selectbox(
             "Status",
             [
-                "📅 Campaign Follow Up",
-                "📅 Campaign Negotiation",
-                "📅 Contractual Changes",
-                "Deal Closed 🏆",
-                "── No Answer ──",
-                "📵 No Answer / Bad Number",
-                "⏰ No Answer / No time — Call me later",
-                "🙅 No Answer / Not interested in meeting",
+                "📋 Prospected",
+                "📈 Pipeline",
+                "🏆 Closed",
             ],
             index=0,
             key=f"comment_status_{brand_id}"
@@ -18489,8 +18751,10 @@ def _render_followup_form(row, brand_id, name):
     template_type = "None"
 
     # ── Detectar si es un No Answer para simplificar el formulario ────────────
-    _is_no_answer = opportunity_status.startswith("📵") or opportunity_status.startswith("⏰") or opportunity_status.startswith("🙅")
-    _is_separator  = opportunity_status == "── No Answer ──"
+    # Ya no hay estados "No Answer" en el selector (esa señal vive en Productivity vía
+    # Manager). Se mantienen las flags en False para no romper el resto del flujo.
+    _is_no_answer = False
+    _is_separator  = False
 
     # ── Transcripción / nota de contacto ─────────────────────────────────────
     transcript_label = "📋 Transcripción de la llamada" if contact_channel == "Call" else "📝 Nota del contacto (WhatsApp / Email / Meet)"
@@ -18892,6 +19156,34 @@ def _render_followup_form(row, brand_id, name):
             _save_overlay("Agendando seguimiento\u2026")
             event_ok, event_msg = _add_event_to_agenda_inner(_wb_save, event_data)
 
+        # ── Sales Control Center: guardado de tipificación (Prospected/Pipeline/Closed) ──
+        # El nuevo selector reemplaza al viejo. Cada tipificación registra la etapa del
+        # funnel. El movement (Acquisition/Upselling) se infiere del estado de Ads de la
+        # marca: sin Ads activo → Acquisition; con Ads activo → Upselling.
+        _scc_stage_map = {
+            "📋 Prospected": "Prospected",
+            "📈 Pipeline":   "Pipeline",
+            "🏆 Closed":     "Closed",
+        }
+        if opportunity_status in _scc_stage_map:
+            _scc_stage = _scc_stage_map[opportunity_status]
+            try:
+                _uni = _scc_universe_maps().get(normalize_brand_id(brand_id), {})
+                _movement = "Upselling" if _uni.get("ads_upsell") else "Acquisition"
+            except Exception:
+                _movement = "Acquisition"
+            tracker_ok, tracker_msg = save_acquisition_tracker_event(
+                brand_id,
+                name,
+                _movement,
+                ads_budget_ars=0,
+                md_discount="",
+                opportunity_status=opportunity_status,
+                comment=final_comment,
+                pipeline_stage=_scc_stage,
+                negotiation_type="",
+            )
+
         if opportunity_status == "Deal Closed 🏆" and commercial_action != "No commercial change":
             updates = {}
             if "Ads" in commercial_action:
@@ -18950,7 +19242,7 @@ def _render_followup_form(row, brand_id, name):
             "task":     "No Answer — Retry" if (_is_no_answer or _is_separator) else "Follow-up",
             "channel":  contact_channel,
             "priority": "High" if (_is_no_answer or _is_separator) else "Mid",
-            "status":   "Campaign Follow Up",
+            "status":   opportunity_status if opportunity_status in ["📋 Prospected", "📈 Pipeline", "🏆 Closed"] else "Follow-up",
             "notes":    f"Auto-agendado desde Brand Finder · {final_comment[:80] if final_comment else opportunity_status}",
         }
         # Only auto-schedule if no manual calendar event was already added
@@ -20248,7 +20540,7 @@ _PAGE_FN = {
     "Follow-Up List":           page_follow_up_list,
     "Brand Finder":             page_brand_finder,
     "Pareto Hub":               page_pareto_hub,
-    "Acquisition Tracker":      page_acquisition_tracker,
+    "Sales Control Center":     page_acquisition_tracker,
     "Campaign Weekly Tracker":  page_campaign_weekly_tracker,
     "Weekly Calendar":          page_weekly_calendar,
     "Brand Update":             page_brand_update,
