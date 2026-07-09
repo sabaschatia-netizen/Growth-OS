@@ -20498,24 +20498,13 @@ def _show_loading_overlay(page_name):
         el.innerHTML = {inner_js};
         el.style.display = 'flex';
 
-        // Posicionar sobre el contenido (sidebar + título visibles). Defaults seguros.
-        var left = 0, top = 88;
+        // Posicionar sobre el contenido. El overlay cubre TODO el área principal
+        // desde arriba (incluido el header) — antes arrancaba debajo del título, lo que
+        // dejaba el header a medio renderizar asomando por encima de la lámina.
+        var left = 0, top = 0;
         try {{
           var sb = D.querySelector('section[data-testid="stSidebar"]');
           if (sb) {{ var r = sb.getBoundingClientRect(); if (r.width > 2 && r.right > 2 && r.right < 600) left = r.right; }}
-        }} catch (e) {{}}
-        try {{
-          var main = D.querySelector('[data-testid="stMain"]') || D.querySelector('section.main')
-                  || D.querySelector('[data-testid="stAppViewContainer"]');
-          var block = main ? (main.querySelector('[data-testid="stMainBlockContainer"]')
-                           || main.querySelector('.block-container')) : null;
-          if (block) {{
-            var kids = block.children;
-            for (var i = 0; i < kids.length; i++) {{
-              var rr = kids[i].getBoundingClientRect();
-              if (rr.height > 24) {{ if (rr.bottom > 40 && rr.bottom < 400) top = rr.bottom + 8; break; }}
-            }}
-          }}
         }} catch (e) {{}}
         el.style.left = left + 'px'; el.style.top = top + 'px';
         el.style.right = '0px'; el.style.bottom = '0px';
