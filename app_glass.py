@@ -7043,11 +7043,24 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
 /* #1 · Header 100% FIJO a la altura de la pill: el sticky va en el contenedor
    que envuelve al header (abarca toda la altura scrolleable). z-index alto para
    que ninguna card se le atraviese, y fondo del canvas para tapar lo que pasa
-   por debajo del margen del header. */
+   por debajo del margen del header.
+   FIX: antes el padding-top:46px estaba en 4 selectores distintos que suelen
+   matchear el mismo header Y sus contenedores padre anidados a la vez (varios
+   niveles de stElementContainer/stVerticalBlock/element-container alrededor del
+   mismo .app-header) — el padding se sumaba en cascada y el header terminaba
+   muy abajo. Ahora el padding-top vive en un único selector (el más externo);
+   los demás solo heredan el sticky/z-index/fondo, sin repetir el espaciado. */
 [data-testid="stElementContainer"]:has(.app-header),
-[data-testid="stVerticalBlock"] > div:has(> [data-testid="stElementContainer"] .app-header),
 .element-container:has(.app-header),
 [data-testid="element-container"]:has(.app-header) {{
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 500 !important;
+    background: #EEF4FF !important;
+    padding-top: 0 !important;
+    margin-bottom: 8px !important;
+}}
+[data-testid="stVerticalBlock"] > div:has(> [data-testid="stElementContainer"] .app-header) {{
     position: sticky !important;
     top: 0 !important;
     z-index: 500 !important;
