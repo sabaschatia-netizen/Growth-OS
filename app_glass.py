@@ -7033,6 +7033,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     border: none;
     border-radius: 12px;
     padding: 20px 32px;
+    margin-top: 46px;
     margin-bottom: 22px;
     display: flex;
     justify-content: space-between;
@@ -7040,32 +7041,22 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     box-shadow: 0 8px 24px rgba(37,99,235,0.22);
     transition: box-shadow .2s;
 }}
-/* #1 · Header 100% FIJO a la altura de la pill: el sticky va en el contenedor
-   que envuelve al header (abarca toda la altura scrolleable). z-index alto para
-   que ninguna card se le atraviese, y fondo del canvas para tapar lo que pasa
-   por debajo del margen del header.
-   FIX: antes el padding-top:46px estaba en 4 selectores distintos que suelen
-   matchear el mismo header Y sus contenedores padre anidados a la vez (varios
-   niveles de stElementContainer/stVerticalBlock/element-container alrededor del
-   mismo .app-header) — el padding se sumaba en cascada y el header terminaba
-   muy abajo. Ahora el padding-top vive en un único selector (el más externo);
-   los demás solo heredan el sticky/z-index/fondo, sin repetir el espaciado. */
-[data-testid="stElementContainer"]:has(.app-header),
-.element-container:has(.app-header),
-[data-testid="element-container"]:has(.app-header) {{
+/* #1 · Header 100% FIJO a la altura de la pill.
+   FIX v2: la versión anterior tenía DOS elementos con position:sticky anidados
+   (uno interno y uno externo), ambos con top:0. Dos sticky anidados con el mismo
+   top se superponen al hacer scroll — el interior queda flotando por encima del
+   exterior, produciendo el efecto de "fichas cruzadas" que se veía.
+   Ahora hay un ÚNICO nivel sticky (el contenedor más específico y estable:
+   [data-testid="stElementContainer"]), sin depender de selectores anidados que
+   puedan matchear más de un nivel del DOM a la vez. El espacio para no chocar
+   con la barra nativa de Streamlit Cloud se resuelve con `top: 46px` (el propio
+   sticky arranca 46px más abajo del viewport) en vez de padding-top interno —
+   así el fondo del header no se estira hacia arriba tapando contenido. */
+[data-testid="stElementContainer"]:has(> .app-header) {{
     position: sticky !important;
-    top: 0 !important;
+    top: 46px !important;
     z-index: 500 !important;
     background: #EEF4FF !important;
-    padding-top: 0 !important;
-    margin-bottom: 8px !important;
-}}
-[data-testid="stVerticalBlock"] > div:has(> [data-testid="stElementContainer"] .app-header) {{
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 500 !important;
-    background: #EEF4FF !important;
-    padding-top: 46px !important;
     margin-bottom: 8px !important;
 }}
 .app-header:hover {{
