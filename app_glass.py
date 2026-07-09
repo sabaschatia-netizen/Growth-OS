@@ -7527,6 +7527,26 @@ def render_header(title="Growth OS", subtitle="Commercial Management System · R
     except Exception:
         _h_stamp = ""
 
+    # Chip de marca activa: si hay una marca en contexto global y no estamos en el
+    # Brand Finder (donde ya se ve), se muestra un recordatorio sutil de "en qué marca
+    # estás trabajando", para no perder el hilo al navegar entre pantallas.
+    _active_brand_html = ""
+    try:
+        _sb_id = st.session_state.get("selected_brand_id", "")
+        _sb_nm = st.session_state.get("selected_brand_name", "")
+        if _sb_id and title != "Brand Finder":
+            _sb_label = f"{_sb_nm} · {_sb_id}" if _sb_nm else str(_sb_id)
+            _active_brand_html = (
+                f'<div style="display:inline-flex;align-items:center;gap:7px;margin-top:8px;'
+                f'background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);'
+                f'border-radius:999px;padding:4px 13px;font-size:12px;font-weight:700;color:#FFFFFF;">'
+                f'🎯 Marca activa: {html.escape(_sb_label)}</div>'
+            )
+    except Exception:
+        _active_brand_html = ""
+
+    subtitle_html = subtitle_html + _active_brand_html
+
     st.markdown(f"""
     <div class="app-header">
         <div>
@@ -9068,6 +9088,8 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         "días":               lambda t: t,   # raw HTML badge — no escaping
         "próximo contacto":   lambda t: t,   # raw HTML badge — no escaping
         "roi trend":          lambda t: t,   # raw HTML SVG sparkline — no escaping
+        "gmv trend":          lambda t: t,   # raw HTML SVG sparkline — no escaping
+        "wow gmv":            lambda t: t,   # raw HTML colored span — no escaping
     }
 
     # ── sticky header ────────────────────────────────────────────────────────
@@ -9135,7 +9157,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
 
             # For raw-HTML columns (días, próximo contacto, roi trend) strip tags for the tooltip
             import re as _re
-            tooltip_text = _re.sub(r"<[^>]+>", "", text) if col_key in ("días", "próximo contacto", "roi trend") else text
+            tooltip_text = _re.sub(r"<[^>]+>", "", text) if col_key in ("días", "próximo contacto", "roi trend", "gmv trend", "wow gmv") else text
             cells += (
                 f'<td style="padding:12px 14px;border-bottom:1px solid rgba(0,0,0,0.06);'
                 f'white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;'
@@ -18226,6 +18248,17 @@ def page_brand_finder():
 
     brand_id_input = st.text_input("Search Brand ID", key="bf_brand_id_input")
     brand_id = normalize_brand_id(brand_id_input)
+
+    # Contexto de marca global: al cargar una ficha, la marca queda como "activa" para
+    # que otras pantallas (360°, Campaign Designer) puedan ofrecerla como default sin
+    # obligar a re-buscarla. Se guarda id + nombre legible.
+    if brand_id:
+        try:
+            _nm_map = _brand_name_map()
+            st.session_state["selected_brand_name"] = _nm_map.get(brand_id, "")
+        except Exception:
+            st.session_state["selected_brand_name"] = ""
+        st.session_state["selected_brand_id"] = brand_id
 
     if not brand_id_input:
         st.info("Type or paste a Brand ID to load the full brand profile. Example: AR65184 - Multistorefull")
