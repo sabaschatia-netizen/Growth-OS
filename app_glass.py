@@ -6661,10 +6661,14 @@ def _nav_toggle_dark():
 
 
 with st.sidebar:
-    # Toggle button
+    # Toggle button — botón chico y centrado, NO la pill larga que usan los demás
+    # botones del sidebar (por eso no lleva use_container_width y tiene su propio
+    # CSS más abajo, con key="nav_toggle" para no afectar al resto de botones).
     toggle_label = "◀" if not collapsed else "▶"
-    st.button(toggle_label, key="nav_toggle", help="Colapsar / expandir navegación",
-              use_container_width=True, on_click=_nav_toggle_collapse)
+    _tgl_col_l, _tgl_col_c, _tgl_col_r = st.columns([1, 1, 1])
+    with _tgl_col_c:
+        st.button(toggle_label, key="nav_toggle", help="Colapsar / expandir navegación",
+                  on_click=_nav_toggle_collapse)
 
     collapsed = st.session_state["nav_collapsed"]
 
@@ -6925,6 +6929,23 @@ section[data-testid="stSidebar"] .stButton > button div,
 section[data-testid="stSidebar"] .stButton > button [data-testid="stMarkdownContainer"] p {{
     color: #111827 !important;
 }}
+/* Botón de colapsar/expandir sidebar: chico y centrado, no la pill larga
+   genérica — para que no se vea como una segunda pill igual al profile chip.
+   Vive dentro de st.columns (para centrarlo), por eso el selector baja un nivel
+   más que los demás botones del sidebar. */
+section[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"]:first-of-type .stButton > button {{
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 4px 0 !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 4px rgba(15,23,42,0.08) !important;
+    font-size: 13px !important;
+    margin: 0 auto 6px auto !important;
+}}
 section[data-testid="stSidebar"] .stButton > button:hover {{
     background: #FB923C !important;
     color: #FFFFFF !important;
@@ -6969,11 +6990,30 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{ color: rg
     padding-bottom: 5rem;
 }}
 
-/* Header nativo de Streamlit al mínimo → los títulos suben, pegados al techo */
+/* Header nativo de Streamlit al mínimo → los títulos suben, pegados al techo.
+   ANTES solo se colapsaba stHeader, pero el stToolbar (Stop/Fork/⋮, la franja
+   superior que se ve en Streamlit Cloud) es un elemento aparte que seguía con su
+   altura y padding nativos, empujando TODO el contenido hacia abajo — esa era
+   la causa real del hueco enorme, no el margin-top del header (que ya se había
+   reducido). Ahora se colapsan ambos, y el contenedor raíz del área de contenido
+   se fuerza a arrancar en 0 también. */
 [data-testid="stHeader"] {{
     height: 0 !important;
     min-height: 0 !important;
     background: transparent !important;
+}}
+[data-testid="stToolbar"] {{
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+}}
+[data-testid="stAppViewContainer"] > .main,
+[data-testid="stAppViewContainer"],
+section.main {{
+    padding-top: 0 !important;
+}}
+div[data-testid="stMainBlockContainer"] {{
+    padding-top: 0 !important;
 }}
 
 /* ── VERTICAL SPACING between Streamlit elements ── */
@@ -7046,7 +7086,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
     border: none;
     border-radius: 12px;
     padding: 20px 32px;
-    margin-top: 8px;
+    margin-top: 2px;
     margin-bottom: 22px;
     display: flex;
     justify-content: space-between;
@@ -7067,7 +7107,7 @@ div[data-testid="stHorizontalBlock"] {{ gap: 20px !important; }}
    así el fondo del header no se estira hacia arriba tapando contenido. */
 [data-testid="stElementContainer"]:has(> .app-header) {{
     position: sticky !important;
-    top: 8px !important;
+    top: 2px !important;
     z-index: 500 !important;
     background: #EEF4FF !important;
     margin-bottom: 8px !important;
