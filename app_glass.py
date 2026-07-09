@@ -5222,12 +5222,45 @@ def reset_acquisition_tracker_once():
         return False
 
 
-def _commercial_action_type(commercial_action):
-    text = clean(commercial_action, "")
-    low = norm_text(text)
-    if "ads" in low and ("markdown" in low or "md" in low):
-        return "ADS + MD"
-    if "ads" in low:
+def _scc_reset_current_month():
+    """Borra del tracker los registros del mes en curso (limpia conteos de prueba).
+
+    Hace backup antes. Solo toca el mes actual — los meses anteriores quedan intactos.
+    """
+    if not os.path.exists(ACQUISITION_TRACKER_FILE):
+        return True, "No hay registros que reiniciar."
+    try:
+        df = pd.read_csv(ACQUISITION_TRACKER_FILE)
+        if df.empty:
+            return True, "El tracker ya está vacío."
+        # Backup
+        try:
+            os.makedirs(BACKUP_FOLDER, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            shutil.copy2(ACQUISITION_TRACKER_FILE,
+                         os.path.join(BACKUP_FOLDER, f"scc_backup_before_month_reset_{stamp}.csv"))
+        except Exception:
+            pass
+        _today = datetime.now(TZ_APP).date()
+        if "date" in df.columns:
+            def _not_current_month(d):
+                try:
+                    dd = pd.to_datetime(d).date()
+                    return not (dd.year == _today.year and dd.month == _today.month)
+                except Exception:
+                    return True  # si no parsea, se conserva
+            kept = df[df["date"].apply(_not_current_month)]
+            removed = len(df) - len(kept)
+        else:
+            kept = df.iloc[0:0]
+            removed = len(df)
+        kept.to_csv(ACQUISITION_TRACKER_FILE, index=False, encoding="utf-8-sig")
+        return True, f"Se reiniciaron {removed} registro(s) del mes en curso."
+    except Exception as e:
+        return False, f"No se pudo reiniciar: {e}"
+
+
+
         return "ADS"
     if "markdown" in low or "md" in low or "mardan" in low:
         return "MD"
@@ -5858,6 +5891,20 @@ def page_acquisition_tracker():
 
     st.caption("Se alimenta de las tipificaciones (Prospected/Pipeline/Closed) que registrás en Brand Finder, "
                "con su frente (Ads / MD / Ads+MD). Target Market es el universo elegible fijo; TOFU suma Tier A + las B/C que trabajás.")
+
+    # ── Reinicio del conteo del mes (para limpiar pruebas) ────────────────────
+    with st.expander("⚙️ Reiniciar conteo del mes en curso"):
+        st.caption("Borra las tipificaciones del mes actual (Prospected/Pipeline/Closed/Follow Up). "
+                   "Hace backup antes y no toca meses anteriores. Útil para limpiar registros de prueba.")
+        if st.button("🗑️ Reiniciar conteo de este mes", key="scc_reset_month"):
+            _ok, _msg = _scc_reset_current_month()
+            _scc_typified_map.clear()  # invalidar cache
+            if _ok:
+                st.success(_msg)
+            else:
+                st.error(_msg)
+            st.rerun()
+
 
 
 
@@ -18792,22 +18839,24 @@ def _render_followup_form(row, brand_id, name):
         opportunity_status = st.selectbox(
             "Status",
             [
+                "📅 Follow Up",
                 "📋 Prospected",
                 "📈 Pipeline",
                 "🏆 Closed",
-                "📅 Follow Up",
             ],
             index=0,
             key=f"comment_status_{brand_id}"
         )
-        # Frente comercial: define en qué funnels del Sales Control Center cuenta la marca.
-        _scc_front = st.selectbox(
-            "Frente comercial",
-            ["Ads", "MD", "Ads + MD"],
-            index=0,
-            key=f"comment_front_{brand_id}",
-            help="Ads / MD / Ambos — en qué funnel(es) suma esta tipificación."
-        )
+        # Frente comercial: solo se muestra cuando la tipificación entra al funnel
+        # (Prospected/Pipeline/Closed). Con Follow Up no aplica — es seguimiento normal.
+        if opportunity_status != "📅 Follow Up":
+            _scc_front = st.selectbox(
+                "Frente comercial",
+                ["Ads", "MD", "Ads + MD"],
+                index=0,
+                key=f"comment_front_{brand_id}",
+                help="Ads / MD / Ambos — en qué funnel(es) suma esta tipificación."
+            )
     template_type = "None"
 
     # ── Detectar si es un No Answer para simplificar el formulario ────────────
