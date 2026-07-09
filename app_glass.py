@@ -912,7 +912,9 @@ def _save_overlay(stage, done=False):
             '</div>'
         )
     else:
-        inner = (f'<div class="sv-card"><div class="sv-donut"></div>'
+        inner = (f'<div class="sv-card"><div class="sv-donut-wrap">'
+                 f'<div class="sv-donut"></div>'
+                 f'<img class="sv-logo" src="{LOGO_DATA_URI}" alt="GrowthOS"/></div>'
                  f'<div class="sv-title">{html.escape("Guardando follow-up")}</div>'
                  f'<div class="sv-stage">{html.escape(stage)}</div>'
                  f'<div class="sv-bar"><div class="sv-bar-fill"></div></div></div>')
@@ -924,8 +926,10 @@ def _save_overlay(stage, done=False):
       #gos-saving .sv-card {{ background: {card}; border: 1px solid {bd}; border-radius: 14px; padding: 28px 32px 26px;
         min-width: 300px; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 13px;
         box-shadow: 0 20px 50px rgba(15,23,42,0.28); animation: sv-pop .28s cubic-bezier(.34,1.56,.64,1); }}
-      #gos-saving .sv-donut {{ width: 46px; height: 46px; border-radius: 50%; border: 5px solid {track};
-        border-top-color: #F97316; animation: sv-spin .8s linear infinite; }}
+      #gos-saving .sv-donut-wrap {{ position: relative; width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; }}
+      #gos-saving .sv-donut {{ position: absolute; top: 0; left: 0; width: 58px; height: 58px; border-radius: 50%; border: 5px solid {track};
+        border-top-color: #F97316; animation: sv-spin .8s linear infinite; box-sizing: border-box; }}
+      #gos-saving .sv-logo {{ width: 32px; height: 32px; border-radius: 8px; object-fit: contain; animation: sv-logo-pulse 1.6s ease-in-out infinite; }}
       #gos-saving .sv-check {{ width: 50px; height: 50px; border-radius: 50%; background: #22C55E; color: #fff;
         font-size: 27px; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: sv-pop .3s cubic-bezier(.34,1.56,.64,1); }}
       #gos-saving .sv-title {{ font-size: 16px; font-weight: 800; color: {txt}; }}
@@ -942,6 +946,7 @@ def _save_overlay(stage, done=False):
       @keyframes sv-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes sv-fade {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
       @keyframes sv-pop {{ from {{ transform: scale(.6); opacity: 0; }} to {{ transform: scale(1); opacity: 1; }} }}
+      @keyframes sv-logo-pulse {{ 0%,100% {{ transform: scale(1); opacity: .92; }} 50% {{ transform: scale(1.06); opacity: 1; }} }}
     """
     css_js = json.dumps(css)
     inner_js = json.dumps(inner)
@@ -20456,8 +20461,11 @@ def _show_loading_overlay(page_name):
       #gos-loading {{ position: fixed; z-index: 2147483200; display: flex; align-items: center; justify-content: center;
         background: {bg}; font-family: 'DM Sans', -apple-system, sans-serif; animation: gos-fade-in .12s ease-out; }}
       #gos-loading .gos-box {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
-      #gos-loading .gos-donut {{ width: 54px; height: 54px; border-radius: 50%; border: 5px solid {track};
-        border-top-color: #F97316; animation: gos-spin .8s linear infinite; }}
+      #gos-loading .gos-donut-wrap {{ position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center; }}
+      #gos-loading .gos-donut {{ position: absolute; top: 0; left: 0; width: 68px; height: 68px; border-radius: 50%;
+        border: 5px solid {track}; border-top-color: #F97316; animation: gos-spin .8s linear infinite; box-sizing: border-box; }}
+      #gos-loading .gos-logo {{ width: 38px; height: 38px; border-radius: 9px; object-fit: contain;
+        animation: gos-pulse 1.6s ease-in-out infinite; }}
       #gos-loading .gos-txt {{ font-size: 15px; font-weight: 700; color: {txt}; letter-spacing: .2px; }}
       #gos-loading .gos-bar {{ width: 230px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
       #gos-loading .gos-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
@@ -20465,9 +20473,13 @@ def _show_loading_overlay(page_name):
       @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
       @keyframes gos-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+      @keyframes gos-pulse {{ 0%,100% {{ transform: scale(1); opacity: .92; }} 50% {{ transform: scale(1.06); opacity: 1; }} }}
     """
-    inner = ('<div class="gos-box"><div class="gos-donut"></div><div class="gos-txt">'
-             + html.escape("Loading " + str(page_name) + "…")
+    inner = ('<div class="gos-box"><div class="gos-donut-wrap">'
+             '<div class="gos-donut"></div>'
+             f'<img class="gos-logo" src="{LOGO_DATA_URI}" alt="GrowthOS"/>'
+             '</div><div class="gos-txt">'
+             + html.escape("Cargando " + str(page_name) + "…")
              + '</div><div class="gos-bar"><div class="gos-bar-fill"></div></div></div>')
     css_js = json.dumps(css)
     inner_js = json.dumps(inner)
