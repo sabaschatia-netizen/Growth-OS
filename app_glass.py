@@ -10322,68 +10322,70 @@ def page_opportunity_list():
     ads_pipeline_usd = ads_df["_revenue_proj_monthly_usd"].sum()
 
     # ── Progress bar ADS ─────────────────────────────────────────────────────
-    st.markdown("## 🟠 ADS")
-    if ads_target_usd > 0:
-        _render_target_progress_bar(
-            label=f"ADS Revenue Target · USD {fmt_number(ads_target_usd)}",
-            active_usd=ads_result_from_sheet,
-            projected_usd=ads_projected_usd,
-            pipeline_usd=min(ads_pipeline_usd, max(ads_gap_usd, 0)),
-            target_usd=ads_target_usd,
-        )
-        # "Close-out" line
-        brands_needed = 0
-        running = 0
-        for _, r in ads_df.iterrows():
-            running += r["_revenue_proj_monthly_usd"]
-            brands_needed += 1
-            if running >= ads_gap_usd:
-                break
-        if ads_gap_usd > 0:
-            st.markdown(
-                f"<div style='font-size:13px; color:{COLORS['accent']}; font-weight:700; margin-bottom:12px;'>"
-                f"⚡ Cierra los top <b>{brands_needed}</b> brands de esta lista para cubrir el gap de {fmt_usd(ads_gap_usd)} "
-                f"({'ya cubierto por activos 🎉' if ads_result_from_sheet >= ads_target_usd else ''})</div>",
-                unsafe_allow_html=True,
+    _opp_tab_ads, _opp_tab_md, _opp_tab_churn = st.tabs(["🟠 ADS", "🔵 MARKDOWN", "🧊 CHURN"])
+    with _opp_tab_ads:
+        st.markdown("## 🟠 ADS")
+        if ads_target_usd > 0:
+            _render_target_progress_bar(
+                label=f"ADS Revenue Target · USD {fmt_number(ads_target_usd)}",
+                active_usd=ads_result_from_sheet,
+                projected_usd=ads_projected_usd,
+                pipeline_usd=min(ads_pipeline_usd, max(ads_gap_usd, 0)),
+                target_usd=ads_target_usd,
             )
+            # "Close-out" line
+            brands_needed = 0
+            running = 0
+            for _, r in ads_df.iterrows():
+                running += r["_revenue_proj_monthly_usd"]
+                brands_needed += 1
+                if running >= ads_gap_usd:
+                    break
+            if ads_gap_usd > 0:
+                st.markdown(
+                    f"<div style='font-size:13px; color:{COLORS['accent']}; font-weight:700; margin-bottom:12px;'>"
+                    f"⚡ Cierra los top <b>{brands_needed}</b> brands de esta lista para cubrir el gap de {fmt_usd(ads_gap_usd)} "
+                    f"({'ya cubierto por activos 🎉' if ads_result_from_sheet >= ads_target_usd else ''})</div>",
+                    unsafe_allow_html=True,
+                )
 
-    st.caption(
-        f"Acquire = inactive en Current ADS · Upselling = activo con ROI > 4.5x · "
-        f"GMV base: Current GMV × proyección semana {_week_of_month_opp}/4 (factor ×{_gmv_projection_factor:.2f}) "
-        f"— fallback a Last GMV ARS si la marca no figura en Current GMV · "
-        f"Rev Proj = 90% del booking estimado × semanas restantes del mes · "
-        f"% Target = cobertura acumulada sobre el target mensual ADS."
-    )
+        st.caption(
+            f"Acquire = inactive en Current ADS · Upselling = activo con ROI > 4.5x · "
+            f"GMV base: Current GMV × proyección semana {_week_of_month_opp}/4 (factor ×{_gmv_projection_factor:.2f}) "
+            f"— fallback a Last GMV ARS si la marca no figura en Current GMV · "
+            f"Rev Proj = 90% del booking estimado × semanas restantes del mes · "
+            f"% Target = cobertura acumulada sobre el target mensual ADS."
+        )
 
-    def _gmv_source_label(row):
-        """Indica si el GMV usado viene de Current GMV (proyectado) o del Growth OS (histórico)."""
-        brand_id = normalize_brand_id(row.get("_id", ""))
-        if brand_id in _current_gmv_map and _current_gmv_map[brand_id] > 0:
-            return f"📡 ARS {fmt_number(_current_gmv_map[brand_id])} (W{_week_of_month_opp}→mes)"
-        gmv_fallback = to_number(row.get("_gmv"), 0)
-        if gmv_fallback > 0:
-            return f"📁 ARS {fmt_number(gmv_fallback)} (histórico)"
-        return "-"
+        def _gmv_source_label(row):
+            """Indica si el GMV usado viene de Current GMV (proyectado) o del Growth OS (histórico)."""
+            brand_id = normalize_brand_id(row.get("_id", ""))
+            if brand_id in _current_gmv_map and _current_gmv_map[brand_id] > 0:
+                return f"📡 ARS {fmt_number(_current_gmv_map[brand_id])} (W{_week_of_month_opp}→mes)"
+            gmv_fallback = to_number(row.get("_gmv"), 0)
+            if gmv_fallback > 0:
+                return f"📁 ARS {fmt_number(gmv_fallback)} (histórico)"
+            return "-"
 
-    ads_view = pd.DataFrame({
-        "Rank":               ads_df["Rank"].apply(_format_rank),
-        "Opp":                ads_df["Opp"],
-        "ID":                 ads_df["_id"].apply(_format_id),
-        "Name":               ads_df["_name"],
-        "Status":             ads_df["Status"],
-        "GMV base (fuente)":  ads_df.apply(_gmv_source_label, axis=1),
-        "Booking/sem (est)":  ads_df["_suggested_booking_ars"].apply(
-            lambda x: f"ARS {fmt_number(x)}" if x > 0 else "-"
-        ),
-        "Rev Proj (mes)":     ads_df["_revenue_proj_monthly_usd"].apply(
-            lambda x: fmt_usd(x) if x > 0 else "-"
-        ),
-        "% Target acum":      [
-            _ads_target_pct(ads_df.loc[i, "_revenue_proj_monthly_usd"]) for i in ads_df.index
-        ],
-        "Cierre":             [_ads_closes_at(i) for i in ads_df.index],
-    })
-    _render_light_table(ads_view, height=380)
+        ads_view = pd.DataFrame({
+            "Rank":               ads_df["Rank"].apply(_format_rank),
+            "Opp":                ads_df["Opp"],
+            "ID":                 ads_df["_id"].apply(_format_id),
+            "Name":               ads_df["_name"],
+            "Status":             ads_df["Status"],
+            "GMV base (fuente)":  ads_df.apply(_gmv_source_label, axis=1),
+            "Booking/sem (est)":  ads_df["_suggested_booking_ars"].apply(
+                lambda x: f"ARS {fmt_number(x)}" if x > 0 else "-"
+            ),
+            "Rev Proj (mes)":     ads_df["_revenue_proj_monthly_usd"].apply(
+                lambda x: fmt_usd(x) if x > 0 else "-"
+            ),
+            "% Target acum":      [
+                _ads_target_pct(ads_df.loc[i, "_revenue_proj_monthly_usd"]) for i in ads_df.index
+            ],
+            "Cierre":             [_ads_closes_at(i) for i in ads_df.index],
+        })
+        _render_light_table(ads_view, height=380)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # MARKDOWN SEGMENT
@@ -10567,230 +10569,232 @@ def page_opportunity_list():
     md_df["Rank"] = md_df.index + 1
     md_pipeline_usd = md_df["_gmv_proj_monthly_usd"].sum()
 
-    # ── Progress bar MD ──────────────────────────────────────────────────────
-    if md_combined_target_usd > 0:
-        st.markdown("## 🔵 MARKDOWN")
-        pene_md_pct     = _md_totals["markdown_pct"] * 100      # col F total row Current MD
-        pene_mdpro_pct  = _md_pro_totals["markdown_pct"] * 100  # col F total row Current MD pro
-        _label_md = (
-            f"MD GMV · MD {pene_md_pct:.2f}% (target {md_target_pct*100:.2f}%) + "
-            f"MD Pro {pene_mdpro_pct:.2f}% (target {md_pro_target_pct*100:.2f}%) · "
-            f"Target combinado {fmt_usd(md_combined_target_usd)}"
-        )
-        _render_target_progress_bar(
-            label=_label_md,
-            active_usd=active_md_combined_usd,
-            pipeline_usd=min(md_pipeline_usd, md_gap_usd),
-            target_usd=md_combined_target_usd,
-            color_active="#2563EB",
-            color_pipeline="#F97316",
-        )
-        st.markdown(
-            f"<div style='font-size:12px; color:{COLORS['muted']}; margin-bottom:10px;'>"
-            f"📊 MD activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_gmv_usd)}</b> ({pene_md_pct:.2f}%)"
-            f" &nbsp;·&nbsp; MD Pro activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_pro_gmv_usd)}</b> ({pene_mdpro_pct:.2f}%)"
-            f" &nbsp;·&nbsp; GMV base (col D): <b>{fmt_usd(md_gmv_total_usd)}</b></div>",
-            unsafe_allow_html=True,
-        )
-
-        # ── Aviso umbral de comisión MD (90% del target MD) ──────────────────
-        # La comisión NO depende del target combinado (MD+MD Pro) sino de que
-        # la penetración MD sola alcance al menos el 90% del target MD.
-        if md_commission_paid:
+    with _opp_tab_md:
+        # ── Progress bar MD ──────────────────────────────────────────────────────
+        if md_combined_target_usd > 0:
+            st.markdown("## 🔵 MARKDOWN")
+            pene_md_pct     = _md_totals["markdown_pct"] * 100      # col F total row Current MD
+            pene_mdpro_pct  = _md_pro_totals["markdown_pct"] * 100  # col F total row Current MD pro
+            _label_md = (
+                f"MD GMV · MD {pene_md_pct:.2f}% (target {md_target_pct*100:.2f}%) + "
+                f"MD Pro {pene_mdpro_pct:.2f}% (target {md_pro_target_pct*100:.2f}%) · "
+                f"Target combinado {fmt_usd(md_combined_target_usd)}"
+            )
+            _render_target_progress_bar(
+                label=_label_md,
+                active_usd=active_md_combined_usd,
+                pipeline_usd=min(md_pipeline_usd, md_gap_usd),
+                target_usd=md_combined_target_usd,
+                color_active="#2563EB",
+                color_pipeline="#F97316",
+            )
             st.markdown(
-                f"<div style='font-size:12px; color:#22C55E; font-weight:700; margin-bottom:10px;'>"
-                f"✅ Comisión MD habilitada · penetración MD {pene_md_pct:.2f}% es "
-                f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
-                f"— ≥ {MD_COMMISSION_THRESHOLD_PCT*100:.0f}% requerido</div>",
+                f"<div style='font-size:12px; color:{COLORS['muted']}; margin-bottom:10px;'>"
+                f"📊 MD activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_gmv_usd)}</b> ({pene_md_pct:.2f}%)"
+                f" &nbsp;·&nbsp; MD Pro activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_pro_gmv_usd)}</b> ({pene_mdpro_pct:.2f}%)"
+                f" &nbsp;·&nbsp; GMV base (col D): <b>{fmt_usd(md_gmv_total_usd)}</b></div>",
                 unsafe_allow_html=True,
             )
+
+            # ── Aviso umbral de comisión MD (90% del target MD) ──────────────────
+            # La comisión NO depende del target combinado (MD+MD Pro) sino de que
+            # la penetración MD sola alcance al menos el 90% del target MD.
+            if md_commission_paid:
+                st.markdown(
+                    f"<div style='font-size:12px; color:#22C55E; font-weight:700; margin-bottom:10px;'>"
+                    f"✅ Comisión MD habilitada · penetración MD {pene_md_pct:.2f}% es "
+                    f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
+                    f"— ≥ {MD_COMMISSION_THRESHOLD_PCT*100:.0f}% requerido</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"<div style='font-size:12px; color:#F97316; font-weight:700; margin-bottom:10px;'>"
+                    f"⚠️ Comisión MD NO habilitada · penetración MD {pene_md_pct:.2f}% es "
+                    f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
+                    f"— falta {fmt_usd(md_commission_gap_usd)} de MD activo para llegar al "
+                    f"{MD_COMMISSION_THRESHOLD_PCT*100:.0f}% del target</div>",
+                    unsafe_allow_html=True,
+                )
+            if md_gap_usd > 0:
+                md_brands_needed = 0
+                running_md = 0
+                for _, r in md_df.iterrows():
+                    running_md += r["_gmv_proj_monthly_usd"]
+                    md_brands_needed += 1
+                    if running_md >= md_gap_usd:
+                        break
+                st.markdown(
+                    f"<div style='font-size:13px; color:{COLORS['intel']}; font-weight:700; margin-bottom:12px;'>"
+                    f"⚡ Cierra los top <b>{md_brands_needed}</b> brands para cubrir el gap de {fmt_usd(md_gap_usd)}</div>",
+                    unsafe_allow_html=True,
+                )
         else:
-            st.markdown(
-                f"<div style='font-size:12px; color:#F97316; font-weight:700; margin-bottom:10px;'>"
-                f"⚠️ Comisión MD NO habilitada · penetración MD {pene_md_pct:.2f}% es "
-                f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
-                f"— falta {fmt_usd(md_commission_gap_usd)} de MD activo para llegar al "
-                f"{MD_COMMISSION_THRESHOLD_PCT*100:.0f}% del target</div>",
-                unsafe_allow_html=True,
-            )
-        if md_gap_usd > 0:
-            md_brands_needed = 0
-            running_md = 0
-            for _, r in md_df.iterrows():
-                running_md += r["_gmv_proj_monthly_usd"]
-                md_brands_needed += 1
-                if running_md >= md_gap_usd:
-                    break
-            st.markdown(
-                f"<div style='font-size:13px; color:{COLORS['intel']}; font-weight:700; margin-bottom:12px;'>"
-                f"⚡ Cierra los top <b>{md_brands_needed}</b> brands para cubrir el gap de {fmt_usd(md_gap_usd)}</div>",
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown("## 🔵 MARKDOWN")
-        st.info("No se pudo leer la fila Total de Current MD. Verificá que el sheet esté cargado.")
+            st.markdown("## 🔵 MARKDOWN")
+            st.info("No se pudo leer la fila Total de Current MD. Verificá que el sheet esté cargado.")
 
-    st.caption(
-        "Upsell Urgente = activo con penetración < 10% · "
-        "Upselling = activo + ROI > 3.2x + penetración ≥ 10% · "
-        "Acquire = inactivo en Current MD · "
-        "Penetración = GMV en promo ÷ GMV mensual del brand · "
-        "Gap al 10% = cuánto GMV falta para entrar al rango mínimo."
-    )
+        st.caption(
+            "Upsell Urgente = activo con penetración < 10% · "
+            "Upselling = activo + ROI > 3.2x + penetración ≥ 10% · "
+            "Acquire = inactivo en Current MD · "
+            "Penetración = GMV en promo ÷ GMV mensual del brand · "
+            "Gap al 10% = cuánto GMV falta para entrar al rango mínimo."
+        )
 
-    md_view = pd.DataFrame({
-        "Rank":            md_df["Rank"].apply(_format_rank),
-        "Opp":             md_df["Opp"],
-        "MD Strategy":     md_df["MD Strategy"],
-        "ID":              md_df["_id"].apply(_format_id),
-        "Name":            md_df["_name"],
-        "Status":          md_df["Status"],
-        "Penetración MD":  [md_df.loc[i, "_pene_label"] for i in md_df.index],
-        "Objetivo (USD)":  md_df.apply(
-            lambda r: f"{fmt_usd(r['_pene_low_usd'])} – {fmt_usd(r['_pene_high_usd'])}"
-            if r["_pene_low_usd"] > 0 else "-", axis=1
-        ),
-        "Gap al 10%":      md_df["_pene_gap_usd"].apply(
-            lambda x: fmt_usd(x) if x > 0 else "—"
-        ),
-        "Próximo Paso":    md_df["Próximo Paso"],
-    })
-    _render_light_table(md_view, height=380)
+        md_view = pd.DataFrame({
+            "Rank":            md_df["Rank"].apply(_format_rank),
+            "Opp":             md_df["Opp"],
+            "MD Strategy":     md_df["MD Strategy"],
+            "ID":              md_df["_id"].apply(_format_id),
+            "Name":            md_df["_name"],
+            "Status":          md_df["Status"],
+            "Penetración MD":  [md_df.loc[i, "_pene_label"] for i in md_df.index],
+            "Objetivo (USD)":  md_df.apply(
+                lambda r: f"{fmt_usd(r['_pene_low_usd'])} – {fmt_usd(r['_pene_high_usd'])}"
+                if r["_pene_low_usd"] > 0 else "-", axis=1
+            ),
+            "Gap al 10%":      md_df["_pene_gap_usd"].apply(
+                lambda x: fmt_usd(x) if x > 0 else "—"
+            ),
+            "Próximo Paso":    md_df["Próximo Paso"],
+        })
+        _render_light_table(md_view, height=380)
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # CHURN SEGMENT — una fila por STORE (no por brand)
-    # Fuente: hoja Current Churn leída directamente, una entrada por store.
-    # ═══════════════════════════════════════════════════════════════════════════
-    _raw_churn_df = load_current_churn_raw_df()
-    if not _raw_churn_df.empty:
-        _cc_id_col   = _first_existing_col(_raw_churn_df, ["country_brand_id", "brand id", "brand_id", "id"])
-        _cc_sta_col  = _first_existing_col(_raw_churn_df, ["estado actual", "estado", "status", "churn status"])
-        _cc_name_col = _first_existing_col(_raw_churn_df, ["name", "brand name", "store name", "nombre"])
-        _cc_gmv_col  = _first_existing_col(_raw_churn_df, ["gmv", "gmv ars", "last gmv ars", "gmv usd"])
-    else:
-        _cc_id_col = _cc_sta_col = _cc_name_col = _cc_gmv_col = None
+    with _opp_tab_churn:
+        # ═══════════════════════════════════════════════════════════════════════════
+        # CHURN SEGMENT — una fila por STORE (no por brand)
+        # Fuente: hoja Current Churn leída directamente, una entrada por store.
+        # ═══════════════════════════════════════════════════════════════════════════
+        _raw_churn_df = load_current_churn_raw_df()
+        if not _raw_churn_df.empty:
+            _cc_id_col   = _first_existing_col(_raw_churn_df, ["country_brand_id", "brand id", "brand_id", "id"])
+            _cc_sta_col  = _first_existing_col(_raw_churn_df, ["estado actual", "estado", "status", "churn status"])
+            _cc_name_col = _first_existing_col(_raw_churn_df, ["name", "brand name", "store name", "nombre"])
+            _cc_gmv_col  = _first_existing_col(_raw_churn_df, ["gmv", "gmv ars", "last gmv ars", "gmv usd"])
+        else:
+            _cc_id_col = _cc_sta_col = _cc_name_col = _cc_gmv_col = None
 
-    if not _raw_churn_df.empty and _cc_id_col and _cc_sta_col:
-        # Build a GMV map from data (Growth OS) for enrichment
-        _gmv_map = {normalize_brand_id(r["_id"]): r["_gmv"] for _, r in data.iterrows() if r.get("_id")}
-        _status_map = {normalize_brand_id(r["_id"]): r["_commercial_status_raw"] for _, r in data.iterrows() if r.get("_id")}
-        _name_map = {normalize_brand_id(r["_id"]): r["_name"] for _, r in data.iterrows() if r.get("_id")}
+        if not _raw_churn_df.empty and _cc_id_col and _cc_sta_col:
+            # Build a GMV map from data (Growth OS) for enrichment
+            _gmv_map = {normalize_brand_id(r["_id"]): r["_gmv"] for _, r in data.iterrows() if r.get("_id")}
+            _status_map = {normalize_brand_id(r["_id"]): r["_commercial_status_raw"] for _, r in data.iterrows() if r.get("_id")}
+            _name_map = {normalize_brand_id(r["_id"]): r["_name"] for _, r in data.iterrows() if r.get("_id")}
 
-        churn_rows = []
-        for _, crow in _raw_churn_df.iterrows():
-            bid = normalize_brand_id(crow.get(_cc_id_col, ""))
-            sta = clean(crow.get(_cc_sta_col, ""), "").strip()
-            if not bid or not sta:
-                continue
-            # Nombre: primero de la hoja Current Churn, fallback Growth OS
-            if _cc_name_col:
-                name_val = clean(crow.get(_cc_name_col, ""), "")
-            else:
-                name_val = ""
-            if not name_val:
-                name_val = _name_map.get(bid, bid)
-            # GMV: primero de la hoja Current Churn, fallback Growth OS
-            if _cc_gmv_col:
-                gmv_val = to_number(crow.get(_cc_gmv_col, 0), 0)
-            else:
-                gmv_val = 0
-            if gmv_val <= 0:
-                gmv_val = to_number(_gmv_map.get(bid, 0), 0)
-            gmv_usd = gmv_val / ARS_PER_USD if gmv_val > 0 else 0
-            comm_status_raw = _status_map.get(bid, "")
-            churn_rows.append({
-                "_bid": bid,
-                "_name": name_val,
-                "_status_raw": comm_status_raw,
-                "_churn_raw": sta,
-                "_gmv_usd": gmv_usd,
+            churn_rows = []
+            for _, crow in _raw_churn_df.iterrows():
+                bid = normalize_brand_id(crow.get(_cc_id_col, ""))
+                sta = clean(crow.get(_cc_sta_col, ""), "").strip()
+                if not bid or not sta:
+                    continue
+                # Nombre: primero de la hoja Current Churn, fallback Growth OS
+                if _cc_name_col:
+                    name_val = clean(crow.get(_cc_name_col, ""), "")
+                else:
+                    name_val = ""
+                if not name_val:
+                    name_val = _name_map.get(bid, bid)
+                # GMV: primero de la hoja Current Churn, fallback Growth OS
+                if _cc_gmv_col:
+                    gmv_val = to_number(crow.get(_cc_gmv_col, 0), 0)
+                else:
+                    gmv_val = 0
+                if gmv_val <= 0:
+                    gmv_val = to_number(_gmv_map.get(bid, 0), 0)
+                gmv_usd = gmv_val / ARS_PER_USD if gmv_val > 0 else 0
+                comm_status_raw = _status_map.get(bid, "")
+                churn_rows.append({
+                    "_bid": bid,
+                    "_name": name_val,
+                    "_status_raw": comm_status_raw,
+                    "_churn_raw": sta,
+                    "_gmv_usd": gmv_usd,
+                })
+
+            churn_df = pd.DataFrame(churn_rows)
+
+            # ── Orden de retención: Off > W3 > W2 > W1, luego GMV descendente ────
+            # Regla de gestión: una marca Off ya dejó de facturar — es rescate
+            # inmediato y encabeza la lista (ordenada por GMV histórico: cuánta
+            # plata se está yendo). Después la escalera de riesgo W3 → W1.
+            # Nota: get_brand_churn_map usa la jerarquía inversa a propósito —
+            # allá se elige el "peor estado ACTIVO" para mostrar el status de una
+            # marca multi-tienda sin marcarla Off entera por un local cerrado.
+            _sev = {"Off": 5, "W3": 4, "W2": 3, "W1": 2}
+            churn_df["_sev"] = churn_df["_churn_raw"].apply(lambda x: _sev.get(x, 0))
+            churn_df = churn_df.sort_values(by=["_sev", "_gmv_usd"], ascending=[False, False]).reset_index(drop=True)
+            churn_df["Rank"] = churn_df.index + 1
+
+            churn_view = pd.DataFrame({
+                "Rank":          churn_df["Rank"].apply(_format_rank),
+                "Churn Status":  churn_df["_churn_raw"].apply(_churn_label_with_emoji),
+                "ID":            churn_df["_bid"].apply(_format_id),
+                "Name":          churn_df["_name"],
+                "Status":        churn_df["_bid"].apply(
+                    lambda bid: _cadencia_status(get_last_contact_dt(bid, _name_map.get(bid, ""), _opp_prod_map, _opp_meta_map))
+                ),
+                "GMV at Risk":   churn_df["_gmv_usd"].apply(lambda x: fmt_usd(x) if x > 0 else "-"),
             })
-
-        churn_df = pd.DataFrame(churn_rows)
-
-        # ── Orden de retención: Off > W3 > W2 > W1, luego GMV descendente ────
-        # Regla de gestión: una marca Off ya dejó de facturar — es rescate
-        # inmediato y encabeza la lista (ordenada por GMV histórico: cuánta
-        # plata se está yendo). Después la escalera de riesgo W3 → W1.
-        # Nota: get_brand_churn_map usa la jerarquía inversa a propósito —
-        # allá se elige el "peor estado ACTIVO" para mostrar el status de una
-        # marca multi-tienda sin marcarla Off entera por un local cerrado.
-        _sev = {"Off": 5, "W3": 4, "W2": 3, "W1": 2}
-        churn_df["_sev"] = churn_df["_churn_raw"].apply(lambda x: _sev.get(x, 0))
-        churn_df = churn_df.sort_values(by=["_sev", "_gmv_usd"], ascending=[False, False]).reset_index(drop=True)
-        churn_df["Rank"] = churn_df.index + 1
-
-        churn_view = pd.DataFrame({
-            "Rank":          churn_df["Rank"].apply(_format_rank),
-            "Churn Status":  churn_df["_churn_raw"].apply(_churn_label_with_emoji),
-            "ID":            churn_df["_bid"].apply(_format_id),
-            "Name":          churn_df["_name"],
-            "Status":        churn_df["_bid"].apply(
-                lambda bid: _cadencia_status(get_last_contact_dt(bid, _name_map.get(bid, ""), _opp_prod_map, _opp_meta_map))
-            ),
-            "GMV at Risk":   churn_df["_gmv_usd"].apply(lambda x: fmt_usd(x) if x > 0 else "-"),
-        })
-        total_gmv_at_risk = churn_df["_gmv_usd"].sum()
-        n_stores = len(churn_df)
-    else:
-        # Fallback: usar data como antes
-        churn_mask = ~data["_churn"].apply(_is_on_status)
-        churn_df = data[churn_mask].copy()
-        churn_df["_gmv_at_risk_usd"] = churn_df["_gmv"].apply(lambda x: to_number(x, 0) / ARS_PER_USD)
-        churn_df = churn_df.sort_values(by="_opportunity_score", ascending=False).reset_index(drop=True)
-        churn_df["Rank"] = churn_df.index + 1
-        churn_view = pd.DataFrame({
-            "Rank":          churn_df["Rank"].apply(_format_rank),
-            "Churn Status":  churn_df["_churn"].apply(_churn_label_with_emoji),
-            "ID":            churn_df["_id"].apply(_format_id),
-            "Name":          churn_df["_name"],
-            "Status":        churn_df["_id"].apply(
-                lambda bid: _cadencia_status(get_last_contact_dt(bid, _name_map.get(normalize_brand_id(bid), ""), _opp_prod_map, _opp_meta_map))
-            ),
-            "GMV at Risk":   churn_df["_gmv_at_risk_usd"].apply(lambda x: fmt_usd(x) if x > 0 else "-"),
-        })
-        total_gmv_at_risk = churn_df["_gmv_at_risk_usd"].sum()
-        n_stores = len(churn_df)
-
-    st.markdown("## 🔴 CHURN")
-
-    # ── Barra de distribución de severidad (On/W1/W2/W3/Off) ─────────────────
-    # "On" = total de stores del portfolio (Asignacion Junio) que NO aparecen
-    # en Current Churn con un estado W1/W2/W3/Off. El total de la barra es el
-    # universo completo del portfolio, no solo las filas de Current Churn.
-    if _cc_sta_col is not None:
-        _all_statuses = _raw_churn_df[_cc_sta_col].apply(lambda x: clean(x, "").strip()) if not _raw_churn_df.empty else pd.Series([], dtype=str)
-        _all_statuses = _all_statuses[_all_statuses != ""]
-        _dist_counts = _all_statuses.value_counts().to_dict()
-        # Normalizar claves a W1/W2/W3/Off (estados "en churn")
-        _dist_counts_norm = {}
-        for k, v in _dist_counts.items():
-            kn = k.strip()
-            if kn in ("W1", "W2", "W3", "Off"):
-                _dist_counts_norm[kn] = _dist_counts_norm.get(kn, 0) + v
-
-        _n_churned = sum(_dist_counts_norm.values())
-        _asignacion_df = load_asignacion_activa()
-        _portfolio_total = len(_asignacion_df)
-
-        if _portfolio_total > 0:
-            _dist_counts_norm["On"] = max(_portfolio_total - _n_churned, 0)
-            _dist_total = _portfolio_total
+            total_gmv_at_risk = churn_df["_gmv_usd"].sum()
+            n_stores = len(churn_df)
         else:
-            # Fallback: sin Asignacion Junio, usar solo lo que hay en Current Churn
-            _dist_total = sum(_dist_counts_norm.values())
+            # Fallback: usar data como antes
+            churn_mask = ~data["_churn"].apply(_is_on_status)
+            churn_df = data[churn_mask].copy()
+            churn_df["_gmv_at_risk_usd"] = churn_df["_gmv"].apply(lambda x: to_number(x, 0) / ARS_PER_USD)
+            churn_df = churn_df.sort_values(by="_opportunity_score", ascending=False).reset_index(drop=True)
+            churn_df["Rank"] = churn_df.index + 1
+            churn_view = pd.DataFrame({
+                "Rank":          churn_df["Rank"].apply(_format_rank),
+                "Churn Status":  churn_df["_churn"].apply(_churn_label_with_emoji),
+                "ID":            churn_df["_id"].apply(_format_id),
+                "Name":          churn_df["_name"],
+                "Status":        churn_df["_id"].apply(
+                    lambda bid: _cadencia_status(get_last_contact_dt(bid, _name_map.get(normalize_brand_id(bid), ""), _opp_prod_map, _opp_meta_map))
+                ),
+                "GMV at Risk":   churn_df["_gmv_at_risk_usd"].apply(lambda x: fmt_usd(x) if x > 0 else "-"),
+            })
+            total_gmv_at_risk = churn_df["_gmv_at_risk_usd"].sum()
+            n_stores = len(churn_df)
 
-        _render_churn_distribution_bar(_dist_counts_norm, _dist_total)
+        st.markdown("## 🔴 CHURN")
 
-    if total_gmv_at_risk > 0:
-        st.markdown(
-            f"<div style='font-size:13px; color:{COLORS['danger']}; font-weight:700; margin-bottom:12px;'>"
-            f"⚠️ GMV total en riesgo por churn: <b>{fmt_usd(total_gmv_at_risk)}</b> — "
-            f"{n_stores} store{'s' if n_stores != 1 else ''} fuera</div>",
-            unsafe_allow_html=True,
-        )
-    st.caption("Ordenado por severidad (W3 → W2 → W1 → Off) y luego GMV. Cada fila = una store individual de Current Churn.")
-    _render_light_table(churn_view, height=380)
+        # ── Barra de distribución de severidad (On/W1/W2/W3/Off) ─────────────────
+        # "On" = total de stores del portfolio (Asignacion Junio) que NO aparecen
+        # en Current Churn con un estado W1/W2/W3/Off. El total de la barra es el
+        # universo completo del portfolio, no solo las filas de Current Churn.
+        if _cc_sta_col is not None:
+            _all_statuses = _raw_churn_df[_cc_sta_col].apply(lambda x: clean(x, "").strip()) if not _raw_churn_df.empty else pd.Series([], dtype=str)
+            _all_statuses = _all_statuses[_all_statuses != ""]
+            _dist_counts = _all_statuses.value_counts().to_dict()
+            # Normalizar claves a W1/W2/W3/Off (estados "en churn")
+            _dist_counts_norm = {}
+            for k, v in _dist_counts.items():
+                kn = k.strip()
+                if kn in ("W1", "W2", "W3", "Off"):
+                    _dist_counts_norm[kn] = _dist_counts_norm.get(kn, 0) + v
+
+            _n_churned = sum(_dist_counts_norm.values())
+            _asignacion_df = load_asignacion_activa()
+            _portfolio_total = len(_asignacion_df)
+
+            if _portfolio_total > 0:
+                _dist_counts_norm["On"] = max(_portfolio_total - _n_churned, 0)
+                _dist_total = _portfolio_total
+            else:
+                # Fallback: sin Asignacion Junio, usar solo lo que hay en Current Churn
+                _dist_total = sum(_dist_counts_norm.values())
+
+            _render_churn_distribution_bar(_dist_counts_norm, _dist_total)
+
+        if total_gmv_at_risk > 0:
+            st.markdown(
+                f"<div style='font-size:13px; color:{COLORS['danger']}; font-weight:700; margin-bottom:12px;'>"
+                f"⚠️ GMV total en riesgo por churn: <b>{fmt_usd(total_gmv_at_risk)}</b> — "
+                f"{n_stores} store{'s' if n_stores != 1 else ''} fuera</div>",
+                unsafe_allow_html=True,
+            )
+        st.caption("Ordenado por severidad (W3 → W2 → W1 → Off) y luego GMV. Cada fila = una store individual de Current Churn.")
+        _render_light_table(churn_view, height=380)
 
 
 
@@ -16217,1421 +16221,1426 @@ def render_brand_profile(row, brand_id):
     except Exception:
         pass  # Si el changelog no existe o falla, no romper el perfil
 
+    _bf_tab_home, _bf_tab_360, _bf_tab_analytics, _bf_tab_campaign, _bf_tab_outreach, _bf_tab_resumen = st.tabs(["🏠 Home", "🎯 360° Action", "📊 Analytics", "📣 Campaign Designer", "✉️ Outreach", "📋 Ficha resumen"])
     # ── Last contact + opportunity score + cadence badge ─────────────────────
-    _bf_prod_map  = get_productivity_last_contact_map(EXCEL_FILE)
-    _bf_meta_map  = get_last_comment_meta_map(limit=1)
-    _bf_brand_key = name.strip().lower()
-    _bf_meta      = _bf_meta_map.get(normalize_brand_id(brand_id), {})
+    with _bf_tab_home:
+        _bf_prod_map  = get_productivity_last_contact_map(EXCEL_FILE)
+        _bf_meta_map  = get_last_comment_meta_map(limit=1)
+        _bf_brand_key = name.strip().lower()
+        _bf_meta      = _bf_meta_map.get(normalize_brand_id(brand_id), {})
 
-    # Resolve last contact: Productivity first, comments CSV fallback
-    _bf_last_dt = _bf_prod_map.get(_bf_brand_key)
-    if _bf_last_dt is None:
-        _bf_last_dt = _bf_meta.get("last_dt")
+        # Resolve last contact: Productivity first, comments CSV fallback
+        _bf_last_dt = _bf_prod_map.get(_bf_brand_key)
+        if _bf_last_dt is None:
+            _bf_last_dt = _bf_meta.get("last_dt")
 
-    _bf_days = _days_since_timestamp(_bf_last_dt)
-    if _bf_days is None:
-        _bf_days_label = "Sin contacto registrado"
-        _bf_days_color = "#EF4444"
-    elif _bf_days == 0:
-        _bf_days_label = "Contactado hoy"
-        _bf_days_color = "#22C55E"
-    elif _bf_days <= 7:
-        _bf_days_label = f"Hace {_bf_days}d · en ciclo activo"
-        _bf_days_color = "#22C55E"
-    elif _bf_days <= 14:
-        _bf_days_label = f"Hace {_bf_days}d · en cadencia"
-        _bf_days_color = "#22C55E"
-    elif _bf_days <= 21:
-        _bf_days_label = f"Hace {_bf_days}d · zona de alerta"
-        _bf_days_color = "#F97316"
-    else:
-        _bf_days_label = f"Hace {_bf_days}d · marca fría ❄️"
-        _bf_days_color = "#EF4444"
+        _bf_days = _days_since_timestamp(_bf_last_dt)
+        if _bf_days is None:
+            _bf_days_label = "Sin contacto registrado"
+            _bf_days_color = "#EF4444"
+        elif _bf_days == 0:
+            _bf_days_label = "Contactado hoy"
+            _bf_days_color = "#22C55E"
+        elif _bf_days <= 7:
+            _bf_days_label = f"Hace {_bf_days}d · en ciclo activo"
+            _bf_days_color = "#22C55E"
+        elif _bf_days <= 14:
+            _bf_days_label = f"Hace {_bf_days}d · en cadencia"
+            _bf_days_color = "#22C55E"
+        elif _bf_days <= 21:
+            _bf_days_label = f"Hace {_bf_days}d · zona de alerta"
+            _bf_days_color = "#F97316"
+        else:
+            _bf_days_label = f"Hace {_bf_days}d · marca fría ❄️"
+            _bf_days_color = "#EF4444"
 
-    # Temperature badge
-    if _bf_days is None or _bf_days > 21:
-        _bf_temp_badge = "<span style='background:rgba(229,51,42,0.10);color:#EF4444;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>❄️ Fría</span>"
-    elif _bf_days > 14:
-        _bf_temp_badge = "<span style='background:rgba(249,115,22,0.10);color:#FB923C;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>🟠 Alerta</span>"
-    elif _bf_days > 7:
-        _bf_temp_badge = "<span style='background:rgba(249,115,22,0.08);color:#FB923C;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>🟡 Cadencia</span>"
-    else:
-        _bf_temp_badge = "<span style='background:rgba(111,242,75,0.08);color:#22C55E;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>🟢 Activa</span>"
+        # Temperature badge
+        if _bf_days is None or _bf_days > 21:
+            _bf_temp_badge = "<span style='background:rgba(229,51,42,0.10);color:#EF4444;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>❄️ Fría</span>"
+        elif _bf_days > 14:
+            _bf_temp_badge = "<span style='background:rgba(249,115,22,0.10);color:#FB923C;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>🟠 Alerta</span>"
+        elif _bf_days > 7:
+            _bf_temp_badge = "<span style='background:rgba(249,115,22,0.08);color:#FB923C;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>🟡 Cadencia</span>"
+        else:
+            _bf_temp_badge = "<span style='background:rgba(111,242,75,0.08);color:#22C55E;font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;'>🟢 Activa</span>"
 
-    # Opportunity score from scored data
-    _bf_scored_df = _prepare_growth_scored_data()
-    _bf_opp_score = None
-    _bf_opp_rank  = None
-    if not _bf_scored_df.empty:
-        _bf_id_col = get_id_column_name(_bf_scored_df)
-        if _bf_id_col:
-            _bf_match = _bf_scored_df[_bf_scored_df[_bf_id_col].apply(normalize_brand_id) == normalize_brand_id(brand_id)]
-            if not _bf_match.empty:
-                _bf_opp_score = round(float(_bf_match.iloc[0].get("_opportunity_score", 0)), 1)
-                # Rank = position in descending order of opportunity score
-                _bf_ranked = _bf_scored_df.copy()
-                _bf_ranked = _bf_ranked.dropna(subset=["_opportunity_score"])
-                _bf_ranked = _bf_ranked.sort_values("_opportunity_score", ascending=False).reset_index(drop=True)
-                _bf_rank_match = _bf_ranked[_bf_ranked[_bf_id_col].apply(normalize_brand_id) == normalize_brand_id(brand_id)]
-                if not _bf_rank_match.empty:
-                    _bf_opp_rank = int(_bf_rank_match.index[0]) + 1
+        # Opportunity score from scored data
+        _bf_scored_df = _prepare_growth_scored_data()
+        _bf_opp_score = None
+        _bf_opp_rank  = None
+        if not _bf_scored_df.empty:
+            _bf_id_col = get_id_column_name(_bf_scored_df)
+            if _bf_id_col:
+                _bf_match = _bf_scored_df[_bf_scored_df[_bf_id_col].apply(normalize_brand_id) == normalize_brand_id(brand_id)]
+                if not _bf_match.empty:
+                    _bf_opp_score = round(float(_bf_match.iloc[0].get("_opportunity_score", 0)), 1)
+                    # Rank = position in descending order of opportunity score
+                    _bf_ranked = _bf_scored_df.copy()
+                    _bf_ranked = _bf_ranked.dropna(subset=["_opportunity_score"])
+                    _bf_ranked = _bf_ranked.sort_values("_opportunity_score", ascending=False).reset_index(drop=True)
+                    _bf_rank_match = _bf_ranked[_bf_ranked[_bf_id_col].apply(normalize_brand_id) == normalize_brand_id(brand_id)]
+                    if not _bf_rank_match.empty:
+                        _bf_opp_rank = int(_bf_rank_match.index[0]) + 1
 
-    _bf_score_html = (
-        f"<span style='font-size:20px;font-weight:900;color:#2563EB;'>{_bf_opp_score}</span>"
-        f"<span style='font-size:11px;color:#6B7280;margin-left:4px;'>opp. score</span>"
-        f"<span style='font-size:11px;color:#6B7280;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
-        if _bf_opp_score is not None else
-        "<span style='font-size:12px;color:#aaa;'>Score no disponible</span>"
-    )
+        _bf_score_html = (
+            f"<span style='font-size:20px;font-weight:900;color:#2563EB;'>{_bf_opp_score}</span>"
+            f"<span style='font-size:11px;color:#6B7280;margin-left:4px;'>opp. score</span>"
+            f"<span style='font-size:11px;color:#6B7280;margin-left:6px;'>· #{_bf_opp_rank} en portafolio</span>"
+            if _bf_opp_score is not None else
+            "<span style='font-size:12px;color:#aaa;'>Score no disponible</span>"
+        )
 
-    _bf_last_note = _bf_meta.get("notes", "-")
+        _bf_last_note = _bf_meta.get("notes", "-")
 
-    # ── Última nota: la entrada más reciente (no el historial completo) ───────
-    _excel_comments_bf = clean(get_from_row(row, ["comments", "comment"], ""))
-    _saved_comments_df_bf = _load_comments_df()
-    _last_saved_comment = ""
-    if not _saved_comments_df_bf.empty and "brand_id" in _saved_comments_df_bf.columns:
-        _brand_rows_bf = _saved_comments_df_bf[
-            _saved_comments_df_bf["brand_id"] == normalize_brand_id(brand_id)
-        ].copy()
-        if not _brand_rows_bf.empty:
-            _brand_rows_bf = _brand_rows_bf.sort_values("_dt", ascending=False, na_position="last")
-            _most_recent = _brand_rows_bf.iloc[0]
-            _last_saved_comment = clean(_most_recent.get("comment", ""), "")
+        # ── Última nota: la entrada más reciente (no el historial completo) ───────
+        _excel_comments_bf = clean(get_from_row(row, ["comments", "comment"], ""))
+        _saved_comments_df_bf = _load_comments_df()
+        _last_saved_comment = ""
+        if not _saved_comments_df_bf.empty and "brand_id" in _saved_comments_df_bf.columns:
+            _brand_rows_bf = _saved_comments_df_bf[
+                _saved_comments_df_bf["brand_id"] == normalize_brand_id(brand_id)
+            ].copy()
+            if not _brand_rows_bf.empty:
+                _brand_rows_bf = _brand_rows_bf.sort_values("_dt", ascending=False, na_position="last")
+                _most_recent = _brand_rows_bf.iloc[0]
+                _last_saved_comment = clean(_most_recent.get("comment", ""), "")
 
-    # ── Priority logic ────────────────────────────────────────────────────────
-    # 1. [Auto] transcript summary   → always wins (most informative)
-    # 2. Productivity sheet levers   → if no transcript comment this month
-    # 3. Regular CSV comment         → next fallback
-    # 4. Excel comments / meta notes → last resort
-    #
-    # _nota_source tracks where we got the note from, for the badge label.
-    _nota_source = "meta"
-    _prod_levers = None  # populated if we fall into branch 2
+        # ── Priority logic ────────────────────────────────────────────────────────
+        # 1. [Auto] transcript summary   → always wins (most informative)
+        # 2. Productivity sheet levers   → if no transcript comment this month
+        # 3. Regular CSV comment         → next fallback
+        # 4. Excel comments / meta notes → last resort
+        #
+        # _nota_source tracks where we got the note from, for the badge label.
+        _nota_source = "meta"
+        _prod_levers = None  # populated if we fall into branch 2
 
-    _is_transcript_comment = (
-        _last_saved_comment.strip().startswith("[Auto]")
-        if _last_saved_comment else False
-    )
+        _is_transcript_comment = (
+            _last_saved_comment.strip().startswith("[Auto]")
+            if _last_saved_comment else False
+        )
 
-    if _is_transcript_comment:
-        # Branch 1: transcript-based comment from Brand Update — highest fidelity
-        _display_last_note = _last_saved_comment.strip()
-        _nota_source = "transcript"
-    else:
-        # Branch 2: try Productivity sheet for current month
-        _brand_name_for_prod = clean(get_from_row(row, ["brand", "name", "brand name", "nombre"], ""))
-        _prod_levers = get_productivity_levers_for_brand(EXCEL_FILE, _brand_name_for_prod)
-        if _prod_levers and _prod_levers.get("levers"):
-            _display_last_note = "[Productivity] " + _prod_levers["nota_generada"]
-            _nota_source = "productivity"
-        elif _last_saved_comment.strip():
-            # Branch 3: regular (non-transcript) CSV comment
+        if _is_transcript_comment:
+            # Branch 1: transcript-based comment from Brand Update — highest fidelity
             _display_last_note = _last_saved_comment.strip()
-            _nota_source = "csv"
-        elif _excel_comments_bf not in ["", "-"]:
-            # Branch 4a: Excel comment column
-            _display_last_note = _excel_comments_bf.strip()
-            _nota_source = "excel"
+            _nota_source = "transcript"
         else:
-            # Branch 4b: meta notes
-            _display_last_note = _bf_last_note
-            _nota_source = "meta"
-
-    # ── Retomar desde Productivity (palancas reales) ──────────────────────────
-    def _build_retomar_from_levers(levers_data):
-        """
-        Generates a call re-entry suggestion based on real levers logged
-        in the Productivity sheet for this brand this month.
-        Much more specific than text-analysis because we have exact lever names.
-        """
-        levers  = levers_data.get("levers", [])
-        churn   = levers_data.get("churn", False)
-        on_hold = levers_data.get("on_hold", False)
-        ads_ok  = "Ads" in levers
-        md_ok   = "Markdown" in levers
-        accepted_md = levers_data.get("accepted_md", False)
-        ads_tipo    = levers_data.get("ads_tipo", "")
-        ajustes     = levers_data.get("ajustes", [])
-        fase        = levers_data.get("fase", "")
-        rc          = levers_data.get("row_count", 0)
-        latest      = levers_data.get("latest_str", "")
-
-        # Determine priority lever for the opener
-        if churn:
-            opener = "⚠️ Retomá priorizando retención — Churn registrado este mes. Abrí con el valor generado vs. costo de baja y una propuesta concreta."
-            color  = PALETTE["burning_orange"]
-        elif on_hold:
-            opener = "🔴 Aliado en On Hold — necesitas destrabar el bloqueo antes de cualquier pitch. Abrí preguntando qué cambió y qué necesita para reactivar."
-            color  = PALETTE["burning_orange"]
-        elif ads_ok and md_ok:
-            md_note = " (MD aceptado ✓)" if accepted_md else " (MD ofrecido, sin cierre)"
-            ads_note = f" — tipo: {ads_tipo}" if ads_tipo else ""
-            opener = f"Retomá combinando ADS{ads_note} + Markdown{md_note}. Presentá el paquete integrado: visibilidad + conversión en la misma propuesta."
-            color  = PALETTE["blue_estate"]
-        elif ads_ok:
-            ads_note = f" ({ads_tipo})" if ads_tipo else ""
-            opener = f"Retomá desde ADS{ads_note} — fue la palanca del mes. Abrí con el benchmark de la categoría y un budget concreto propuesto."
-            color  = PALETTE["blue_estate"]
-        elif md_ok:
-            if accepted_md:
-                opener = "MD aceptado este mes ✓ — retomá verificando la activación y proponiendo la siguiente promo con fecha. El momentum está."
-                color  = PALETTE["laser_green"]
+            # Branch 2: try Productivity sheet for current month
+            _brand_name_for_prod = clean(get_from_row(row, ["brand", "name", "brand name", "nombre"], ""))
+            _prod_levers = get_productivity_levers_for_brand(EXCEL_FILE, _brand_name_for_prod)
+            if _prod_levers and _prod_levers.get("levers"):
+                _display_last_note = "[Productivity] " + _prod_levers["nota_generada"]
+                _nota_source = "productivity"
+            elif _last_saved_comment.strip():
+                # Branch 3: regular (non-transcript) CSV comment
+                _display_last_note = _last_saved_comment.strip()
+                _nota_source = "csv"
+            elif _excel_comments_bf not in ["", "-"]:
+                # Branch 4a: Excel comment column
+                _display_last_note = _excel_comments_bf.strip()
+                _nota_source = "excel"
             else:
-                opener = "MD ofrecido pero sin cierre — retomá con el descuento pendiente, la fecha de activación y una comparación de GMV con/sin promo."
-                color  = PALETTE["laser_green"]
-        elif ajustes:
-            opener = f"Retomá desde catálogo — se trabajó: {', '.join(ajustes[:3])}. Mostrá el impacto en conversión de los cambios hechos."
-            color  = PALETTE["cinnamon_ice"]
-        elif "Conectividad" in levers:
-            opener = "Retomá desde conectividad — verificá que el issue esté resuelto antes de cualquier pitch comercial. Luego aprovechá para anclar una propuesta."
-            color  = PALETTE["blue_glow"]
-        elif levers:
-            opener = f"Retomá desde {levers[0]} — la palanca trabajada este mes. Abrí con el estado actual y el próximo paso concreto."
-            color  = PALETTE["cinnamon_ice"]
+                # Branch 4b: meta notes
+                _display_last_note = _bf_last_note
+                _nota_source = "meta"
+
+        # ── Retomar desde Productivity (palancas reales) ──────────────────────────
+        def _build_retomar_from_levers(levers_data):
+            """
+            Generates a call re-entry suggestion based on real levers logged
+            in the Productivity sheet for this brand this month.
+            Much more specific than text-analysis because we have exact lever names.
+            """
+            levers  = levers_data.get("levers", [])
+            churn   = levers_data.get("churn", False)
+            on_hold = levers_data.get("on_hold", False)
+            ads_ok  = "Ads" in levers
+            md_ok   = "Markdown" in levers
+            accepted_md = levers_data.get("accepted_md", False)
+            ads_tipo    = levers_data.get("ads_tipo", "")
+            ajustes     = levers_data.get("ajustes", [])
+            fase        = levers_data.get("fase", "")
+            rc          = levers_data.get("row_count", 0)
+            latest      = levers_data.get("latest_str", "")
+
+            # Determine priority lever for the opener
+            if churn:
+                opener = "⚠️ Retomá priorizando retención — Churn registrado este mes. Abrí con el valor generado vs. costo de baja y una propuesta concreta."
+                color  = PALETTE["burning_orange"]
+            elif on_hold:
+                opener = "🔴 Aliado en On Hold — necesitas destrabar el bloqueo antes de cualquier pitch. Abrí preguntando qué cambió y qué necesita para reactivar."
+                color  = PALETTE["burning_orange"]
+            elif ads_ok and md_ok:
+                md_note = " (MD aceptado ✓)" if accepted_md else " (MD ofrecido, sin cierre)"
+                ads_note = f" — tipo: {ads_tipo}" if ads_tipo else ""
+                opener = f"Retomá combinando ADS{ads_note} + Markdown{md_note}. Presentá el paquete integrado: visibilidad + conversión en la misma propuesta."
+                color  = PALETTE["blue_estate"]
+            elif ads_ok:
+                ads_note = f" ({ads_tipo})" if ads_tipo else ""
+                opener = f"Retomá desde ADS{ads_note} — fue la palanca del mes. Abrí con el benchmark de la categoría y un budget concreto propuesto."
+                color  = PALETTE["blue_estate"]
+            elif md_ok:
+                if accepted_md:
+                    opener = "MD aceptado este mes ✓ — retomá verificando la activación y proponiendo la siguiente promo con fecha. El momentum está."
+                    color  = PALETTE["laser_green"]
+                else:
+                    opener = "MD ofrecido pero sin cierre — retomá con el descuento pendiente, la fecha de activación y una comparación de GMV con/sin promo."
+                    color  = PALETTE["laser_green"]
+            elif ajustes:
+                opener = f"Retomá desde catálogo — se trabajó: {', '.join(ajustes[:3])}. Mostrá el impacto en conversión de los cambios hechos."
+                color  = PALETTE["cinnamon_ice"]
+            elif "Conectividad" in levers:
+                opener = "Retomá desde conectividad — verificá que el issue esté resuelto antes de cualquier pitch comercial. Luego aprovechá para anclar una propuesta."
+                color  = PALETTE["blue_glow"]
+            elif levers:
+                opener = f"Retomá desde {levers[0]} — la palanca trabajada este mes. Abrí con el estado actual y el próximo paso concreto."
+                color  = PALETTE["cinnamon_ice"]
+            else:
+                opener = "Sin palancas específicas registradas este mes — abrí con contexto de rendimiento general."
+                color  = PALETTE["cinnamon_ice"]
+
+            # Sidebar: fase + contacts
+            context_parts = []
+            if fase and fase.lower() not in ["nan", ""]:
+                context_parts.append(f"Fase: {fase}")
+            if rc:
+                context_parts.append(f"{rc} contacto{'s' if rc != 1 else ''} este mes")
+            if latest:
+                context_parts.append(f"último: {latest}")
+
+            context_html = ""
+            if context_parts:
+                context_html = (
+                    f'<div style="margin-top:7px;font-size:10px;color:rgba(219,187,167,.6);">'
+                    + " · ".join(context_parts)
+                    + "</div>"
+                )
+
+            return (
+                f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
+                + context_html
+            )
+
+        # ── Retomar generado por Claude (lectura directa, sin re-adivinar) ────────
+        def _extract_claude_retomar(note_text):
+            """
+            Busca una línea 'Retomar: ...' dentro de una nota [Auto] con análisis
+            completo (generada en el chat de Claude, no por el analizador local).
+            Devuelve solo el enfoque de la próxima llamada, sin pasos a seguir.
+            Si no existe (nota vieja del analizador local, sin este campo), devuelve
+            None y se cae al scoring por keywords de siempre (_build_retomar_html).
+            """
+            if not note_text:
+                return None
+            matches = re.findall(r"(?im)^\s*retomar:\s*(.+?)\s*$", note_text)
+            return matches[-1].strip() if matches else None
+
+        # ── Retomar desde texto (fallback cuando no hay datos de Productivity) ────
+        def _build_retomar_html(note_text):
+            """Pure-Python analysis of last note to suggest call re-entry point."""
+            if not note_text or note_text.strip() in ["-", ""]:
+                return '<span style="font-size:11px;color:#aaa;">Sin nota previa para analizar</span>'
+
+            low = note_text.lower()
+
+            lever_scores = {
+                "ADS":               sum(1 for k in ["ads", "publicidad", "banner", "campaña", "sponsored", "visibilidad paga", "investment"] if k in low),
+                "Markdown":          sum(1 for k in ["descuento", "promo", "markdown", "porcentaje", "%", "oferta"] if k in low),
+                "Top Restaurant":    sum(1 for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "orgánica"] if k in low),
+                "Menú / Assortment": sum(1 for k in ["menú", "menu", "catálogo", "fotos", "productos", "carta", "assortment"] if k in low),
+                "Churn":             sum(1 for k in ["cancelar", "baja", "churn", "retiro", "no quiero seguir", "cerrar cuenta"] if k in low),
+            }
+            top_lever = max(lever_scores, key=lever_scores.get)
+            top_score = lever_scores[top_lever]
+
+            pending_signals = []
+            if any(k in low for k in ["lo pienso", "lo consulto", "voy a ver", "te llamo", "la próxima"]):
+                pending_signals.append("el aliado quedó en pensar")
+            if any(k in low for k in ["enviar", "mandar", "propuesta", "plantilla", "mail"]):
+                pending_signals.append("pendiente envío de propuesta")
+            if any(k in low for k in ["negociando", "pendiente", "negotiation", "esperando"]):
+                pending_signals.append("hay una negociación abierta")
+            if any(k in low for k in ["rechazó", "no le interesa", "rejected", "no quiere"]):
+                pending_signals.append("la última interacción fue un rechazo")
+
+            if top_score == 0:
+                opener = "Arrancá con una apertura de contexto general — no hay palanca clara en la nota anterior."
+                color = PALETTE["cinnamon_ice"]
+            elif top_lever == "Churn":
+                opener = "⚠️ Retomá priorizando retención — hay señales de riesgo de baja. Abrí con datos de valor y propuesta concreta."
+                color = PALETTE["burning_orange"]
+            elif top_lever == "ADS":
+                opener = "Retomá desde ADS — fue la palanca dominante. Abrí con el ROI de la categoría y un budget concreto."
+                color = PALETTE["blue_estate"]
+            elif top_lever == "Markdown":
+                opener = "Retomá desde la promo — fue lo que se estaba trabajando. Abrí con el descuento pendiente y la fecha de activación."
+                color = PALETTE["laser_green"]
+            elif top_lever == "Top Restaurant":
+                opener = "Retomá desde posicionamiento — hablaron de visibilidad. Abrí con el ranking actual y qué cambiaría activando."
+                color = PALETTE["blue_glow"]
+            else:
+                opener = "Retomá desde menú / catálogo — hablaron de productos. Abrí con fotos o la lista de top products de la categoría."
+                color = PALETTE["cinnamon_ice"]
+
+            pending_html = ""
+            if pending_signals:
+                items = "".join(f'<li style="margin-bottom:3px;">{s.capitalize()}</li>' for s in pending_signals)
+                pending_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;font-size:11px;color:#6B7280;">{items}</ul>'
+
+            return (
+                f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
+                + pending_html
+            )
+
+        # ── Choose retomar renderer based on source ───────────────────────────────
+        _claude_retomar_text = (
+            _extract_claude_retomar(_display_last_note) if _nota_source == "transcript" else None
+        )
+        if _claude_retomar_text:
+            # Fuente: análisis completo de Claude → mostrar el enfoque tal cual, sin re-adivinar
+            _retomar_html = (
+                f'<div style="font-size:13px;font-weight:600;color:{PALETTE["blue_glow"]};line-height:1.4;">'
+                f'{html.escape(_claude_retomar_text)}</div>'
+            )
+        elif _nota_source == "productivity" and _prod_levers:
+            _retomar_html = _build_retomar_from_levers(_prod_levers)
         else:
-            opener = "Sin palancas específicas registradas este mes — abrí con contexto de rendimiento general."
-            color  = PALETTE["cinnamon_ice"]
+            _retomar_html = _build_retomar_html(_display_last_note)
 
-        # Sidebar: fase + contacts
-        context_parts = []
-        if fase and fase.lower() not in ["nan", ""]:
-            context_parts.append(f"Fase: {fase}")
-        if rc:
-            context_parts.append(f"{rc} contacto{'s' if rc != 1 else ''} este mes")
-        if latest:
-            context_parts.append(f"último: {latest}")
+        # ── Render: última nota display ───────────────────────────────────────────
+        def _extract_claude_resumen(note_text):
+            """
+            Busca el párrafo 'Resumen: ...' dentro de una nota [Auto] con análisis
+            completo (generada en el chat de Claude). Devuelve solo ese párrafo
+            condensado para mostrar en la carta Última Nota — no la nota completa.
+            Si no existe (nota vieja sin este campo), retorna None y se muestra
+            el texto completo como fallback.
+            """
+            if not note_text:
+                return None
+            m = re.search(r"(?i)resumen:\s*(.+?)(?:\n\s*\n|\Z)", note_text, re.DOTALL)
+            return m.group(1).strip() if m else None
 
-        context_html = ""
-        if context_parts:
-            context_html = (
-                f'<div style="margin-top:7px;font-size:10px;color:rgba(219,187,167,.6);">'
-                + " · ".join(context_parts)
+        _note_display_clean = _display_last_note
+        # Strip well-known prefixes for cleaner display
+        for _pfx in ["[Auto] ·", "[Auto]", "[Productivity]"]:
+            if _note_display_clean.startswith(_pfx):
+                _note_display_clean = _note_display_clean[len(_pfx):].strip()
+
+        # Si la nota viene de Claude (transcript) y tiene el párrafo Resumen:,
+        # usarlo en vez del texto completo — la carta muestra solo el resumen.
+        if _nota_source == "transcript":
+            _claude_resumen_text = _extract_claude_resumen(_display_last_note)
+            if _claude_resumen_text:
+                _note_display_clean = _claude_resumen_text
+
+        # Source badge (tiny label below the note)
+        _source_badge_map = {
+            "transcript":  ("#22C55E", "📋 Transcripción"),
+            "productivity": (PALETTE["blue_glow"], "📊 Productivity mes"),
+            "csv":         (PALETTE["cinnamon_ice"], "💬 Último contacto"),
+            "excel":       ("#aaa", "📄 Excel"),
+            "meta":        ("#aaa", "📝 Meta"),
+        }
+        _src_color, _src_label = _source_badge_map.get(_nota_source, ("#aaa", ""))
+        _source_badge_html = (
+            f'<div style="margin-top:5px;font-size:9px;font-weight:700;'
+            f'color:{_src_color};text-transform:uppercase;letter-spacing:.5px;">'
+            f'{_src_label}</div>'
+        )
+
+        _bf_last_note_html = (
+            f'<span style="font-size:11px;color:#6B7280;font-style:italic;white-space:pre-wrap;line-height:1.5;">'
+            f'{html.escape(_note_display_clean)}</span>'
+            f'{_source_badge_html}'
+            if _display_last_note and _display_last_note.strip() not in ["-", ""] else
+            '<span style="font-size:11px;color:#aaa;">Sin nota reciente</span>'
+        )
+
+        st.markdown(f"""
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Último contacto</div>
+            <div style="font-size:13px;font-weight:800;color:{_bf_days_color};">{_bf_days_label}</div>
+            <div style="margin-top:6px;">{_bf_temp_badge}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
+            <div style="margin-top:2px;">{_bf_last_note_html}</div>
+          </div>
+          <div style="background:rgba(59,72,131,0.18);border:1px solid rgba(37,99,235,0.12);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:{PALETTE['blue_glow']};margin-bottom:8px;">🎯 Retomar llamada</div>
+            <div style="margin-top:2px;">{_retomar_html}</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        growth_gmv_ars = to_number(get_from_row(row, ["last gmv ars", "gmv ars", "last gmv local", "last gmv"], 0), 0)
+        growth_gmv_usd = to_number(get_from_row(row, ["last gmv usd", "gmv usd"], 0), 0) or (growth_gmv_ars / ARS_PER_USD if growth_gmv_ars else 0)
+        growth_aov_ars = to_number(get_from_row(row, ["last aov ars", "aov ars", "last aov local"], 0), 0)
+        growth_aov_usd = to_number(get_from_row(row, ["last aov usd", "aov usd"], 0), 0) or (growth_aov_ars / ARS_PER_USD if growth_aov_ars else 0)
+
+        current_gmv_ars = current["gmv_ars"] if current else 0
+        current_gmv_usd = current["gmv_usd"] if current else 0
+        current_aov_ars = current["aov_ars"] if current else 0
+        current_aov_usd = current["aov_usd"] if current else 0
+        gmv_progress_ars = safe_ratio(current_gmv_ars, growth_gmv_ars)
+        aov_change_ars = safe_ratio(current_aov_ars - growth_aov_ars, growth_aov_ars)
+
+        pro_users_display = fmt_percent0(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"]))
+        conversion_display = fmt_percent0(get_from_row(row, ["cr %", "conversion rate", "conversion"]))
+        commission_display = fmt_percent0(get_from_row(row, ["comm. rate", "commission rate", "commission"]))
+        pro_users_raw = _normalize_rate_value(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"], 0))
+        conversion_raw = _normalize_rate_value(get_from_row(row, ["cr %", "conversion rate", "conversion"], 0))
+        commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
+        # Labels dinámicos de mes desde la fecha actual (antes estaban hardcodeados
+        # "Abr"/"May" y no corrían al cambiar de mes). El punto más viejo salía de
+        # Ventana dinámica de 3 meses con labels calculados desde la fecha actual:
+        #   Growth OS  → mes -2 (ej. "May" en julio)
+        #   MAY GMV    → mes -1 (ej. "Jun" en julio)
+        #   Current GMV→ "Actual"
+        # Antes los labels estaban hardcodeados ("Abr"/"May") y no corrían al cambiar de mes.
+        _today_chart = datetime.now(TZ_APP).date()
+        _MESES_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+        _m2_idx = (_today_chart.month - 3) % 12  # mes -2 (Growth OS)
+        _m1_idx = (_today_chart.month - 2) % 12  # mes -1 (MAY GMV)
+        _m2_lbl = _MESES_ES[_m2_idx]
+        _m1_lbl = _MESES_ES[_m1_idx]
+
+        def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None):
+            """
+            Gráfico de línea de 3 puntos con labels de mes dinámicos:
+              val_abril (Growth OS) → mes -2  ·  val_may (MAY GMV) → mes -1  ·  val_current (Current) → Actual
+            Cada punto muestra el % de cambio respecto al punto anterior.
+            """
+            points_raw = []
+            has_m2 = val_abril and val_abril > 0
+            has_m1 = val_may and val_may > 0
+
+            if has_m2:
+                points_raw.append((_m2_lbl, val_abril))
+            if has_m1:
+                points_raw.append((_m1_lbl, val_may))
+            elif has_m2:
+                points_raw.append((_m1_lbl, 0))
+            points_raw.append(("Actual", val_current or 0))
+
+            # Si solo queda 1 punto, agregar el mes -1 en 0 para dibujar la línea
+            if len(points_raw) < 2:
+                points_raw = [(_m1_lbl, val_may or 0), ("Actual", val_current or 0)]
+
+            n = len(points_raw)
+            vals = [p[1] for p in points_raw]
+            v_max = max(vals + [1])
+            v_min = min(vals + [0])
+            v_range = (v_max - v_min) or 1
+
+            W, H = 150, 72
+            ML, MR, MT, MB = 10, 10, 20, 18
+            PW = W - ML - MR
+            PH = H - MT - MB
+
+            xs = [ML + (i / (n - 1)) * PW if n > 1 else ML + PW / 2 for i in range(n)]
+            ys = [MT + PH - ((v - v_min) / v_range) * PH for v in vals]
+
+            # Línea conectando los puntos
+            line_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+
+            svg_parts = [
+                f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">',
+                # Línea base (eje X)
+                f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>',
+                # Línea de tendencia
+                f'<polyline points="{line_pts}" fill="none" stroke="#F97316" stroke-width="1.8"/>',
+            ]
+
+            def _fmt_compact(v):
+                """Formats value as compact: 1.2M, 560k, etc."""
+                if not v or v == 0:
+                    return ""
+                if v >= 1_000_000:
+                    n = v / 1_000_000
+                    return f"{n:.1f}M".replace(".0M", "M")
+                if v >= 1_000:
+                    n = v / 1_000
+                    # If round number (e.g. 560000 -> 560k), no decimal
+                    if n == int(n):
+                        return f"{int(n)}k"
+                    return f"{n:.0f}k"
+                return str(int(v))
+
+            for i, ((lbl, v), x, y) in enumerate(zip(points_raw, xs, ys)):
+                # Valor compacto del GMV en el punto
+                val_txt = _fmt_compact(v) if v and v > 0 else ""
+
+                svg_parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#F97316"/>')
+                if val_txt:
+                    svg_parts.append(
+                        f'<text x="{x:.1f}" y="{y-7:.1f}" text-anchor="middle" '
+                        f'font-size="7" font-weight="800" fill="#F97316">{val_txt}</text>'
+                    )
+                # Etiqueta del mes en el eje X
+                svg_parts.append(
+                    f'<text x="{x:.1f}" y="{MT+PH+11}" text-anchor="middle" '
+                    f'font-size="6.5" fill="rgba(107,114,128,0.70)" font-weight="700">{lbl}</text>'
+                )
+
+            svg_parts.append('</svg>')
+            svg = "".join(svg_parts)
+
+            # Cambio total mostrado en el header (último vs anterior inmediato)
+            if len(points_raw) >= 2 and points_raw[-2][1] != 0:
+                change_pct = points_raw[-1][1] / points_raw[-2][1] - 1
+            else:
+                change_pct = None
+            _change_color = "#22C55E" if (change_pct or 0) >= 0 else "#EF4444"
+            _change_sign  = "+" if (change_pct or 0) >= 0 else ""
+            _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
+
+            _orders_inline_html = (
+                f'<span style="color:rgba(107,114,128,0.65);font-weight:600;margin-left:6px;">📦 {int(orders_inline):,}</span>'.replace(",", ".")
+                if orders_inline is not None else ""
+            )
+
+            return (
+                '<div class="stack-card" style="position:relative;overflow:hidden;min-height:140px;padding:22px 24px 18px;">'
+                f'<div class="stack-label" style="margin-bottom:6px;">{label}</div>'
+                f'<div style="font-size:30px;font-weight:900;color:#111827;letter-spacing:-0.02em;line-height:1.1;">{fmt_fn(val_current)}</div>'
+                f'<div style="font-size:12px;font-weight:600;color:#6B7280;margin-top:5px;">{sub_current}{_orders_inline_html}</div>'
+                f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_change_color};">{_change_text} vs mes anterior</div>'
+                f'<div style="position:absolute;bottom:12px;right:12px;opacity:0.95">{svg}</div>'
+                '</div>'
+            )
+
+        # ── Datos de mes pasado (MAY GMV) para el gráfico comparativo de 2 puntos ──
+        may_metrics = get_may_brand_metrics(brand_id, brand_name=name)
+        may_gmv_ars = may_metrics["gmv_ars"] if may_metrics else 0
+        may_aov_ars = may_metrics["aov_ars"] if may_metrics else 0
+
+        # abril_* (Growth OS) ya no alimenta el gráfico — se mantiene por firma pero se ignora.
+        abril_gmv_ars = growth_gmv_ars
+        abril_aov_ars = growth_aov_ars
+
+        gmv_col, aov_col = st.columns(2)
+        with gmv_col:
+            _orders_from_caba = get_orders_from_detalle_caba(brand_id, brand_name=name)
+            _gmv_card = _dot_line_chart_card(
+                "📈 GMV · Este mes vs Anterior",
+                current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars,
+                f"{fmt_usd(current_gmv_usd)} · {fmt_cop(current_gmv_usd * COP_PER_USD)}",
+                orders_inline=_orders_from_caba,
+            )
+            st.markdown(_gmv_card, unsafe_allow_html=True)
+        with aov_col:
+            _aov_card = _dot_line_chart_card(
+                "🛒 AOV · Este mes vs Anterior",
+                current_aov_ars, may_aov_ars, abril_aov_ars, fmt_ars,
+                f"{fmt_usd(current_aov_usd)} · {fmt_cop(current_aov_usd * COP_PER_USD)}",
+            )
+            st.markdown(_aov_card, unsafe_allow_html=True)
+
+        # ── Calculadora Consultiva · 4 métricas financieras automáticas ──────────
+        # Estas tarjetas cruzan los datos ya disponibles del aliado para generar
+        # los 4 argumentos financieros listos para usar en la reunión con el dueño.
+
+        _comm_rate   = commission_raw if commission_raw and commission_raw > 0 else 0.27
+        _aov         = current_aov_ars if current_aov_ars and current_aov_ars > 0 else growth_aov_ars
+        _orders      = to_number(current["orders"], 0) if current else 0
+        _gmv         = current_gmv_ars if current_gmv_ars and current_gmv_ars > 0 else growth_gmv_ars
+        # CVR real de la hoja CVR% (promedio 4 semanas). Fallback: CR% del Growth OS.
+        _cvr_from_sheet, _ = get_cvr_for_brand(name, cr_fallback=conversion_raw)
+        _cr_raw      = _cvr_from_sheet if _cvr_from_sheet and _cvr_from_sheet > 0 else (conversion_raw if conversion_raw and conversion_raw > 0 else 0)
+
+        # Food cost estimado por categoría (% sobre precio de venta)
+        _category_fc_map = {
+            "hamburguesa": 0.42, "burger": 0.42,
+            "pizza": 0.38, "pizzeria": 0.38,
+            "sushi": 0.45, "japonesa": 0.45,
+            "pollo": 0.40, "chicken": 0.40,
+            "helado": 0.35, "heladeria": 0.35,
+            "cafe": 0.30, "cafeteria": 0.30,
+            "empanada": 0.36, "empanadas": 0.36,
+            "medialunas": 0.33, "panaderia": 0.33,
+            "wrap": 0.40, "saludable": 0.38,
+        }
+        _cat_key = category.lower() if category else ""
+        _food_cost_rate = next(
+            (v for k, v in _category_fc_map.items() if k in _cat_key),
+            0.40  # default 40%
+        )
+
+        # ── 1. Margen neto estimado por orden ────────────────────────────────────
+        _margin_per_order = _aov * (1 - _comm_rate) * (1 - _food_cost_rate) if _aov > 0 else 0
+        _margin_pct_display = round((1 - _comm_rate) * (1 - _food_cost_rate) * 100, 1)
+
+        # ── 1b. GMV neto total potencial a día de hoy ────────────────────────────
+        # Margen por orden × órdenes del mes = margen bruto total del período.
+        # Si hay campaña de Ads activa, se descuenta el presupuesto — los bookings
+        # de Current ADS ya vienen normalizados a base semanal, por eso se
+        # mensualizan ×4 antes de restar.
+        _margin_total_bruto = _margin_per_order * _orders if _margin_per_order > 0 and _orders > 0 else 0
+        _ads_is_active = bool(ads_current.get("active", False))
+        _ads_weekly_budget = to_number(ads_current.get("bookings_usd"), 0) if _ads_is_active else 0
+        _ads_monthly_budget_usd = _ads_weekly_budget * 4
+        _ads_monthly_budget_ars = _ads_monthly_budget_usd * ARS_PER_USD
+        _margin_total_neto = max(_margin_total_bruto - _ads_monthly_budget_ars, 0) if _ads_is_active else _margin_total_bruto
+
+        # ── 2. Punto de equilibrio MD ────────────────────────────────────────────
+        # Lógica basada en AOV: el costo del descuento se calcula por orden,
+        # no sobre el GMV total histórico (que mezcla coberturas pasadas).
+        # Costo del descuento por orden = AOV × 20%
+        # Órdenes extra necesarias = costo por orden ÷ margen por orden
+        _md_discount_rate      = 0.20
+        _promo_cost_per_order  = _aov * _md_discount_rate if _aov > 0 else 0
+        _be_orders             = math.ceil(_promo_cost_per_order / _margin_per_order) if _margin_per_order > 0 else 0
+        _be_pct_over_current   = round(_be_orders / _orders * 100, 1) if _orders > 0 else 0
+
+        # ── 3. GMV incremental con Traffic real x CVR benchmark ──────────────────
+        # Traffic mensual = promedio semanal x 4 (mas robusto que ultima semana sola)
+        _cr_bench_cat      = get_cvr_category_benchmark(category)
+        _cr_current_norm   = _cr_raw if _cr_raw <= 1 else _cr_raw / 100
+        _cr_benchmark_norm = _cr_bench_cat if _cr_bench_cat and _cr_bench_cat > 0 else 0.045
+        _traffic_weekly    = get_traffic_for_brand(name)
+        _traffic_monthly   = (_traffic_weekly * 4) if _traffic_weekly and _traffic_weekly > 0 else 0
+        _cr_above_bench    = _cr_current_norm > 0 and _cr_benchmark_norm > 0 and _cr_current_norm >= _cr_benchmark_norm
+        if _traffic_monthly > 0 and _aov > 0:
+            _gmv_at_benchmark = _traffic_monthly * _cr_benchmark_norm * _aov
+            _gmv_incremental  = max(_gmv_at_benchmark - _gmv, 0) if not _cr_above_bench else 0
+        else:
+            _impressions_est  = round(_orders / _cr_current_norm) if _cr_current_norm > 0 else 0
+            _gmv_at_benchmark = _impressions_est * _cr_benchmark_norm * _aov if _impressions_est > 0 and _aov > 0 else 0
+            _gmv_incremental  = max(_gmv_at_benchmark - _gmv, 0) if not _cr_above_bench else 0
+        _traffic_source    = "Traffic real" if _traffic_monthly > 0 else "est. por inversa"
+
+
+
+        def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#2563EB"):
+            return f"""
+    <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;min-height:160px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:8px;">{emoji} {title}</div>
+      <div style="font-size:24px;font-weight:900;color:{color};line-height:1.1;">{main_value}</div>
+      <div style="font-size:12px;color:#6B7280;margin-top:3px;margin-bottom:10px;">{main_sub}</div>
+      <div style="border-top:1px solid rgba(78,99,217,0.12);padding-top:8px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#2563EB;margin-bottom:4px;">Cómo decírselo al dueño</div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.45;font-style:italic;">"{pitch_text}"</div>
+      </div>
+    </div>"""
+
+        # ── Compute card values for all 4 analytics cards ───────────────────────
+        _be_color = "#EF4444" if _be_pct_over_current > 40 else "#F97316" if _be_pct_over_current > 20 else "#22C55E"
+        _aov_rounded        = round(_aov / 1000) * 1000
+        _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
+        _promos_per_order   = round(_margin_per_order / _promo_cost_per_order, 1) if _promo_cost_per_order > 0 else 0
+        _coverage_line      = f" · 1 orden limpia cubre {_promos_per_order}x promos" if _promos_per_order > 0 else ""
+        _be_pitch = (
+            f"Con un descuento del 20% sobre un ticket de {fmt_ars(_aov_rounded)}, cada orden con promo te cuesta {fmt_ars(_promo_cost_rounded)}. "
+            + (f"Pero tu margen por orden es {fmt_ars(round(_margin_per_order))} — eso alcanza para cubrir {_promos_per_order} promos con un solo pedido limpio. " if _promos_per_order >= 1 else "")
+            + f"Con {_be_orders} pedido{'s' if _be_orders != 1 else ''} extra ya cubrís ese costo — sin tocar tu estructura."
+            + (" Es una meta razonable con tráfico de temporada." if _be_pct_over_current <= 30 else " Es exigente pero alcanzable si hay un evento de alto tráfico." if _be_pct_over_current <= 60 else " Es muy exigente — evaluá acotar los productos en promo para bajar el umbral.")
+        )
+        _cr_display    = f"{round(_cr_current_norm*100,1)}%" if _cr_current_norm > 0 else "s/d"
+        _bench_display = f"{round(_cr_benchmark_norm*100,1)}%" if _cr_benchmark_norm > 0 else "s/d"
+        _bench_source  = "real categ." if _cr_bench_cat and _cr_bench_cat > 0 else "ref. general"
+        _traffic_disp  = f"{round(_traffic_monthly):,}".replace(",", ".") if _traffic_monthly > 0 else None
+        if _cr_current_norm <= 0:
+            _inc_color = "#aaa"
+            _c3_main   = "Sin dato de CR"
+            _c3_sub    = f"Benchmark {_bench_display} ({_bench_source}) · activá ads para medir tráfico"
+            _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
+        elif _cr_above_bench:
+            _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
+            _inc_color = "#111827"
+            _c3_main   = f"+{_delta_pp}pp sobre benchmark"
+            _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
+            _c3_pitch  = (
+                f"Tu CR ({_cr_display}) ya está {_delta_pp}pp por encima del promedio de tu categoría ({_bench_display}). "
+                + (f"Con {_traffic_disp} visitas mensuales reales, el problema no es la tienda — es el volumen de tráfico." if _traffic_disp else "El problema no es la tienda — es el volumen de tráfico.")
+            )
+        else:
+            _inc_color = "#22C55E" if _gmv_incremental > 0 else "#aaa"
+            _c3_main   = fmt_ars(round(_gmv_incremental)) if _gmv_incremental > 0 else "Sin dato suficiente"
+            _c3_sub    = f"CR {_cr_display} → benchmark {_bench_display} ({_bench_source}) · {_traffic_source}"
+            _c3_pitch  = (
+                f"Tu tienda convierte al {_cr_display}, el promedio de tu categoría está en {_bench_display}. "
+                + (f"Con tus {_traffic_disp} visitas mensuales, si llegás al benchmark sumas {fmt_ars(round(_gmv_incremental))} por mes — sin invertir más en pauta." if _traffic_disp and _gmv_incremental > 0 else f"Si llegás al benchmark, sumarías {fmt_ars(round(_gmv_incremental))} por mes con el mismo tráfico que ya tienes." if _gmv_incremental > 0 else "Activá ads para empezar a generar tráfico medible.")
+            )
+
+        _t_bench  = get_traffic_category_benchmark(category)
+        _traffic_ok  = (_traffic_weekly is not None and _t_bench is not None and _traffic_weekly >= _t_bench * 0.85)
+        _cvr_ok      = (_cr_current_norm > 0 and _cr_benchmark_norm > 0 and _cr_current_norm >= _cr_benchmark_norm * 0.85)
+        _has_traffic = _traffic_weekly is not None and _traffic_weekly > 0
+        _has_cvr     = _cr_current_norm > 0
+        if not _has_traffic and not _has_cvr:
+            _d4_color = "#aaa"; _d4_main = "Sin datos"
+            _d4_sub   = "No hay Traffic ni CVR registrado esta semana"
+            _d4_pitch = "Activá ads para empezar a generar tráfico y CVR medibles."
+        else:
+            if not _traffic_ok and not _cvr_ok:
+                _d4_color = "#EF4444"; _d4_diag = "Problema doble"; _d4_diag_sub = "Tráfico bajo y conversión baja"
+            elif not _traffic_ok:
+                _d4_color = "#F97316"; _d4_diag = "Problema: Tráfico"; _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
+            elif not _cvr_ok:
+                _d4_color = "#F97316"; _d4_diag = "Problema: Conversión"; _d4_diag_sub = "Hay visitas · la tienda no convierte"
+            else:
+                _d4_color = "#22C55E"; _d4_diag = "Ambas métricas OK"; _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
+            _lost_orders = round(_traffic_weekly * max(_cr_benchmark_norm - _cr_current_norm, 0)) if (_has_traffic and _has_cvr and not _cvr_ok) else 0
+            _d4_main = _d4_diag
+            _tw_disp = f"{round(_traffic_weekly):,}".replace(",", ".") if _has_traffic else "s/d"
+            _tb_disp = f"{round(_t_bench):,}".replace(",", ".") if _t_bench else "s/d"
+            _d4_sub  = f"{_d4_diag_sub} · " + (f"{_lost_orders} ords/sem perdidas por CVR bajo" if _lost_orders > 0 else f"Traffic {_tw_disp} vs bench {_tb_disp}/sem")
+            if _d4_diag == "Problema: Tráfico":
+                _traffic_gap = max((_t_bench - _traffic_weekly), 0) if _t_bench and _traffic_weekly else 0
+                _step_visits = round(_traffic_gap * 0.30) if _traffic_gap > 0 else 0
+                _step_cost_ars = _step_visits * 650
+                _step_orders = round(_step_visits * _cr_current_norm, 1) if _cr_current_norm > 0 else 0
+                _step_gmv = round(_step_orders * _aov) if _aov > 0 else 0
+                _step_cost_disp = f"ARS {_step_cost_ars:,.0f}".replace(",", ".")
+                _step_gmv_disp  = fmt_ars(round(_step_gmv / 1000) * 1000) if _step_gmv > 0 else ""
+                _traffic_proj = (f" Para arrancar: compramos {_step_visits} visitas más por semana — son {_step_cost_disp}/sem. Con tu conversión del {_cr_display} eso son {_step_orders} pedidos extra · {_step_gmv_disp} GMV/sem." if _step_visits > 0 and _step_gmv > 0 else "")
+                _d4_pitch = f"Tu tienda convierte al {_cr_display} — está por encima del promedio de tu categoría. El problema es que ves {_tw_disp} visitas por semana contra un benchmark de {_tb_disp}. Más tráfico con esta tasa de conversión se convierte directo en pedidos." + _traffic_proj
+            elif _d4_diag == "Problema: Conversión":
+                _d4_pitch = f"Tienes {_tw_disp} visitas por semana — el tráfico no es el problema. Pero tu tienda convierte al {_cr_display} cuando el promedio de tu categoría es {_bench_display}. " + (f"Eso son {_lost_orders} pedidos por semana que te estás perdiendo sin gastar un peso más en pauta." if _lost_orders > 0 else "Con mejoras en menú y fotos ese CVR sube sin invertir más en pauta.")
+            elif _d4_diag == "Problema doble":
+                _d4_pitch = f"Dos frentes abiertos: traffic de {_tw_disp} vs benchmark {_tb_disp} y CVR de {_cr_display} vs {_bench_display}. " + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "") + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
+            else:
+                _d4_pitch = f"Traffic en {_tw_disp}/sem y CVR en {_cr_display} — ambas métricas sobre el benchmark de tu categoría. Estás en condiciones de escalar: más presupuesto en ads se convierte directo en GMV."
+
+
+
+        booster = booster_for_badge
+        actions = actions_for_badge
+
+        campaign_design = design_campaign_for_brand(
+            name,
+            category,
+            current_gmv_ars,
+            current_aov_ars,
+            get_from_row(row, ["cr %", "conversion rate", "conversion"], 0),
+            get_from_row(row, ["pro users %", "pro %", "pro users", "prime users %"], 0),
+            get_from_row(row, ["comm. rate", "commission rate", "commission"], 0),
+            ads_current,
+            md_current,
+            md_pro_current,
+            booster,
+            actions,
+            brand_id=brand_id,
+            last_month_gmv_ars=may_gmv_ars,
+            photos_value=get_from_row(row, ["photos", "fotos"], 0),
+        )
+
+        # MD action must show both the recommended booster and the promo suggested by Campaign Designer.
+        for _a in actions:
+            if "MD" in clean(_a.get("area"), ""):
+                _secondary = list(_a.get("secondary", []))
+                _promo = clean(campaign_design.get("md_reco"), "") if campaign_design else ""
+                _booster = clean(booster.get("event"), "-") if isinstance(booster, dict) else "-"
+                if _promo and _promo not in ["", "-"]:
+                    _secondary.append(f"Promo { _promo }")
+                if _booster not in ["", "-"]:
+                    _secondary.append(f"Booster { _booster }")
+                _a["secondary"] = list(dict.fromkeys([clean(x, "") for x in _secondary if clean(x, "")]))
+
+        tactical_flow = build_tactical_flow(
+            brand_id,
+            name,
+            row,
+            category,
+            current,
+            ads_current,
+            md_current,
+            md_pro_current,
+            booster,
+            actions,
+            campaign_design,
+        )
+
+        # ── Build lever→tactical mapping so each 360 card gets its priority content ──
+        # Map lever_class → list of tactical items from priority
+        # Items with no lever_class (e.g. "general") fall into OPS as a catch-all.
+        _lever_tactical_map = {}
+        for _item in tactical_flow.get("items", []):
+            _lc = clean(_item.get("lever_class"), "") or "lever-ops"
+            _lever_tactical_map.setdefault(_lc, []).append(_item)
+
+        fill_colors_map = {
+            'health-green':  '#22C55E',
+            'health-yellow': '#2563EB',
+            'health-orange': '#F97316',
+            'health-red':    '#EF4444',
+        }
+        pct_colors_map = {
+            'health-green':  '#22C55E',
+            'health-yellow': '#FB923C',
+            'health-orange': '#FB923C',
+            'health-red':    '#EF4444',
+        }
+        area_emojis_map = {
+            'lever-ops':  '⚙️',
+            'lever-menu': '🍔',
+            'lever-md':   '🏷️',
+            'lever-pro':  '👑',
+            'lever-ads':  '🚀',
+        }
+
+        def _merged_action_card(a):
+            area_raw      = clean(a.get('area'), '')
+            lever_cls     = _action_area_lever_class(area_raw)
+            health_cls    = clean(a.get('health_class'), 'health-green')
+            action_text   = clean(a.get('action'), 'Following')
+            reason_text   = clean(a.get('reason'), '')
+            secondary_text = ' · '.join([clean(x, '') for x in a.get('secondary', []) if clean(x, '')])
+
+            badge_raw   = clean(a.get('health_badge'), '100')
+            score_match = re.search(r'(\d+(?:\.\d+)?)', badge_raw)
+            score_pct   = float(score_match.group(1)) if score_match else 100.0
+            score_pct   = max(0.0, min(100.0, score_pct))
+
+            ring_color = '#FFFFFF' if lever_cls == 'lever-menu' else '#22C55E'
+            pct_color  = pct_colors_map.get(health_cls, '#22C55E')
+            emoji      = area_emojis_map.get(lever_cls, '📊')
+
+            r     = 22
+            circ  = 2 * 3.14159 * r
+            filled = round(circ * score_pct / 100, 2)
+            gap    = round(circ - filled, 2)
+
+            ring_svg = (
+                f'<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
+                f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="#E5ECFA" stroke-width="5"/>'
+                f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="{ring_color}" stroke-width="5" '
+                f'stroke-linecap="round" stroke-dasharray="{filled} {gap}" transform="rotate(-90 30 30)"/>'
+                f'<text x="30" y="35" text-anchor="middle" font-size="18">{emoji}</text>'
+                f'</svg>'
+            )
+
+            # ── Status pill (item 12): nombre del estado + color, sutil ──────────
+            _pill_map = {
+                'health-green':  ("Healthy",  "#16A34A", "rgba(34,197,94,0.12)"),
+                'health-yellow': ("Watch",    "#B45309", "rgba(255,193,7,0.14)"),
+                'health-orange': ("Alert",    "#FB923C", "rgba(249,115,22,0.12)"),
+                'health-red':    ("Critical", "#E5332A", "rgba(229,51,42,0.10)"),
+            }
+            _pl, _pc, _pb = _pill_map.get(health_cls, ("Healthy", "#16A34A", "rgba(34,197,94,0.12)"))
+            status_pill = (f"<span style='display:inline-block;background:{_pb};color:{_pc};"
+                           f"border:1px solid {_pc}33;border-radius:999px;padding:2px 10px;"
+                           f"font-size:10px;font-weight:900;text-transform:uppercase;"
+                           f"letter-spacing:.04em;'>{_pl}</span>")
+
+            # ── MD / ADS simplificadas (item 8): solo status + ROI ───────────────
+            _status_emoji = {'health-green': '✅', 'health-yellow': '🟡',
+                             'health-orange': '🟠', 'health-red': '🔴'}.get(health_cls, '✅')
+            if lever_cls in ('lever-md', 'lever-ads'):
+                _lever_data = md_current if lever_cls == 'lever-md' else ads_current
+                _lv_active = bool(_lever_data.get('active', False))
+                _lv_roi = to_number(_lever_data.get('roi'), 0)
+                _lv_status = "Active 🚀" if _lv_active else "Inactive 💤"
+                _roi_col = "#22C55E" if _lv_roi >= 3 else ("#FB923C" if _lv_roi > 0 else "#9CA3AF")
+                body_lines = (
+                    f"<div style='font-size:15px;font-weight:900;color:{_pc};line-height:1.2;"
+                    f"margin-top:12px;'>{_status_emoji} {_lv_status}</div>"
+                    f"<div style='font-size:13px;font-weight:800;color:{_roi_col};margin-top:4px;'>"
+                    f"ROI {(f'{_lv_roi:.1f}x' if _lv_roi > 0 else '—')}</div>"
+                )
+            else:
+                # Top message con el MISMO lenguaje visual del Priority Signal:
+                # bold en color de estado + emoji, cue en gris (item 8)
+                body_lines = (
+                    f"<div style='font-size:13px;font-weight:900;color:{_pc};line-height:1.15;"
+                    f"margin-top:12px;'>{_status_emoji} {html.escape(action_text)}</div>"
+                    + (f"<div style='font-size:11px;color:#6B7280;margin-top:3px;line-height:1.35;"
+                       f"font-weight:700;'>{html.escape(reason_text)}</div>" if reason_text else "")
+                    + (f"<div style='font-size:11px;color:#9CA3AF;margin-top:3px;line-height:1.35;'>"
+                       f"{html.escape(secondary_text)}</div>" if secondary_text else "")
+                )
+
+            top_html = (
+                f"<div style='display:flex;align-items:center;gap:10px;'>"
+                f"{ring_svg}"
+                f"<div style='display:flex;flex-direction:column;gap:3px;'>"
+                f"<span style='font-size:28px;font-weight:900;color:{pct_color};line-height:1;'>{score_pct:.0f}%</span>"
+                f"<span class='action-area'>{html.escape(area_raw)}</span>"
+                f"{status_pill}"
+                f"</div>"
+                f"</div>"
+                + body_lines
+            )
+
+            # ── Bottom half: priority tactical items for this lever ───────────────
+            tactical_items = _lever_tactical_map.get(lever_cls, [])
+            if tactical_items:
+                divider = (
+                    "<div style='margin:14px 0 10px;border-top:1px solid rgba(78,99,217,0.18);'></div>"
+                    "<div style='font-size:10px;font-weight:900;text-transform:uppercase;"
+                    "letter-spacing:.06em;color:#2563EB;margin-bottom:8px;'>🎯 Priority Signal</div>"
+                )
+                items_html = ""
+                for ti in tactical_items:
+                    t_main = clean(ti.get('main'), '')
+                    t_cue  = clean(ti.get('cue') or ti.get('argument'), '')
+                    t_cls  = clean(ti.get('class'), 'health-yellow')
+                    t_color_map = {
+                        'health-green': '#22C55E', 'health-yellow': '#FB923C',
+                        'health-orange': '#FB923C', 'health-red': '#EF4444',
+                    }
+                    t_col = t_color_map.get(t_cls, '#FB923C')
+                    items_html += (
+                        f"<div style='margin-bottom:8px;'>"
+                        f"<div style='font-size:13px;font-weight:900;color:{t_col};line-height:1.15;'>{html.escape(t_main)}</div>"
+                        + (f"<div style='font-size:11px;color:#6B7280;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
+                        + "</div>"
+                    )
+                bottom_html = divider + items_html
+            else:
+                bottom_html = ""
+
+            return (
+                f"<div class='action-card {html.escape(health_cls)} {html.escape(lever_cls)}'>"
+                + top_html
+                + bottom_html
                 + "</div>"
             )
 
-        return (
-            f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
-            + context_html
+        # ── Priority metadata header ──────────────────────────────────────────────
+        flow = tactical_flow
+        score_text = _priority_score_display(flow.get("priority_score")) if flow.get("found_priority") else "—"
+        rank_text  = '#' + str(int(flow.get('rank'))) if flow.get('rank') not in [None, '', '-'] and not pd.isna(flow.get('rank')) else '—'
+        last_contact_text = clean(flow.get('last_contact'), '—')
+        coinv_text = clean(flow.get('coinversion'), 'No')
+        expired_n  = int(flow.get('promo_vencida') or 0)
+        expiring_n = int(flow.get('promo_por_vencer') or 0)
+        levers     = flow.get('lever_texts', [])
+        lever_chips = "".join([f"<span class='priority-chip'>{html.escape(clean(x,'-'))}</span>" for x in levers[:10]]) or "<span class='priority-chip'>✅ Sin palancas priority activas</span>"
+
+        meta_html = (
+            f"<div class='priority-top-grid' style='margin-bottom:14px;'>"
+            f"<div><div class='info-mini-label'>🔥 Priority Score</div><div class='info-mini-value'>{html.escape(score_text)}</div></div>"
+            f"<div><div class='info-mini-label'># Contacto</div><div class='info-mini-value'>{html.escape(rank_text)}</div></div>"
+            f"<div><div class='info-mini-label'>Último Contacto</div><div class='info-mini-value'>{html.escape(last_contact_text)}</div></div>"
+            f"<div><div class='info-mini-label'>Coinversión MD</div><div class='info-mini-value'>{html.escape(coinv_text)}</div></div>"
+            f"<div><div class='info-mini-label'>Vencida / Por vencer</div><div class='info-mini-value'>{expired_n} / {expiring_n}</div></div>"
+            f"<div class='priority-levers' style='grid-column:1/-1;'>{lever_chips}</div>"
+            f"</div>"
         )
 
-    # ── Retomar generado por Claude (lectura directa, sin re-adivinar) ────────
-    def _extract_claude_retomar(note_text):
-        """
-        Busca una línea 'Retomar: ...' dentro de una nota [Auto] con análisis
-        completo (generada en el chat de Claude, no por el analizador local).
-        Devuelve solo el enfoque de la próxima llamada, sin pasos a seguir.
-        Si no existe (nota vieja del analizador local, sin este campo), devuelve
-        None y se cae al scoring por keywords de siempre (_build_retomar_html).
-        """
-        if not note_text:
-            return None
-        matches = re.findall(r"(?im)^\s*retomar:\s*(.+?)\s*$", note_text)
-        return matches[-1].strip() if matches else None
+        campaign_names = get_md_campaign_names_for_brand(name)
+        ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
 
-    # ── Retomar desde texto (fallback cuando no hay datos de Productivity) ────
-    def _build_retomar_html(note_text):
-        """Pure-Python analysis of last note to suggest call re-entry point."""
-        if not note_text or note_text.strip() in ["-", ""]:
-            return '<span style="font-size:11px;color:#aaa;">Sin nota previa para analizar</span>'
+        _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
+        _cvr_bench = get_cvr_category_benchmark(category)
+        st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
 
-        low = note_text.lower()
-
-        lever_scores = {
-            "ADS":               sum(1 for k in ["ads", "publicidad", "banner", "campaña", "sponsored", "visibilidad paga", "investment"] if k in low),
-            "Markdown":          sum(1 for k in ["descuento", "promo", "markdown", "porcentaje", "%", "oferta"] if k in low),
-            "Top Restaurant":    sum(1 for k in ["top restaurant", "destacado", "posicionamiento", "ranking", "orgánica"] if k in low),
-            "Menú / Assortment": sum(1 for k in ["menú", "menu", "catálogo", "fotos", "productos", "carta", "assortment"] if k in low),
-            "Churn":             sum(1 for k in ["cancelar", "baja", "churn", "retiro", "no quiero seguir", "cerrar cuenta"] if k in low),
-        }
-        top_lever = max(lever_scores, key=lever_scores.get)
-        top_score = lever_scores[top_lever]
-
-        pending_signals = []
-        if any(k in low for k in ["lo pienso", "lo consulto", "voy a ver", "te llamo", "la próxima"]):
-            pending_signals.append("el aliado quedó en pensar")
-        if any(k in low for k in ["enviar", "mandar", "propuesta", "plantilla", "mail"]):
-            pending_signals.append("pendiente envío de propuesta")
-        if any(k in low for k in ["negociando", "pendiente", "negotiation", "esperando"]):
-            pending_signals.append("hay una negociación abierta")
-        if any(k in low for k in ["rechazó", "no le interesa", "rejected", "no quiere"]):
-            pending_signals.append("la última interacción fue un rechazo")
-
-        if top_score == 0:
-            opener = "Arrancá con una apertura de contexto general — no hay palanca clara en la nota anterior."
-            color = PALETTE["cinnamon_ice"]
-        elif top_lever == "Churn":
-            opener = "⚠️ Retomá priorizando retención — hay señales de riesgo de baja. Abrí con datos de valor y propuesta concreta."
-            color = PALETTE["burning_orange"]
-        elif top_lever == "ADS":
-            opener = "Retomá desde ADS — fue la palanca dominante. Abrí con el ROI de la categoría y un budget concreto."
-            color = PALETTE["blue_estate"]
-        elif top_lever == "Markdown":
-            opener = "Retomá desde la promo — fue lo que se estaba trabajando. Abrí con el descuento pendiente y la fecha de activación."
-            color = PALETTE["laser_green"]
-        elif top_lever == "Top Restaurant":
-            opener = "Retomá desde posicionamiento — hablaron de visibilidad. Abrí con el ranking actual y qué cambiaría activando."
-            color = PALETTE["blue_glow"]
-        else:
-            opener = "Retomá desde menú / catálogo — hablaron de productos. Abrí con fotos o la lista de top products de la categoría."
-            color = PALETTE["cinnamon_ice"]
-
-        pending_html = ""
-        if pending_signals:
-            items = "".join(f'<li style="margin-bottom:3px;">{s.capitalize()}</li>' for s in pending_signals)
-            pending_html = f'<ul style="margin:6px 0 0 0;padding-left:16px;font-size:11px;color:#6B7280;">{items}</ul>'
-
-        return (
-            f'<div style="font-size:13px;font-weight:600;color:{color};line-height:1.4;">{opener}</div>'
-            + pending_html
-        )
-
-    # ── Choose retomar renderer based on source ───────────────────────────────
-    _claude_retomar_text = (
-        _extract_claude_retomar(_display_last_note) if _nota_source == "transcript" else None
-    )
-    if _claude_retomar_text:
-        # Fuente: análisis completo de Claude → mostrar el enfoque tal cual, sin re-adivinar
-        _retomar_html = (
-            f'<div style="font-size:13px;font-weight:600;color:{PALETTE["blue_glow"]};line-height:1.4;">'
-            f'{html.escape(_claude_retomar_text)}</div>'
-        )
-    elif _nota_source == "productivity" and _prod_levers:
-        _retomar_html = _build_retomar_from_levers(_prod_levers)
-    else:
-        _retomar_html = _build_retomar_html(_display_last_note)
-
-    # ── Render: última nota display ───────────────────────────────────────────
-    def _extract_claude_resumen(note_text):
-        """
-        Busca el párrafo 'Resumen: ...' dentro de una nota [Auto] con análisis
-        completo (generada en el chat de Claude). Devuelve solo ese párrafo
-        condensado para mostrar en la carta Última Nota — no la nota completa.
-        Si no existe (nota vieja sin este campo), retorna None y se muestra
-        el texto completo como fallback.
-        """
-        if not note_text:
-            return None
-        m = re.search(r"(?i)resumen:\s*(.+?)(?:\n\s*\n|\Z)", note_text, re.DOTALL)
-        return m.group(1).strip() if m else None
-
-    _note_display_clean = _display_last_note
-    # Strip well-known prefixes for cleaner display
-    for _pfx in ["[Auto] ·", "[Auto]", "[Productivity]"]:
-        if _note_display_clean.startswith(_pfx):
-            _note_display_clean = _note_display_clean[len(_pfx):].strip()
-
-    # Si la nota viene de Claude (transcript) y tiene el párrafo Resumen:,
-    # usarlo en vez del texto completo — la carta muestra solo el resumen.
-    if _nota_source == "transcript":
-        _claude_resumen_text = _extract_claude_resumen(_display_last_note)
-        if _claude_resumen_text:
-            _note_display_clean = _claude_resumen_text
-
-    # Source badge (tiny label below the note)
-    _source_badge_map = {
-        "transcript":  ("#22C55E", "📋 Transcripción"),
-        "productivity": (PALETTE["blue_glow"], "📊 Productivity mes"),
-        "csv":         (PALETTE["cinnamon_ice"], "💬 Último contacto"),
-        "excel":       ("#aaa", "📄 Excel"),
-        "meta":        ("#aaa", "📝 Meta"),
-    }
-    _src_color, _src_label = _source_badge_map.get(_nota_source, ("#aaa", ""))
-    _source_badge_html = (
-        f'<div style="margin-top:5px;font-size:9px;font-weight:700;'
-        f'color:{_src_color};text-transform:uppercase;letter-spacing:.5px;">'
-        f'{_src_label}</div>'
-    )
-
-    _bf_last_note_html = (
-        f'<span style="font-size:11px;color:#6B7280;font-style:italic;white-space:pre-wrap;line-height:1.5;">'
-        f'{html.escape(_note_display_clean)}</span>'
-        f'{_source_badge_html}'
-        if _display_last_note and _display_last_note.strip() not in ["-", ""] else
-        '<span style="font-size:11px;color:#aaa;">Sin nota reciente</span>'
-    )
-
-    st.markdown(f"""
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
-      <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Último contacto</div>
-        <div style="font-size:13px;font-weight:800;color:{_bf_days_color};">{_bf_days_label}</div>
-        <div style="margin-top:6px;">{_bf_temp_badge}</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Última nota</div>
-        <div style="margin-top:2px;">{_bf_last_note_html}</div>
-      </div>
-      <div style="background:rgba(59,72,131,0.18);border:1px solid rgba(37,99,235,0.12);border-radius:12px;padding:14px 16px;max-height:160px;overflow-y:auto;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:{PALETTE['blue_glow']};margin-bottom:8px;">🎯 Retomar llamada</div>
-        <div style="margin-top:2px;">{_retomar_html}</div>
-      </div>
+    with _bf_tab_360:
+        actions_html = "".join([_merged_action_card(a) for a in actions])
+        st.markdown(f"""
+    <div class="wide-info-card tactical-flow-card">
+        <div class="wide-info-title">360° Action</div>
+        {meta_html}
+        <div class="action-grid">{actions_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    growth_gmv_ars = to_number(get_from_row(row, ["last gmv ars", "gmv ars", "last gmv local", "last gmv"], 0), 0)
-    growth_gmv_usd = to_number(get_from_row(row, ["last gmv usd", "gmv usd"], 0), 0) or (growth_gmv_ars / ARS_PER_USD if growth_gmv_ars else 0)
-    growth_aov_ars = to_number(get_from_row(row, ["last aov ars", "aov ars", "last aov local"], 0), 0)
-    growth_aov_usd = to_number(get_from_row(row, ["last aov usd", "aov usd"], 0), 0) or (growth_aov_ars / ARS_PER_USD if growth_aov_ars else 0)
-
-    current_gmv_ars = current["gmv_ars"] if current else 0
-    current_gmv_usd = current["gmv_usd"] if current else 0
-    current_aov_ars = current["aov_ars"] if current else 0
-    current_aov_usd = current["aov_usd"] if current else 0
-    gmv_progress_ars = safe_ratio(current_gmv_ars, growth_gmv_ars)
-    aov_change_ars = safe_ratio(current_aov_ars - growth_aov_ars, growth_aov_ars)
-
-    pro_users_display = fmt_percent0(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"]))
-    conversion_display = fmt_percent0(get_from_row(row, ["cr %", "conversion rate", "conversion"]))
-    commission_display = fmt_percent0(get_from_row(row, ["comm. rate", "commission rate", "commission"]))
-    pro_users_raw = _normalize_rate_value(get_from_row(row, ["pro users %", "pro users", "pro user %", "pro %", "prime users %"], 0))
-    conversion_raw = _normalize_rate_value(get_from_row(row, ["cr %", "conversion rate", "conversion"], 0))
-    commission_raw = _normalize_rate_value(get_from_row(row, ["comm. rate", "commission rate", "commission"], 0))
-    # Labels dinámicos de mes desde la fecha actual (antes estaban hardcodeados
-    # "Abr"/"May" y no corrían al cambiar de mes). El punto más viejo salía de
-    # Ventana dinámica de 3 meses con labels calculados desde la fecha actual:
-    #   Growth OS  → mes -2 (ej. "May" en julio)
-    #   MAY GMV    → mes -1 (ej. "Jun" en julio)
-    #   Current GMV→ "Actual"
-    # Antes los labels estaban hardcodeados ("Abr"/"May") y no corrían al cambiar de mes.
-    _today_chart = datetime.now(TZ_APP).date()
-    _MESES_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-    _m2_idx = (_today_chart.month - 3) % 12  # mes -2 (Growth OS)
-    _m1_idx = (_today_chart.month - 2) % 12  # mes -1 (MAY GMV)
-    _m2_lbl = _MESES_ES[_m2_idx]
-    _m1_lbl = _MESES_ES[_m1_idx]
-
-    def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None):
-        """
-        Gráfico de línea de 3 puntos con labels de mes dinámicos:
-          val_abril (Growth OS) → mes -2  ·  val_may (MAY GMV) → mes -1  ·  val_current (Current) → Actual
-        Cada punto muestra el % de cambio respecto al punto anterior.
-        """
-        points_raw = []
-        has_m2 = val_abril and val_abril > 0
-        has_m1 = val_may and val_may > 0
-
-        if has_m2:
-            points_raw.append((_m2_lbl, val_abril))
-        if has_m1:
-            points_raw.append((_m1_lbl, val_may))
-        elif has_m2:
-            points_raw.append((_m1_lbl, 0))
-        points_raw.append(("Actual", val_current or 0))
-
-        # Si solo queda 1 punto, agregar el mes -1 en 0 para dibujar la línea
-        if len(points_raw) < 2:
-            points_raw = [(_m1_lbl, val_may or 0), ("Actual", val_current or 0)]
-
-        n = len(points_raw)
-        vals = [p[1] for p in points_raw]
-        v_max = max(vals + [1])
-        v_min = min(vals + [0])
-        v_range = (v_max - v_min) or 1
-
-        W, H = 150, 72
-        ML, MR, MT, MB = 10, 10, 20, 18
-        PW = W - ML - MR
-        PH = H - MT - MB
-
-        xs = [ML + (i / (n - 1)) * PW if n > 1 else ML + PW / 2 for i in range(n)]
-        ys = [MT + PH - ((v - v_min) / v_range) * PH for v in vals]
-
-        # Línea conectando los puntos
-        line_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
-
-        svg_parts = [
-            f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">',
-            # Línea base (eje X)
-            f'<line x1="{ML}" y1="{MT+PH}" x2="{W-MR}" y2="{MT+PH}" stroke="rgba(0,0,0,0.07)" stroke-width="1"/>',
-            # Línea de tendencia
-            f'<polyline points="{line_pts}" fill="none" stroke="#F97316" stroke-width="1.8"/>',
-        ]
-
-        def _fmt_compact(v):
-            """Formats value as compact: 1.2M, 560k, etc."""
-            if not v or v == 0:
-                return ""
-            if v >= 1_000_000:
-                n = v / 1_000_000
-                return f"{n:.1f}M".replace(".0M", "M")
-            if v >= 1_000:
-                n = v / 1_000
-                # If round number (e.g. 560000 -> 560k), no decimal
-                if n == int(n):
-                    return f"{int(n)}k"
-                return f"{n:.0f}k"
-            return str(int(v))
-
-        for i, ((lbl, v), x, y) in enumerate(zip(points_raw, xs, ys)):
-            # Valor compacto del GMV en el punto
-            val_txt = _fmt_compact(v) if v and v > 0 else ""
-
-            svg_parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#F97316"/>')
-            if val_txt:
-                svg_parts.append(
-                    f'<text x="{x:.1f}" y="{y-7:.1f}" text-anchor="middle" '
-                    f'font-size="7" font-weight="800" fill="#F97316">{val_txt}</text>'
-                )
-            # Etiqueta del mes en el eje X
-            svg_parts.append(
-                f'<text x="{x:.1f}" y="{MT+PH+11}" text-anchor="middle" '
-                f'font-size="6.5" fill="rgba(107,114,128,0.70)" font-weight="700">{lbl}</text>'
-            )
-
-        svg_parts.append('</svg>')
-        svg = "".join(svg_parts)
-
-        # Cambio total mostrado en el header (último vs anterior inmediato)
-        if len(points_raw) >= 2 and points_raw[-2][1] != 0:
-            change_pct = points_raw[-1][1] / points_raw[-2][1] - 1
-        else:
-            change_pct = None
-        _change_color = "#22C55E" if (change_pct or 0) >= 0 else "#EF4444"
-        _change_sign  = "+" if (change_pct or 0) >= 0 else ""
-        _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
-
-        _orders_inline_html = (
-            f'<span style="color:rgba(107,114,128,0.65);font-weight:600;margin-left:6px;">📦 {int(orders_inline):,}</span>'.replace(",", ".")
-            if orders_inline is not None else ""
-        )
-
-        return (
-            '<div class="stack-card" style="position:relative;overflow:hidden;min-height:140px;padding:22px 24px 18px;">'
-            f'<div class="stack-label" style="margin-bottom:6px;">{label}</div>'
-            f'<div style="font-size:30px;font-weight:900;color:#111827;letter-spacing:-0.02em;line-height:1.1;">{fmt_fn(val_current)}</div>'
-            f'<div style="font-size:12px;font-weight:600;color:#6B7280;margin-top:5px;">{sub_current}{_orders_inline_html}</div>'
-            f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_change_color};">{_change_text} vs mes anterior</div>'
-            f'<div style="position:absolute;bottom:12px;right:12px;opacity:0.95">{svg}</div>'
-            '</div>'
-        )
-
-    # ── Datos de mes pasado (MAY GMV) para el gráfico comparativo de 2 puntos ──
-    may_metrics = get_may_brand_metrics(brand_id, brand_name=name)
-    may_gmv_ars = may_metrics["gmv_ars"] if may_metrics else 0
-    may_aov_ars = may_metrics["aov_ars"] if may_metrics else 0
-
-    # abril_* (Growth OS) ya no alimenta el gráfico — se mantiene por firma pero se ignora.
-    abril_gmv_ars = growth_gmv_ars
-    abril_aov_ars = growth_aov_ars
-
-    gmv_col, aov_col = st.columns(2)
-    with gmv_col:
-        _orders_from_caba = get_orders_from_detalle_caba(brand_id, brand_name=name)
-        _gmv_card = _dot_line_chart_card(
-            "📈 GMV · Este mes vs Anterior",
-            current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars,
-            f"{fmt_usd(current_gmv_usd)} · {fmt_cop(current_gmv_usd * COP_PER_USD)}",
-            orders_inline=_orders_from_caba,
-        )
-        st.markdown(_gmv_card, unsafe_allow_html=True)
-    with aov_col:
-        _aov_card = _dot_line_chart_card(
-            "🛒 AOV · Este mes vs Anterior",
-            current_aov_ars, may_aov_ars, abril_aov_ars, fmt_ars,
-            f"{fmt_usd(current_aov_usd)} · {fmt_cop(current_aov_usd * COP_PER_USD)}",
-        )
-        st.markdown(_aov_card, unsafe_allow_html=True)
-
-    # ── Calculadora Consultiva · 4 métricas financieras automáticas ──────────
-    # Estas tarjetas cruzan los datos ya disponibles del aliado para generar
-    # los 4 argumentos financieros listos para usar en la reunión con el dueño.
-
-    _comm_rate   = commission_raw if commission_raw and commission_raw > 0 else 0.27
-    _aov         = current_aov_ars if current_aov_ars and current_aov_ars > 0 else growth_aov_ars
-    _orders      = to_number(current["orders"], 0) if current else 0
-    _gmv         = current_gmv_ars if current_gmv_ars and current_gmv_ars > 0 else growth_gmv_ars
-    # CVR real de la hoja CVR% (promedio 4 semanas). Fallback: CR% del Growth OS.
-    _cvr_from_sheet, _ = get_cvr_for_brand(name, cr_fallback=conversion_raw)
-    _cr_raw      = _cvr_from_sheet if _cvr_from_sheet and _cvr_from_sheet > 0 else (conversion_raw if conversion_raw and conversion_raw > 0 else 0)
-
-    # Food cost estimado por categoría (% sobre precio de venta)
-    _category_fc_map = {
-        "hamburguesa": 0.42, "burger": 0.42,
-        "pizza": 0.38, "pizzeria": 0.38,
-        "sushi": 0.45, "japonesa": 0.45,
-        "pollo": 0.40, "chicken": 0.40,
-        "helado": 0.35, "heladeria": 0.35,
-        "cafe": 0.30, "cafeteria": 0.30,
-        "empanada": 0.36, "empanadas": 0.36,
-        "medialunas": 0.33, "panaderia": 0.33,
-        "wrap": 0.40, "saludable": 0.38,
-    }
-    _cat_key = category.lower() if category else ""
-    _food_cost_rate = next(
-        (v for k, v in _category_fc_map.items() if k in _cat_key),
-        0.40  # default 40%
-    )
-
-    # ── 1. Margen neto estimado por orden ────────────────────────────────────
-    _margin_per_order = _aov * (1 - _comm_rate) * (1 - _food_cost_rate) if _aov > 0 else 0
-    _margin_pct_display = round((1 - _comm_rate) * (1 - _food_cost_rate) * 100, 1)
-
-    # ── 1b. GMV neto total potencial a día de hoy ────────────────────────────
-    # Margen por orden × órdenes del mes = margen bruto total del período.
-    # Si hay campaña de Ads activa, se descuenta el presupuesto — los bookings
-    # de Current ADS ya vienen normalizados a base semanal, por eso se
-    # mensualizan ×4 antes de restar.
-    _margin_total_bruto = _margin_per_order * _orders if _margin_per_order > 0 and _orders > 0 else 0
-    _ads_is_active = bool(ads_current.get("active", False))
-    _ads_weekly_budget = to_number(ads_current.get("bookings_usd"), 0) if _ads_is_active else 0
-    _ads_monthly_budget_usd = _ads_weekly_budget * 4
-    _ads_monthly_budget_ars = _ads_monthly_budget_usd * ARS_PER_USD
-    _margin_total_neto = max(_margin_total_bruto - _ads_monthly_budget_ars, 0) if _ads_is_active else _margin_total_bruto
-
-    # ── 2. Punto de equilibrio MD ────────────────────────────────────────────
-    # Lógica basada en AOV: el costo del descuento se calcula por orden,
-    # no sobre el GMV total histórico (que mezcla coberturas pasadas).
-    # Costo del descuento por orden = AOV × 20%
-    # Órdenes extra necesarias = costo por orden ÷ margen por orden
-    _md_discount_rate      = 0.20
-    _promo_cost_per_order  = _aov * _md_discount_rate if _aov > 0 else 0
-    _be_orders             = math.ceil(_promo_cost_per_order / _margin_per_order) if _margin_per_order > 0 else 0
-    _be_pct_over_current   = round(_be_orders / _orders * 100, 1) if _orders > 0 else 0
-
-    # ── 3. GMV incremental con Traffic real x CVR benchmark ──────────────────
-    # Traffic mensual = promedio semanal x 4 (mas robusto que ultima semana sola)
-    _cr_bench_cat      = get_cvr_category_benchmark(category)
-    _cr_current_norm   = _cr_raw if _cr_raw <= 1 else _cr_raw / 100
-    _cr_benchmark_norm = _cr_bench_cat if _cr_bench_cat and _cr_bench_cat > 0 else 0.045
-    _traffic_weekly    = get_traffic_for_brand(name)
-    _traffic_monthly   = (_traffic_weekly * 4) if _traffic_weekly and _traffic_weekly > 0 else 0
-    _cr_above_bench    = _cr_current_norm > 0 and _cr_benchmark_norm > 0 and _cr_current_norm >= _cr_benchmark_norm
-    if _traffic_monthly > 0 and _aov > 0:
-        _gmv_at_benchmark = _traffic_monthly * _cr_benchmark_norm * _aov
-        _gmv_incremental  = max(_gmv_at_benchmark - _gmv, 0) if not _cr_above_bench else 0
-    else:
-        _impressions_est  = round(_orders / _cr_current_norm) if _cr_current_norm > 0 else 0
-        _gmv_at_benchmark = _impressions_est * _cr_benchmark_norm * _aov if _impressions_est > 0 and _aov > 0 else 0
-        _gmv_incremental  = max(_gmv_at_benchmark - _gmv, 0) if not _cr_above_bench else 0
-    _traffic_source    = "Traffic real" if _traffic_monthly > 0 else "est. por inversa"
-
-
-
-    def _consultive_card(emoji, title, main_value, main_sub, pitch_label, pitch_text, color="#2563EB"):
-        return f"""
-<div style="background:rgba(255,255,255,0.90);border-radius:12px;padding:14px 16px;min-height:160px;">
-  <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:8px;">{emoji} {title}</div>
-  <div style="font-size:24px;font-weight:900;color:{color};line-height:1.1;">{main_value}</div>
-  <div style="font-size:12px;color:#6B7280;margin-top:3px;margin-bottom:10px;">{main_sub}</div>
-  <div style="border-top:1px solid rgba(78,99,217,0.12);padding-top:8px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#2563EB;margin-bottom:4px;">Cómo decírselo al dueño</div>
-    <div style="font-size:12px;color:#6B7280;line-height:1.45;font-style:italic;">"{pitch_text}"</div>
-  </div>
-</div>"""
-
-    # ── Compute card values for all 4 analytics cards ───────────────────────
-    _be_color = "#EF4444" if _be_pct_over_current > 40 else "#F97316" if _be_pct_over_current > 20 else "#22C55E"
-    _aov_rounded        = round(_aov / 1000) * 1000
-    _promo_cost_rounded = round(_promo_cost_per_order / 100) * 100
-    _promos_per_order   = round(_margin_per_order / _promo_cost_per_order, 1) if _promo_cost_per_order > 0 else 0
-    _coverage_line      = f" · 1 orden limpia cubre {_promos_per_order}x promos" if _promos_per_order > 0 else ""
-    _be_pitch = (
-        f"Con un descuento del 20% sobre un ticket de {fmt_ars(_aov_rounded)}, cada orden con promo te cuesta {fmt_ars(_promo_cost_rounded)}. "
-        + (f"Pero tu margen por orden es {fmt_ars(round(_margin_per_order))} — eso alcanza para cubrir {_promos_per_order} promos con un solo pedido limpio. " if _promos_per_order >= 1 else "")
-        + f"Con {_be_orders} pedido{'s' if _be_orders != 1 else ''} extra ya cubrís ese costo — sin tocar tu estructura."
-        + (" Es una meta razonable con tráfico de temporada." if _be_pct_over_current <= 30 else " Es exigente pero alcanzable si hay un evento de alto tráfico." if _be_pct_over_current <= 60 else " Es muy exigente — evaluá acotar los productos en promo para bajar el umbral.")
-    )
-    _cr_display    = f"{round(_cr_current_norm*100,1)}%" if _cr_current_norm > 0 else "s/d"
-    _bench_display = f"{round(_cr_benchmark_norm*100,1)}%" if _cr_benchmark_norm > 0 else "s/d"
-    _bench_source  = "real categ." if _cr_bench_cat and _cr_bench_cat > 0 else "ref. general"
-    _traffic_disp  = f"{round(_traffic_monthly):,}".replace(",", ".") if _traffic_monthly > 0 else None
-    if _cr_current_norm <= 0:
-        _inc_color = "#aaa"
-        _c3_main   = "Sin dato de CR"
-        _c3_sub    = f"Benchmark {_bench_display} ({_bench_source}) · activá ads para medir tráfico"
-        _c3_pitch  = "No hay tasa de conversión registrada. Con ads activos medimos el tráfico real y de ahí calculamos el potencial exacto."
-    elif _cr_above_bench:
-        _delta_pp  = round((_cr_current_norm - _cr_benchmark_norm) * 100, 1)
-        _inc_color = "#111827"
-        _c3_main   = f"+{_delta_pp}pp sobre benchmark"
-        _c3_sub    = f"CR {_cr_display} vs benchmark {_bench_display} ({_bench_source}) · ya convertís mejor que el promedio"
-        _c3_pitch  = (
-            f"Tu CR ({_cr_display}) ya está {_delta_pp}pp por encima del promedio de tu categoría ({_bench_display}). "
-            + (f"Con {_traffic_disp} visitas mensuales reales, el problema no es la tienda — es el volumen de tráfico." if _traffic_disp else "El problema no es la tienda — es el volumen de tráfico.")
-        )
-    else:
-        _inc_color = "#22C55E" if _gmv_incremental > 0 else "#aaa"
-        _c3_main   = fmt_ars(round(_gmv_incremental)) if _gmv_incremental > 0 else "Sin dato suficiente"
-        _c3_sub    = f"CR {_cr_display} → benchmark {_bench_display} ({_bench_source}) · {_traffic_source}"
-        _c3_pitch  = (
-            f"Tu tienda convierte al {_cr_display}, el promedio de tu categoría está en {_bench_display}. "
-            + (f"Con tus {_traffic_disp} visitas mensuales, si llegás al benchmark sumas {fmt_ars(round(_gmv_incremental))} por mes — sin invertir más en pauta." if _traffic_disp and _gmv_incremental > 0 else f"Si llegás al benchmark, sumarías {fmt_ars(round(_gmv_incremental))} por mes con el mismo tráfico que ya tienes." if _gmv_incremental > 0 else "Activá ads para empezar a generar tráfico medible.")
-        )
-
-    _t_bench  = get_traffic_category_benchmark(category)
-    _traffic_ok  = (_traffic_weekly is not None and _t_bench is not None and _traffic_weekly >= _t_bench * 0.85)
-    _cvr_ok      = (_cr_current_norm > 0 and _cr_benchmark_norm > 0 and _cr_current_norm >= _cr_benchmark_norm * 0.85)
-    _has_traffic = _traffic_weekly is not None and _traffic_weekly > 0
-    _has_cvr     = _cr_current_norm > 0
-    if not _has_traffic and not _has_cvr:
-        _d4_color = "#aaa"; _d4_main = "Sin datos"
-        _d4_sub   = "No hay Traffic ni CVR registrado esta semana"
-        _d4_pitch = "Activá ads para empezar a generar tráfico y CVR medibles."
-    else:
-        if not _traffic_ok and not _cvr_ok:
-            _d4_color = "#EF4444"; _d4_diag = "Problema doble"; _d4_diag_sub = "Tráfico bajo y conversión baja"
-        elif not _traffic_ok:
-            _d4_color = "#F97316"; _d4_diag = "Problema: Tráfico"; _d4_diag_sub = "La tienda convierte bien · falta visibilidad"
-        elif not _cvr_ok:
-            _d4_color = "#F97316"; _d4_diag = "Problema: Conversión"; _d4_diag_sub = "Hay visitas · la tienda no convierte"
-        else:
-            _d4_color = "#22C55E"; _d4_diag = "Ambas métricas OK"; _d4_diag_sub = "Traffic y CVR sobre benchmark de categoría"
-        _lost_orders = round(_traffic_weekly * max(_cr_benchmark_norm - _cr_current_norm, 0)) if (_has_traffic and _has_cvr and not _cvr_ok) else 0
-        _d4_main = _d4_diag
-        _tw_disp = f"{round(_traffic_weekly):,}".replace(",", ".") if _has_traffic else "s/d"
-        _tb_disp = f"{round(_t_bench):,}".replace(",", ".") if _t_bench else "s/d"
-        _d4_sub  = f"{_d4_diag_sub} · " + (f"{_lost_orders} ords/sem perdidas por CVR bajo" if _lost_orders > 0 else f"Traffic {_tw_disp} vs bench {_tb_disp}/sem")
-        if _d4_diag == "Problema: Tráfico":
-            _traffic_gap = max((_t_bench - _traffic_weekly), 0) if _t_bench and _traffic_weekly else 0
-            _step_visits = round(_traffic_gap * 0.30) if _traffic_gap > 0 else 0
-            _step_cost_ars = _step_visits * 650
-            _step_orders = round(_step_visits * _cr_current_norm, 1) if _cr_current_norm > 0 else 0
-            _step_gmv = round(_step_orders * _aov) if _aov > 0 else 0
-            _step_cost_disp = f"ARS {_step_cost_ars:,.0f}".replace(",", ".")
-            _step_gmv_disp  = fmt_ars(round(_step_gmv / 1000) * 1000) if _step_gmv > 0 else ""
-            _traffic_proj = (f" Para arrancar: compramos {_step_visits} visitas más por semana — son {_step_cost_disp}/sem. Con tu conversión del {_cr_display} eso son {_step_orders} pedidos extra · {_step_gmv_disp} GMV/sem." if _step_visits > 0 and _step_gmv > 0 else "")
-            _d4_pitch = f"Tu tienda convierte al {_cr_display} — está por encima del promedio de tu categoría. El problema es que ves {_tw_disp} visitas por semana contra un benchmark de {_tb_disp}. Más tráfico con esta tasa de conversión se convierte directo en pedidos." + _traffic_proj
-        elif _d4_diag == "Problema: Conversión":
-            _d4_pitch = f"Tienes {_tw_disp} visitas por semana — el tráfico no es el problema. Pero tu tienda convierte al {_cr_display} cuando el promedio de tu categoría es {_bench_display}. " + (f"Eso son {_lost_orders} pedidos por semana que te estás perdiendo sin gastar un peso más en pauta." if _lost_orders > 0 else "Con mejoras en menú y fotos ese CVR sube sin invertir más en pauta.")
-        elif _d4_diag == "Problema doble":
-            _d4_pitch = f"Dos frentes abiertos: traffic de {_tw_disp} vs benchmark {_tb_disp} y CVR de {_cr_display} vs {_bench_display}. " + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "") + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
-        else:
-            _d4_pitch = f"Traffic en {_tw_disp}/sem y CVR en {_cr_display} — ambas métricas sobre el benchmark de tu categoría. Estás en condiciones de escalar: más presupuesto en ads se convierte directo en GMV."
-
-
-
-    booster = booster_for_badge
-    actions = actions_for_badge
-
-    campaign_design = design_campaign_for_brand(
-        name,
-        category,
-        current_gmv_ars,
-        current_aov_ars,
-        get_from_row(row, ["cr %", "conversion rate", "conversion"], 0),
-        get_from_row(row, ["pro users %", "pro %", "pro users", "prime users %"], 0),
-        get_from_row(row, ["comm. rate", "commission rate", "commission"], 0),
-        ads_current,
-        md_current,
-        md_pro_current,
-        booster,
-        actions,
-        brand_id=brand_id,
-        last_month_gmv_ars=may_gmv_ars,
-        photos_value=get_from_row(row, ["photos", "fotos"], 0),
-    )
-
-    # MD action must show both the recommended booster and the promo suggested by Campaign Designer.
-    for _a in actions:
-        if "MD" in clean(_a.get("area"), ""):
-            _secondary = list(_a.get("secondary", []))
-            _promo = clean(campaign_design.get("md_reco"), "") if campaign_design else ""
-            _booster = clean(booster.get("event"), "-") if isinstance(booster, dict) else "-"
-            if _promo and _promo not in ["", "-"]:
-                _secondary.append(f"Promo { _promo }")
-            if _booster not in ["", "-"]:
-                _secondary.append(f"Booster { _booster }")
-            _a["secondary"] = list(dict.fromkeys([clean(x, "") for x in _secondary if clean(x, "")]))
-
-    tactical_flow = build_tactical_flow(
-        brand_id,
-        name,
-        row,
-        category,
-        current,
-        ads_current,
-        md_current,
-        md_pro_current,
-        booster,
-        actions,
-        campaign_design,
-    )
-
-    # ── Build lever→tactical mapping so each 360 card gets its priority content ──
-    # Map lever_class → list of tactical items from priority
-    # Items with no lever_class (e.g. "general") fall into OPS as a catch-all.
-    _lever_tactical_map = {}
-    for _item in tactical_flow.get("items", []):
-        _lc = clean(_item.get("lever_class"), "") or "lever-ops"
-        _lever_tactical_map.setdefault(_lc, []).append(_item)
-
-    fill_colors_map = {
-        'health-green':  '#22C55E',
-        'health-yellow': '#2563EB',
-        'health-orange': '#F97316',
-        'health-red':    '#EF4444',
-    }
-    pct_colors_map = {
-        'health-green':  '#22C55E',
-        'health-yellow': '#FB923C',
-        'health-orange': '#FB923C',
-        'health-red':    '#EF4444',
-    }
-    area_emojis_map = {
-        'lever-ops':  '⚙️',
-        'lever-menu': '🍔',
-        'lever-md':   '🏷️',
-        'lever-pro':  '👑',
-        'lever-ads':  '🚀',
-    }
-
-    def _merged_action_card(a):
-        area_raw      = clean(a.get('area'), '')
-        lever_cls     = _action_area_lever_class(area_raw)
-        health_cls    = clean(a.get('health_class'), 'health-green')
-        action_text   = clean(a.get('action'), 'Following')
-        reason_text   = clean(a.get('reason'), '')
-        secondary_text = ' · '.join([clean(x, '') for x in a.get('secondary', []) if clean(x, '')])
-
-        badge_raw   = clean(a.get('health_badge'), '100')
-        score_match = re.search(r'(\d+(?:\.\d+)?)', badge_raw)
-        score_pct   = float(score_match.group(1)) if score_match else 100.0
-        score_pct   = max(0.0, min(100.0, score_pct))
-
-        ring_color = '#FFFFFF' if lever_cls == 'lever-menu' else '#22C55E'
-        pct_color  = pct_colors_map.get(health_cls, '#22C55E')
-        emoji      = area_emojis_map.get(lever_cls, '📊')
-
-        r     = 22
-        circ  = 2 * 3.14159 * r
-        filled = round(circ * score_pct / 100, 2)
-        gap    = round(circ - filled, 2)
-
-        ring_svg = (
-            f'<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
-            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="#E5ECFA" stroke-width="5"/>'
-            f'<circle cx="30" cy="30" r="{r}" fill="none" stroke="{ring_color}" stroke-width="5" '
-            f'stroke-linecap="round" stroke-dasharray="{filled} {gap}" transform="rotate(-90 30 30)"/>'
-            f'<text x="30" y="35" text-anchor="middle" font-size="18">{emoji}</text>'
-            f'</svg>'
-        )
-
-        # ── Status pill (item 12): nombre del estado + color, sutil ──────────
-        _pill_map = {
-            'health-green':  ("Healthy",  "#16A34A", "rgba(34,197,94,0.12)"),
-            'health-yellow': ("Watch",    "#B45309", "rgba(255,193,7,0.14)"),
-            'health-orange': ("Alert",    "#FB923C", "rgba(249,115,22,0.12)"),
-            'health-red':    ("Critical", "#E5332A", "rgba(229,51,42,0.10)"),
-        }
-        _pl, _pc, _pb = _pill_map.get(health_cls, ("Healthy", "#16A34A", "rgba(34,197,94,0.12)"))
-        status_pill = (f"<span style='display:inline-block;background:{_pb};color:{_pc};"
-                       f"border:1px solid {_pc}33;border-radius:999px;padding:2px 10px;"
-                       f"font-size:10px;font-weight:900;text-transform:uppercase;"
-                       f"letter-spacing:.04em;'>{_pl}</span>")
-
-        # ── MD / ADS simplificadas (item 8): solo status + ROI ───────────────
-        _status_emoji = {'health-green': '✅', 'health-yellow': '🟡',
-                         'health-orange': '🟠', 'health-red': '🔴'}.get(health_cls, '✅')
-        if lever_cls in ('lever-md', 'lever-ads'):
-            _lever_data = md_current if lever_cls == 'lever-md' else ads_current
-            _lv_active = bool(_lever_data.get('active', False))
-            _lv_roi = to_number(_lever_data.get('roi'), 0)
-            _lv_status = "Active 🚀" if _lv_active else "Inactive 💤"
-            _roi_col = "#22C55E" if _lv_roi >= 3 else ("#FB923C" if _lv_roi > 0 else "#9CA3AF")
-            body_lines = (
-                f"<div style='font-size:15px;font-weight:900;color:{_pc};line-height:1.2;"
-                f"margin-top:12px;'>{_status_emoji} {_lv_status}</div>"
-                f"<div style='font-size:13px;font-weight:800;color:{_roi_col};margin-top:4px;'>"
-                f"ROI {(f'{_lv_roi:.1f}x' if _lv_roi > 0 else '—')}</div>"
-            )
-        else:
-            # Top message con el MISMO lenguaje visual del Priority Signal:
-            # bold en color de estado + emoji, cue en gris (item 8)
-            body_lines = (
-                f"<div style='font-size:13px;font-weight:900;color:{_pc};line-height:1.15;"
-                f"margin-top:12px;'>{_status_emoji} {html.escape(action_text)}</div>"
-                + (f"<div style='font-size:11px;color:#6B7280;margin-top:3px;line-height:1.35;"
-                   f"font-weight:700;'>{html.escape(reason_text)}</div>" if reason_text else "")
-                + (f"<div style='font-size:11px;color:#9CA3AF;margin-top:3px;line-height:1.35;'>"
-                   f"{html.escape(secondary_text)}</div>" if secondary_text else "")
-            )
-
-        top_html = (
-            f"<div style='display:flex;align-items:center;gap:10px;'>"
-            f"{ring_svg}"
-            f"<div style='display:flex;flex-direction:column;gap:3px;'>"
-            f"<span style='font-size:28px;font-weight:900;color:{pct_color};line-height:1;'>{score_pct:.0f}%</span>"
-            f"<span class='action-area'>{html.escape(area_raw)}</span>"
-            f"{status_pill}"
-            f"</div>"
-            f"</div>"
-            + body_lines
-        )
-
-        # ── Bottom half: priority tactical items for this lever ───────────────
-        tactical_items = _lever_tactical_map.get(lever_cls, [])
-        if tactical_items:
-            divider = (
-                "<div style='margin:14px 0 10px;border-top:1px solid rgba(78,99,217,0.18);'></div>"
-                "<div style='font-size:10px;font-weight:900;text-transform:uppercase;"
-                "letter-spacing:.06em;color:#2563EB;margin-bottom:8px;'>🎯 Priority Signal</div>"
-            )
-            items_html = ""
-            for ti in tactical_items:
-                t_main = clean(ti.get('main'), '')
-                t_cue  = clean(ti.get('cue') or ti.get('argument'), '')
-                t_cls  = clean(ti.get('class'), 'health-yellow')
-                t_color_map = {
-                    'health-green': '#22C55E', 'health-yellow': '#FB923C',
-                    'health-orange': '#FB923C', 'health-red': '#EF4444',
-                }
-                t_col = t_color_map.get(t_cls, '#FB923C')
-                items_html += (
-                    f"<div style='margin-bottom:8px;'>"
-                    f"<div style='font-size:13px;font-weight:900;color:{t_col};line-height:1.15;'>{html.escape(t_main)}</div>"
-                    + (f"<div style='font-size:11px;color:#6B7280;margin-top:3px;line-height:1.35;font-weight:700;'>{html.escape(t_cue)}</div>" if t_cue else "")
-                    + "</div>"
-                )
-            bottom_html = divider + items_html
-        else:
-            bottom_html = ""
-
-        return (
-            f"<div class='action-card {html.escape(health_cls)} {html.escape(lever_cls)}'>"
-            + top_html
-            + bottom_html
-            + "</div>"
-        )
-
-    # ── Priority metadata header ──────────────────────────────────────────────
-    flow = tactical_flow
-    score_text = _priority_score_display(flow.get("priority_score")) if flow.get("found_priority") else "—"
-    rank_text  = '#' + str(int(flow.get('rank'))) if flow.get('rank') not in [None, '', '-'] and not pd.isna(flow.get('rank')) else '—'
-    last_contact_text = clean(flow.get('last_contact'), '—')
-    coinv_text = clean(flow.get('coinversion'), 'No')
-    expired_n  = int(flow.get('promo_vencida') or 0)
-    expiring_n = int(flow.get('promo_por_vencer') or 0)
-    levers     = flow.get('lever_texts', [])
-    lever_chips = "".join([f"<span class='priority-chip'>{html.escape(clean(x,'-'))}</span>" for x in levers[:10]]) or "<span class='priority-chip'>✅ Sin palancas priority activas</span>"
-
-    meta_html = (
-        f"<div class='priority-top-grid' style='margin-bottom:14px;'>"
-        f"<div><div class='info-mini-label'>🔥 Priority Score</div><div class='info-mini-value'>{html.escape(score_text)}</div></div>"
-        f"<div><div class='info-mini-label'># Contacto</div><div class='info-mini-value'>{html.escape(rank_text)}</div></div>"
-        f"<div><div class='info-mini-label'>Último Contacto</div><div class='info-mini-value'>{html.escape(last_contact_text)}</div></div>"
-        f"<div><div class='info-mini-label'>Coinversión MD</div><div class='info-mini-value'>{html.escape(coinv_text)}</div></div>"
-        f"<div><div class='info-mini-label'>Vencida / Por vencer</div><div class='info-mini-value'>{expired_n} / {expiring_n}</div></div>"
-        f"<div class='priority-levers' style='grid-column:1/-1;'>{lever_chips}</div>"
-        f"</div>"
-    )
-
-    campaign_names = get_md_campaign_names_for_brand(name)
-    ads_booking_display, _ads_booking_note = _ads_booking_display_parts(ads_current)
-
-    _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
-    _cvr_bench = get_cvr_category_benchmark(category)
-    st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
-
-    actions_html = "".join([_merged_action_card(a) for a in actions])
-    st.markdown(f"""
-<div class="wide-info-card tactical-flow-card">
-    <div class="wide-info-title">360° Action</div>
-    {meta_html}
-    <div class="action-grid">{actions_html}</div>
-</div>
-""", unsafe_allow_html=True)
-
 
     # ── Pitch calculation (must happen before Analytics render) ──────────────
-    _pi_category = category.split("·")[0].strip() if "·" in category else category.strip()
-    _pi_lever = "Ads" if md_current.get("active", False) else "MD"
-    _pi_gmv = current_gmv_ars
-    _pi_aov = current_aov_ars
-    _pi_orders = current["orders"] if current else 0
-    mctx = get_market_context(_pi_category, _pi_lever, _pi_gmv, _pi_orders)
+    with _bf_tab_analytics:
+        _pi_category = category.split("·")[0].strip() if "·" in category else category.strip()
+        _pi_lever = "Ads" if md_current.get("active", False) else "MD"
+        _pi_gmv = current_gmv_ars
+        _pi_aov = current_aov_ars
+        _pi_orders = current["orders"] if current else 0
+        mctx = get_market_context(_pi_category, _pi_lever, _pi_gmv, _pi_orders)
 
-    # ── Reasoning paragraph (same logic as render_campaign_designer_html) ──
-    _cd = campaign_design  # shorthand
-    _rp_strategy  = clean(_cd.get("strategy"), "")
-    _rp_focus     = clean(_cd.get("focus"), "")
-    _rp_ads       = clean(_cd.get("ads_action"), "")
-    _rp_md        = clean(_cd.get("md_reco"), "")
-    _rp_promo     = clean(_cd.get("promo_action"), "")
-    _rp_event     = clean(_cd.get("event"), "")
-    _rp_cross     = clean(_cd.get("cross_sell_reco"), "")
-    _rp_pro_extra = int(to_number(_cd.get("pro_extra"), 0))
-    _rp_impact_low  = int(_cd.get("impact_low", 0))
-    _rp_impact_high = int(_cd.get("impact_high", 0))
-    _rp_risk      = clean(_cd.get("risk"), "Medium")
-    _rp_pressure  = _cd.get("partner_pressure", 0)
-    _rp_budget    = _format_budget_range(_cd.get("budget_low_ars", 0), _cd.get("budget_high_ars", 0))
-    _rp_raw_reasons = list(_cd.get("reasons", []))
-    if _cd.get("cross_sell_reason") not in ["", "-"]:
-        _rp_raw_reasons.append(_cd.get("cross_sell_reason"))
-    if _cd.get("pro_reason") not in ["", "-"]:
-        _rp_raw_reasons.append(_cd.get("pro_reason"))
+        # ── Reasoning paragraph (same logic as render_campaign_designer_html) ──
+        _cd = campaign_design  # shorthand
+        _rp_strategy  = clean(_cd.get("strategy"), "")
+        _rp_focus     = clean(_cd.get("focus"), "")
+        _rp_ads       = clean(_cd.get("ads_action"), "")
+        _rp_md        = clean(_cd.get("md_reco"), "")
+        _rp_promo     = clean(_cd.get("promo_action"), "")
+        _rp_event     = clean(_cd.get("event"), "")
+        _rp_cross     = clean(_cd.get("cross_sell_reco"), "")
+        _rp_pro_extra = int(to_number(_cd.get("pro_extra"), 0))
+        _rp_impact_low  = int(_cd.get("impact_low", 0))
+        _rp_impact_high = int(_cd.get("impact_high", 0))
+        _rp_risk      = clean(_cd.get("risk"), "Medium")
+        _rp_pressure  = _cd.get("partner_pressure", 0)
+        _rp_budget    = _format_budget_range(_cd.get("budget_low_ars", 0), _cd.get("budget_high_ars", 0))
+        _rp_raw_reasons = list(_cd.get("reasons", []))
+        if _cd.get("cross_sell_reason") not in ["", "-"]:
+            _rp_raw_reasons.append(_cd.get("cross_sell_reason"))
+        if _cd.get("pro_reason") not in ["", "-"]:
+            _rp_raw_reasons.append(_cd.get("pro_reason"))
 
-    _rp_parts = []
-    if _rp_strategy and _rp_strategy != "-":
-        _rp_lead = f"Estrategia <strong>{html.escape(_rp_strategy)}</strong>"
-        if _rp_focus and _rp_focus != "-":
-            _rp_lead += f" con foco en <em>{html.escape(_rp_focus)}</em>"
-        _rp_parts.append(_rp_lead)
-    _rp_levers = []
-    if _rp_ads and _rp_ads != "-":
-        _rp_levers.append(f"Ads → {html.escape(_rp_ads)} ({_rp_budget})")
-    if _rp_md and _rp_md != "-":
-        _rp_md_detail = f"{html.escape(_rp_promo)}" if _rp_promo and _rp_promo != "-" else ""
-        _rp_pro_detail = f" +{_rp_pro_extra}% PRO" if _rp_pro_extra > 0 else ""
-        _rp_levers.append(f"MD → {html.escape(_rp_md)}{(' · ' + _rp_md_detail) if _rp_md_detail else ''}{_rp_pro_detail}")
-    if _rp_cross and _rp_cross not in ["-", ""]:
-        _rp_levers.append(f"Cross-sell: {html.escape(_rp_cross)}")
-    if _rp_levers:
-        _rp_parts.append(". ".join(_rp_levers))
-    if _rp_event and _rp_event not in ["-", "", "No seasonal event priority"]:
-        _rp_parts.append(f"Booster estacional disponible: <strong>{html.escape(_rp_event)}</strong>")
-    if _rp_raw_reasons:
-        _rp_signals = "; ".join([clean(r, "") for r in _rp_raw_reasons[:3] if clean(r, "")])
-        if _rp_signals:
-            _rp_parts.append(f"Señales clave: {html.escape(_rp_signals)}")
-    _rp_parts.append(
-        f"Impacto proyectado <strong>+{_rp_impact_low}%–+{_rp_impact_high}% GMV</strong> · "
-        f"Riesgo <strong>{html.escape(_rp_risk)}</strong> · Presión aliado {int(_rp_pressure * 100)}%."
-    )
-    reasoning_paragraph = ". ".join(_rp_parts) + "." if _rp_parts else ""
-
-    _bullets = []
-
-    # 1. Posición en la categoría
-    if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
-        pct_val = mctx["brand_percentile"].replace("%", "").strip()
-        try:
-            pct_num = float(pct_val)
-            if pct_num >= 75:
-                _bullets.append(f"Esta marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} en CABA — ya es de las que más venden en su categoría.")
-            elif pct_num >= 50:
-                _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — por encima de la mitad de la categoría, con espacio real para subir.")
-            else:
-                _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — hay marcas similares vendiendo mucho más en la misma categoría.")
-        except Exception:
-            pass
-
-    # 2. GMV vs promedio de categoría
-    if _pi_gmv > 0 and mctx.get("market_gmv_avg"):
-        try:
-            avg_raw = mctx["market_gmv_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
-            avg_num = float(avg_raw)
-            if avg_num > 0:
-                ratio = _pi_gmv / avg_num
-                if ratio >= 1.5:
-                    _bullets.append(f"Su GMV actual ({fmt_ars(_pi_gmv)}) es <strong>{ratio:.1f}x el promedio</strong> de la categoría ({mctx['market_gmv_avg']}) — argumento sólido para escalar inversión.")
-                elif ratio >= 0.8:
-                    _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está cerca del promedio de la categoría ({mctx['market_gmv_avg']}) — ya tiene la base, le falta el empujón.")
-                else:
-                    _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está por debajo del promedio de la categoría ({mctx['market_gmv_avg']}) — hay un gap concreto para trabajar con {_pi_lever}.")
-        except Exception:
-            pass
-
-    # 3. AOV vs promedio de categoría
-    if _pi_aov > 0 and mctx.get("market_aov_avg"):
-        try:
-            aov_avg_raw = mctx["market_aov_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
-            aov_avg_num = float(aov_avg_raw)
-            if aov_avg_num > 0:
-                aov_ratio = _pi_aov / aov_avg_num
-                if aov_ratio >= 1.2:
-                    _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está <strong>{((aov_ratio-1)*100):.0f}% por encima</strong> del AOV de la categoría ({mctx['market_aov_avg']}) — cliente de mayor valor, más razón para darle visibilidad.")
-                elif aov_ratio < 0.85:
-                    _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está por debajo del AOV de la categoría ({mctx['market_aov_avg']}) — MD puede ayudar a mover volumen y compensar el ticket bajo.")
-        except Exception:
-            pass
-
-    # 4. Palanca activa / inactiva
-    if _pi_lever == "Ads":
-        if not ads_current.get("active", False):
-            _bullets.append(f"No tiene Ads activo — en {_pi_category}, las marcas con Ads capturan tráfico que esta marca hoy está regalando a la competencia.")
-        elif ads_roi > 0:
-            _bullets.append(f"Ads activo con ROI de <strong>{ads_roi:.1f}x</strong> — ya está probado que funciona, el argumento es escalar, no empezar.")
-    else:
-        if not md_current.get("active", False):
-            _bullets.append(f"Sin MD activo — en {_pi_category}, el markdown es la palanca más directa para aumentar frecuencia de pedido y subir en el ranking.")
-        elif md_roi > 0:
-            _bullets.append(f"MD activo con ROI de <strong>{md_roi:.1f}x</strong> — base para proponer un upgrade de descuento o ampliar el alcance.")
-
-    # 5. Top de la categoría
-    if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
-        _bullets.append(f"El top de {_pi_category} en CABA es <strong>{html.escape(mctx['market_top_brand'])}</strong> con {mctx.get('market_top_gmv','N/D')} — ese es el benchmark real de la categoría.")
-
-
-    # ── Analytics — single wide-info-card with 4 inner cards + pitch ────────
-    # Build pitch html first (pure Python, no st calls)
-    _items_html = ""
-    _reasoning_html = ""
-    if _bullets or reasoning_paragraph:
-        _items_html = "".join(
-            f"<div style='display:flex;gap:10px;margin-bottom:9px;'>"
-            f"<span style='color:#22C55E;font-size:14px;line-height:1.5;flex-shrink:0;'>›</span>"
-            f"<span style='font-size:13px;line-height:1.6;'>{b}</span>"
-            f"</div>"
-            for b in _bullets
+        _rp_parts = []
+        if _rp_strategy and _rp_strategy != "-":
+            _rp_lead = f"Estrategia <strong>{html.escape(_rp_strategy)}</strong>"
+            if _rp_focus and _rp_focus != "-":
+                _rp_lead += f" con foco en <em>{html.escape(_rp_focus)}</em>"
+            _rp_parts.append(_rp_lead)
+        _rp_levers = []
+        if _rp_ads and _rp_ads != "-":
+            _rp_levers.append(f"Ads → {html.escape(_rp_ads)} ({_rp_budget})")
+        if _rp_md and _rp_md != "-":
+            _rp_md_detail = f"{html.escape(_rp_promo)}" if _rp_promo and _rp_promo != "-" else ""
+            _rp_pro_detail = f" +{_rp_pro_extra}% PRO" if _rp_pro_extra > 0 else ""
+            _rp_levers.append(f"MD → {html.escape(_rp_md)}{(' · ' + _rp_md_detail) if _rp_md_detail else ''}{_rp_pro_detail}")
+        if _rp_cross and _rp_cross not in ["-", ""]:
+            _rp_levers.append(f"Cross-sell: {html.escape(_rp_cross)}")
+        if _rp_levers:
+            _rp_parts.append(". ".join(_rp_levers))
+        if _rp_event and _rp_event not in ["-", "", "No seasonal event priority"]:
+            _rp_parts.append(f"Booster estacional disponible: <strong>{html.escape(_rp_event)}</strong>")
+        if _rp_raw_reasons:
+            _rp_signals = "; ".join([clean(r, "") for r in _rp_raw_reasons[:3] if clean(r, "")])
+            if _rp_signals:
+                _rp_parts.append(f"Señales clave: {html.escape(_rp_signals)}")
+        _rp_parts.append(
+            f"Impacto proyectado <strong>+{_rp_impact_low}%–+{_rp_impact_high}% GMV</strong> · "
+            f"Riesgo <strong>{html.escape(_rp_risk)}</strong> · Presión aliado {int(_rp_pressure * 100)}%."
         )
-        if reasoning_paragraph:
-            _reasoning_html = (
-                f"<div style='font-size:13px;color:#6B7280;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
-                f"<hr style='border:none;border-top:1px solid rgba(255,255,255,0.95);margin:14px 0;'>"
+        reasoning_paragraph = ". ".join(_rp_parts) + "." if _rp_parts else ""
+
+        _bullets = []
+
+        # 1. Posición en la categoría
+        if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
+            pct_val = mctx["brand_percentile"].replace("%", "").strip()
+            try:
+                pct_num = float(pct_val)
+                if pct_num >= 75:
+                    _bullets.append(f"Esta marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} en CABA — ya es de las que más venden en su categoría.")
+                elif pct_num >= 50:
+                    _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — por encima de la mitad de la categoría, con espacio real para subir.")
+                else:
+                    _bullets.append(f"La marca está en el <strong>percentil {mctx['brand_percentile']}</strong> de {_pi_category} — hay marcas similares vendiendo mucho más en la misma categoría.")
+            except Exception:
+                pass
+
+        # 2. GMV vs promedio de categoría
+        if _pi_gmv > 0 and mctx.get("market_gmv_avg"):
+            try:
+                avg_raw = mctx["market_gmv_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
+                avg_num = float(avg_raw)
+                if avg_num > 0:
+                    ratio = _pi_gmv / avg_num
+                    if ratio >= 1.5:
+                        _bullets.append(f"Su GMV actual ({fmt_ars(_pi_gmv)}) es <strong>{ratio:.1f}x el promedio</strong> de la categoría ({mctx['market_gmv_avg']}) — argumento sólido para escalar inversión.")
+                    elif ratio >= 0.8:
+                        _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está cerca del promedio de la categoría ({mctx['market_gmv_avg']}) — ya tiene la base, le falta el empujón.")
+                    else:
+                        _bullets.append(f"Su GMV ({fmt_ars(_pi_gmv)}) está por debajo del promedio de la categoría ({mctx['market_gmv_avg']}) — hay un gap concreto para trabajar con {_pi_lever}.")
+            except Exception:
+                pass
+
+        # 3. AOV vs promedio de categoría
+        if _pi_aov > 0 and mctx.get("market_aov_avg"):
+            try:
+                aov_avg_raw = mctx["market_aov_avg"].replace("ARS", "").replace("$", "").replace(".", "").replace(",", ".").strip()
+                aov_avg_num = float(aov_avg_raw)
+                if aov_avg_num > 0:
+                    aov_ratio = _pi_aov / aov_avg_num
+                    if aov_ratio >= 1.2:
+                        _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está <strong>{((aov_ratio-1)*100):.0f}% por encima</strong> del AOV de la categoría ({mctx['market_aov_avg']}) — cliente de mayor valor, más razón para darle visibilidad.")
+                    elif aov_ratio < 0.85:
+                        _bullets.append(f"Su ticket promedio ({fmt_ars(_pi_aov)}) está por debajo del AOV de la categoría ({mctx['market_aov_avg']}) — MD puede ayudar a mover volumen y compensar el ticket bajo.")
+            except Exception:
+                pass
+
+        # 4. Palanca activa / inactiva
+        if _pi_lever == "Ads":
+            if not ads_current.get("active", False):
+                _bullets.append(f"No tiene Ads activo — en {_pi_category}, las marcas con Ads capturan tráfico que esta marca hoy está regalando a la competencia.")
+            elif ads_roi > 0:
+                _bullets.append(f"Ads activo con ROI de <strong>{ads_roi:.1f}x</strong> — ya está probado que funciona, el argumento es escalar, no empezar.")
+        else:
+            if not md_current.get("active", False):
+                _bullets.append(f"Sin MD activo — en {_pi_category}, el markdown es la palanca más directa para aumentar frecuencia de pedido y subir en el ranking.")
+            elif md_roi > 0:
+                _bullets.append(f"MD activo con ROI de <strong>{md_roi:.1f}x</strong> — base para proponer un upgrade de descuento o ampliar el alcance.")
+
+        # 5. Top de la categoría
+        if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
+            _bullets.append(f"El top de {_pi_category} en CABA es <strong>{html.escape(mctx['market_top_brand'])}</strong> con {mctx.get('market_top_gmv','N/D')} — ese es el benchmark real de la categoría.")
+
+
+        # ── Analytics — single wide-info-card with 4 inner cards + pitch ────────
+        # Build pitch html first (pure Python, no st calls)
+        _items_html = ""
+        _reasoning_html = ""
+        if _bullets or reasoning_paragraph:
+            _items_html = "".join(
+                f"<div style='display:flex;gap:10px;margin-bottom:9px;'>"
+                f"<span style='color:#22C55E;font-size:14px;line-height:1.5;flex-shrink:0;'>›</span>"
+                f"<span style='font-size:13px;line-height:1.6;'>{b}</span>"
+                f"</div>"
+                for b in _bullets
+            )
+            if reasoning_paragraph:
+                _reasoning_html = (
+                    f"<div style='font-size:13px;color:#6B7280;line-height:1.65;margin-bottom:0;'>{reasoning_paragraph}</div>"
+                    f"<hr style='border:none;border-top:1px solid rgba(255,255,255,0.95);margin:14px 0;'>"
+                )
+
+        _pitch_block = ""
+        if _bullets or reasoning_paragraph:
+            _pitch_block = (
+                f"<div style='background:rgba(37,99,235,0.03);border:1px solid rgba(255,255,255,0.97);"
+                f"border-radius:14px;padding:20px 22px;margin-top:16px;'>"
+                f"<div style='font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);"
+                f"letter-spacing:.06em;margin-bottom:12px;'>📋 Datos para el pitch · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>"
+                f"<div>{_reasoning_html}{_items_html}</div>"
+                f"</div>"
             )
 
-    _pitch_block = ""
-    if _bullets or reasoning_paragraph:
-        _pitch_block = (
-            f"<div style='background:rgba(37,99,235,0.03);border:1px solid rgba(255,255,255,0.97);"
-            f"border-radius:14px;padding:20px 22px;margin-top:16px;'>"
-            f"<div style='font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);"
-            f"letter-spacing:.06em;margin-bottom:12px;'>📋 Datos para el pitch · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>"
-            f"<div>{_reasoning_html}{_items_html}</div>"
-            f"</div>"
-        )
+        # Build cheat sheet html
+        _cs_lines = []
+        _cs_lines.append(f"🗣️ <strong>Apertura:</strong> \"Hola, soy Sabas de Rappi. Te llamo porque vi que {name} tiene una oportunidad concreta de mejorar su posición en {_pi_category} esta semana.\"")
+        if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
+            _cs_lines.append(f"📊 <strong>Dato ancla:</strong> \"Estás en el percentil {mctx['brand_percentile']} de {_pi_category} en CABA. Hay marcas similares a la tuya que están vendiendo significativamente más con la palanca correcta.\"")
+        if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
+            _cs_lines.append(f"🏆 <strong>Benchmark:</strong> \"El líder de {_pi_category} en CABA es {html.escape(mctx['market_top_brand'])} con {mctx.get('market_top_gmv','N/D')}. Eso es lo que puedes apuntar con el stack correcto.\"")
+        if _pi_lever == "MD" and not md_current.get("active", False):
+            _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Sin MD activo, estás perdiendo frecuencia de pedido. En {_pi_category}, el markdown es la palanca más directa para subir en el ranking. ¿Arrancamos con {campaign_design.get('discount', 20)}% esta semana?\"")
+        elif _pi_lever == "Ads" and not ads_current.get("active", False):
+            _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Sin Ads activo, el tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata.\"")
+        elif _pi_lever == "Ads" and ads_roi > 0:
+            _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Eso significa que ya probaste que funciona. El paso lógico es escalar, no mantener el mismo presupuesto.\"")
+        _cs_lines.append(f"✅ <strong>Cierre:</strong> \"Entonces quedamos en activar {campaign_design.get('ads_action','la palanca')} esta semana. ¿El martes a las 10 te va bien para confirmar que quedó activo?\"")
 
-    # Build cheat sheet html
-    _cs_lines = []
-    _cs_lines.append(f"🗣️ <strong>Apertura:</strong> \"Hola, soy Sabas de Rappi. Te llamo porque vi que {name} tiene una oportunidad concreta de mejorar su posición en {_pi_category} esta semana.\"")
-    if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
-        _cs_lines.append(f"📊 <strong>Dato ancla:</strong> \"Estás en el percentil {mctx['brand_percentile']} de {_pi_category} en CABA. Hay marcas similares a la tuya que están vendiendo significativamente más con la palanca correcta.\"")
-    if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
-        _cs_lines.append(f"🏆 <strong>Benchmark:</strong> \"El líder de {_pi_category} en CABA es {html.escape(mctx['market_top_brand'])} con {mctx.get('market_top_gmv','N/D')}. Eso es lo que puedes apuntar con el stack correcto.\"")
-    if _pi_lever == "MD" and not md_current.get("active", False):
-        _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Sin MD activo, estás perdiendo frecuencia de pedido. En {_pi_category}, el markdown es la palanca más directa para subir en el ranking. ¿Arrancamos con {campaign_design.get('discount', 20)}% esta semana?\"")
-    elif _pi_lever == "Ads" and not ads_current.get("active", False):
-        _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Sin Ads activo, el tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata.\"")
-    elif _pi_lever == "Ads" and ads_roi > 0:
-        _cs_lines.append(f"💡 <strong>Pitch {_pi_lever}:</strong> \"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Eso significa que ya probaste que funciona. El paso lógico es escalar, no mantener el mismo presupuesto.\"")
-    _cs_lines.append(f"✅ <strong>Cierre:</strong> \"Entonces quedamos en activar {campaign_design.get('ads_action','la palanca')} esta semana. ¿El martes a las 10 te va bien para confirmar que quedó activo?\"")
-
-    # ── Pitch Facts: 3 cards — Dato Ancla · Benchmark · Pitch Lever ────────────
-    # Card 1: Dato Ancla — posición percentil de la marca
-    _pf_ancla_label = "📊 Dato Ancla"
-    if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
-        _pf_ancla_main = f"Percentil {mctx['brand_percentile']}"
-        _pf_ancla_body = f"Estás en el percentil {mctx['brand_percentile']} de {_pi_category} en CABA."
-        try:
-            _pf_pct_num = float(mctx["brand_percentile"].replace("%","").strip())
-            if _pf_pct_num >= 75:
-                _pf_ancla_body += " Ya sos de las marcas que más venden en tu categoría."
-            elif _pf_pct_num >= 50:
-                _pf_ancla_body += " Estás por encima de la mitad — hay espacio real para subir."
-            else:
-                _pf_ancla_body += " Hay marcas similares vendiendo mucho más con la palanca correcta."
-        except Exception:
-            pass
-        _pf_ancla_color = "#22C55E" if (_pf_pct_num if "brand_percentile" in mctx else 0) >= 75 else "#F97316"
-    elif _pi_gmv > 0 and mctx.get("market_gmv_avg"):
-        try:
-            _avg_n = float(mctx["market_gmv_avg"].replace("ARS","").replace("$","").replace(".","").replace(",",".").strip())
-            _ratio = _pi_gmv / _avg_n if _avg_n > 0 else 0
-            _pf_ancla_main = f"{_ratio:.1f}x el promedio"
-            _pf_ancla_body = f"Su GMV ({fmt_ars(_pi_gmv)}) es {_ratio:.1f}x el promedio de la categoría ({mctx['market_gmv_avg']})."
-            _pf_ancla_color = "#22C55E" if _ratio >= 1.5 else "#F97316"
-        except Exception:
+        # ── Pitch Facts: 3 cards — Dato Ancla · Benchmark · Pitch Lever ────────────
+        # Card 1: Dato Ancla — posición percentil de la marca
+        _pf_ancla_label = "📊 Dato Ancla"
+        if mctx.get("brand_percentile") and mctx["brand_percentile"] != "N/D":
+            _pf_ancla_main = f"Percentil {mctx['brand_percentile']}"
+            _pf_ancla_body = f"Estás en el percentil {mctx['brand_percentile']} de {_pi_category} en CABA."
+            try:
+                _pf_pct_num = float(mctx["brand_percentile"].replace("%","").strip())
+                if _pf_pct_num >= 75:
+                    _pf_ancla_body += " Ya sos de las marcas que más venden en tu categoría."
+                elif _pf_pct_num >= 50:
+                    _pf_ancla_body += " Estás por encima de la mitad — hay espacio real para subir."
+                else:
+                    _pf_ancla_body += " Hay marcas similares vendiendo mucho más con la palanca correcta."
+            except Exception:
+                pass
+            _pf_ancla_color = "#22C55E" if (_pf_pct_num if "brand_percentile" in mctx else 0) >= 75 else "#F97316"
+        elif _pi_gmv > 0 and mctx.get("market_gmv_avg"):
+            try:
+                _avg_n = float(mctx["market_gmv_avg"].replace("ARS","").replace("$","").replace(".","").replace(",",".").strip())
+                _ratio = _pi_gmv / _avg_n if _avg_n > 0 else 0
+                _pf_ancla_main = f"{_ratio:.1f}x el promedio"
+                _pf_ancla_body = f"Su GMV ({fmt_ars(_pi_gmv)}) es {_ratio:.1f}x el promedio de la categoría ({mctx['market_gmv_avg']})."
+                _pf_ancla_color = "#22C55E" if _ratio >= 1.5 else "#F97316"
+            except Exception:
+                _pf_ancla_main = "N/D"
+                _pf_ancla_body = "Sin datos de posición en la categoría."
+                _pf_ancla_color = "#6B7280"
+        else:
             _pf_ancla_main = "N/D"
             _pf_ancla_body = "Sin datos de posición en la categoría."
             _pf_ancla_color = "#6B7280"
-    else:
-        _pf_ancla_main = "N/D"
-        _pf_ancla_body = "Sin datos de posición en la categoría."
-        _pf_ancla_color = "#6B7280"
 
-    # Card 2: Benchmark — top de la categoría
-    _pf_bench_label = "🏆 Benchmark"
-    if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
-        _pf_bench_main = mctx.get("market_top_gmv", "N/D")
-        _pf_bench_body = f"El líder de {_pi_category} en CABA es {mctx['market_top_brand']} con {mctx.get('market_top_gmv','N/D')}. Ese es el benchmark real."
-        _pf_bench_color = "#F97316"
-    else:
-        _pf_bench_main = "N/D"
-        _pf_bench_body = "Sin datos del top de la categoría."
-        _pf_bench_color = "#6B7280"
-
-    # Card 3: Pitch Lever — argumento directo para la palanca
-    _pf_pitch_label = f"💡 Pitch {_pi_lever}"
-    if _pi_lever == "Ads":
-        if not ads_current.get("active", False):
-            _pf_pitch_main = "Sin Ads activo"
-            _pf_pitch_body = f"El tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata."
-            _pf_pitch_color = "#EF4444"
-        elif ads_roi > 0:
-            _pf_pitch_main = f"ROI {ads_roi:.1f}x"
-            _pf_pitch_body = f"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Ya probaste que funciona — el paso lógico es escalar, no mantener el mismo presupuesto."
-            _pf_pitch_color = "#22C55E"
+        # Card 2: Benchmark — top de la categoría
+        _pf_bench_label = "🏆 Benchmark"
+        if mctx.get("market_top_brand") and mctx["market_top_brand"] not in ["-", "N/D"]:
+            _pf_bench_main = mctx.get("market_top_gmv", "N/D")
+            _pf_bench_body = f"El líder de {_pi_category} en CABA es {mctx['market_top_brand']} con {mctx.get('market_top_gmv','N/D')}. Ese es el benchmark real."
+            _pf_bench_color = "#F97316"
         else:
-            _pf_pitch_main = "Ads activo"
-            _pf_pitch_body = "Ads activo. Revisa el ROI para definir si mantener o escalar."
-            _pf_pitch_color = "#F97316"
-    else:
-        if not md_current.get("active", False):
-            _pf_pitch_main = "Sin MD activo"
-            _pf_pitch_body = f"Sin MD activo estás perdiendo frecuencia de pedido. En {_pi_category} el markdown es la palanca más directa para subir en el ranking."
-            _pf_pitch_color = "#EF4444"
-        elif md_roi > 0:
-            _pf_pitch_main = f"ROI {md_roi:.1f}x"
-            _pf_pitch_body = f"MD activo con ROI de {md_roi:.1f}x — base para proponer un upgrade de descuento o ampliar el alcance."
-            _pf_pitch_color = "#22C55E"
+            _pf_bench_main = "N/D"
+            _pf_bench_body = "Sin datos del top de la categoría."
+            _pf_bench_color = "#6B7280"
+
+        # Card 3: Pitch Lever — argumento directo para la palanca
+        _pf_pitch_label = f"💡 Pitch {_pi_lever}"
+        if _pi_lever == "Ads":
+            if not ads_current.get("active", False):
+                _pf_pitch_main = "Sin Ads activo"
+                _pf_pitch_body = f"El tráfico que genera Rappi en {_pi_category} va directo a tu competencia. Con el presupuesto inicial te asegurás visibilidad inmediata."
+                _pf_pitch_color = "#EF4444"
+            elif ads_roi > 0:
+                _pf_pitch_main = f"ROI {ads_roi:.1f}x"
+                _pf_pitch_body = f"Tus Ads ya tienen ROI de {ads_roi:.1f}x. Ya probaste que funciona — el paso lógico es escalar, no mantener el mismo presupuesto."
+                _pf_pitch_color = "#22C55E"
+            else:
+                _pf_pitch_main = "Ads activo"
+                _pf_pitch_body = "Ads activo. Revisa el ROI para definir si mantener o escalar."
+                _pf_pitch_color = "#F97316"
         else:
-            _pf_pitch_main = "MD activo"
-            _pf_pitch_body = "MD activo. Revisa el ROI para definir la próxima acción."
-            _pf_pitch_color = "#F97316"
+            if not md_current.get("active", False):
+                _pf_pitch_main = "Sin MD activo"
+                _pf_pitch_body = f"Sin MD activo estás perdiendo frecuencia de pedido. En {_pi_category} el markdown es la palanca más directa para subir en el ranking."
+                _pf_pitch_color = "#EF4444"
+            elif md_roi > 0:
+                _pf_pitch_main = f"ROI {md_roi:.1f}x"
+                _pf_pitch_body = f"MD activo con ROI de {md_roi:.1f}x — base para proponer un upgrade de descuento o ampliar el alcance."
+                _pf_pitch_color = "#22C55E"
+            else:
+                _pf_pitch_main = "MD activo"
+                _pf_pitch_body = "MD activo. Revisa el ROI para definir la próxima acción."
+                _pf_pitch_color = "#F97316"
 
-    _pitch_facts_block = "".join([
-        '<div style="margin-top:16px;">',
-        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">📋 Pitch Facts · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>',
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">',
-        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
-        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_ancla_label}</div>',
-        f'<div style="font-size:22px;font-weight:900;color:{_pf_ancla_color};line-height:1.1;margin-bottom:8px;">{_pf_ancla_main}</div>',
-        f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_ancla_body}</div>',
-        '</div>',
-        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
-        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_bench_label}</div>',
-        f'<div style="font-size:22px;font-weight:900;color:{_pf_bench_color};line-height:1.1;margin-bottom:8px;">{_pf_bench_main}</div>',
-        f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_bench_body}</div>',
-        '</div>',
-        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
-        f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_pitch_label}</div>',
-        f'<div style="font-size:22px;font-weight:900;color:{_pf_pitch_color};line-height:1.1;margin-bottom:8px;">{_pf_pitch_main}</div>',
-        f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_pitch_body}</div>',
-        '</div>',
-        '</div>',
-        '</div>',
-    ])
-
-    # ── Card unificada: Funnel Traffic/CVR + GMV incremental + diagnóstico ──────
-    # Reemplaza las dos cards separadas (GMV incremental / Diagnóstico Traffic&CVR)
-    # por un único funnel de 3 niveles: benchmark traffic → traffic marca →
-    # conversión marca (con benchmark de conversión al lado). Cada nivel sale
-    # según la data disponible — si falta, queda "s/d" en vez de inventar un valor.
-
-    _fn_bench_traffic_val = _t_bench if _t_bench and _t_bench > 0 else None
-    _fn_brand_traffic_val = _traffic_weekly if _traffic_weekly and _traffic_weekly > 0 else None
-    _fn_brand_cvr_val     = _cr_current_norm if _cr_current_norm > 0 else None
-    _fn_bench_cvr_val     = _cr_benchmark_norm if _cr_benchmark_norm > 0 else None
-
-    _fn_bench_traffic_disp = f"{round(_fn_bench_traffic_val):,}/sem".replace(",", ".") if _fn_bench_traffic_val else "s/d"
-    _fn_brand_traffic_disp = f"{round(_fn_brand_traffic_val):,}/sem".replace(",", ".") if _fn_brand_traffic_val else "s/d"
-    _fn_brand_cvr_disp     = f"{round(_fn_brand_cvr_val*100,1)}%" if _fn_brand_cvr_val else "s/d"
-    _fn_bench_cvr_disp     = f"{round(_fn_bench_cvr_val*100,1)}%" if _fn_bench_cvr_val else "s/d"
-
-    # ── Anchos del funnel (en % del ancho disponible del SVG, 0-100) ──────────
-    # Regla pedida: las dos barras de tráfico (benchmark y marca) son siempre
-    # más anchas que la de conversión. El ancho del nivel 1 (benchmark) es fijo
-    # como referencia visual; el nivel 2 (marca) escala proporcional al
-    # benchmark y SÍ puede superarlo (desbordar hacia afuera, no solo angostar).
-    # El nivel 3 (conversión) se calcula como fracción del ancho del nivel 2
-    # (tráfico de marca) — no de un techo externo — para que la forma de
-    # embudo sea consistente con "la conversión se angosta sobre el tráfico
-    # que la marca realmente tiene", tal como se pidió.
-    _FN_MAX_W = 100.0   # ancho máximo absoluto permitido (referencia del benchmark)
-    _FN_MIN_W = 22.0    # ancho mínimo visual para que una barra nunca desaparezca
-
-    if _fn_bench_traffic_val and _fn_brand_traffic_val:
-        _fn_w1 = _FN_MAX_W
-        # Cap al 100%: el desborde >100% rompía la simetría del embudo en marcas
-        # que superan el benchmark — el 'sobre-benchmark' se comunica en el label.
-        _fn_w2 = round(min(max(_fn_brand_traffic_val / _fn_bench_traffic_val * _FN_MAX_W, _FN_MIN_W), _FN_MAX_W), 1)
-    elif _fn_brand_traffic_val and not _fn_bench_traffic_val:
-        # Solo hay traffic de marca, sin benchmark — el nivel 1 queda en s/d (mínimo)
-        # y el nivel 2 toma el ancho de referencia para no aplastar el embudo.
-        _fn_w1 = _FN_MIN_W
-        _fn_w2 = _FN_MAX_W
-    elif _fn_bench_traffic_val and not _fn_brand_traffic_val:
-        _fn_w1 = _FN_MAX_W
-        _fn_w2 = _FN_MIN_W
-    else:
-        _fn_w1 = _FN_MIN_W
-        _fn_w2 = _FN_MIN_W
-
-    # Conversión: SIEMPRE más angosta que el tráfico de marca (nivel 2), escalada
-    # como fracción del propio nivel 2 según qué tan bien convierte vs su benchmark.
-    # Si convierte igual al benchmark → ~55% del ancho del nivel 2 (referencia visual
-    # de embudo). Si convierte mejor → un poco más ancho; si peor → más angosto.
-    if _fn_brand_cvr_val:
-        _fn_cvr_ratio = (_fn_brand_cvr_val / _fn_bench_cvr_val) if _fn_bench_cvr_val else 1.0
-        _fn_cvr_ratio = max(min(_fn_cvr_ratio, 1.8), 0.35)  # clamp para que no se desborde ni desaparezca
-        _fn_w3 = round(min(_fn_w2 * 0.55 * _fn_cvr_ratio, _fn_w2 * 0.92), 1)  # nunca >92% del nivel 2
-        _fn_w3 = max(_fn_w3, _FN_MIN_W * 0.7)
-    else:
-        _fn_w3 = _FN_MIN_W * 0.5  # s/d → barra mínima casi invisible, sin inventar dato
-
-    # ── Estimado de órdenes según visitas de la marca × su CVR real ──────────
-    # Solo se calcula si hay AMBOS datos reales (traffic de marca y CVR) —
-    # nunca se infiere a partir de un s/d.
-    _fn_orders_est = None
-    if _fn_brand_traffic_val and _fn_brand_cvr_val:
-        _fn_orders_est = round(_fn_brand_traffic_val * _fn_brand_cvr_val, 1)
-
-    _fn_traffic_brand_above = bool(_fn_bench_traffic_val and _fn_brand_traffic_val and _fn_brand_traffic_val > _fn_bench_traffic_val)
-    _fn_cvr_brand_above     = bool(_fn_bench_cvr_val and _fn_brand_cvr_val and _fn_brand_cvr_val >= _fn_bench_cvr_val)
-
-    # Paleta del funnel: 3 tonos distintos y legibles en light y dark mode —
-    # naranja (benchmark, referencia neutra), azul/verde (traffic de marca),
-    # y verde/rojo condicional para CVR según esté sobre o bajo benchmark.
-    _fn_c1 = "#F97316"  # benchmark traffic — naranja de marca, siempre neutro
-    _fn_c2 = "#22C55E" if _fn_traffic_brand_above else "#1B6FE0"  # traffic marca: verde si supera benchmark, azul si no
-    _fn_c3 = "#22C55E" if _fn_cvr_brand_above else ("#EF4444" if _fn_brand_cvr_val else "#A1A1AA")
-
-    # ── Construcción del SVG tipo embudo (trapecios apilados, sin sangría de
-    # línea para evitar el bug de bloque-de-código de Markdown). ──────────────
-    _FN_SVG_W, _FN_SVG_H = 520, 168
-    _FN_LEVEL_H = 46
-    _FN_GAP = 5
-    _fn_cx = _FN_SVG_W / 2
-
-    def _fn_trapezoid_points(top_w_pct, bot_w_pct, y_top, level_h, max_shape_w):
-        top_w = (top_w_pct / 100) * max_shape_w
-        bot_w = (bot_w_pct / 100) * max_shape_w
-        x1, x2 = _fn_cx - top_w / 2, _fn_cx + top_w / 2
-        x3, x4 = _fn_cx + bot_w / 2, _fn_cx - bot_w / 2
-        y_bot = y_top + level_h
-        return f"{x1:.1f},{y_top:.1f} {x2:.1f},{y_top:.1f} {x3:.1f},{y_bot:.1f} {x4:.1f},{y_bot:.1f}"
-
-    _fn_y1 = 0
-    _fn_y2 = _fn_y1 + _FN_LEVEL_H + _FN_GAP
-    _fn_y3 = _fn_y2 + _FN_LEVEL_H + _FN_GAP
-
-    # El embudo ocupa solo la mitad izquierda del SVG — la mitad derecha queda
-    # libre para las etiquetas, que ya no van adentro de la forma (eso era lo
-    # que cortaba el texto en niveles angostos como el de tráfico de marca).
-    _FN_SHAPE_MAX_W = _FN_SVG_W * 0.46
-    _fn_cx = _FN_SHAPE_MAX_W / 2 + 6
-
-    _fn_pts1 = _fn_trapezoid_points(_fn_w1, _fn_w2, _fn_y1, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
-    _fn_pts2 = _fn_trapezoid_points(_fn_w2, _fn_w3, _fn_y2, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
-    _fn_pts3 = _fn_trapezoid_points(_fn_w3, max(_fn_w3 * 0.78, _FN_MIN_W * 0.4), _fn_y3, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
-
-    _fn_orders_badge = f" · ~{_fn_orders_est} ped/sem" if _fn_orders_est is not None else ""
-
-    _fn_label1_top = "Traffic benchmark categoría"
-    _fn_label1_val = _fn_bench_traffic_disp
-    _fn_label2_top = "Traffic de la marca" + (" ▲ sobre benchmark" if _fn_traffic_brand_above else "")
-    _fn_label2_val = _fn_brand_traffic_disp
-    _fn_label3_top = "Conversión de la marca"
-    _fn_label3_bench_note = f"bench {_fn_bench_cvr_disp}"
-    _fn_label3_val = f"{_fn_brand_cvr_disp}{_fn_orders_badge}"
-
-    def _fn_level_center_y(y_top, level_h):
-        return y_top + level_h / 2
-
-    # ── Etiquetas FUERA de la forma: columna de texto a la derecha + línea
-    # conectora desde el centro del trapecio. Así el ancho de texto nunca
-    # depende de qué tan angosto sea el nivel, eliminando el corte de texto. ──
-    _fn_label_x = _FN_SHAPE_MAX_W + 22
-    _fn_line_x_end = _fn_label_x - 6
-
-    def _fn_label_block(y_top, level_h, color, top_text, val_text, val_size=13, note_text=None):
-        _cy = _fn_level_center_y(y_top, level_h)
-        _note_svg = (
-            f'<text x="{_fn_label_x:.1f}" y="{_cy+22:.1f}" font-size="9" font-weight="600" fill="currentColor" opacity="0.5">{html.escape(note_text)}</text>'
-            if note_text else ""
-        )
-        return "".join([
-            f'<line x1="{_fn_cx:.1f}" y1="{_cy:.1f}" x2="{_fn_line_x_end:.1f}" y2="{_cy:.1f}" stroke="{color}" stroke-width="1.5" stroke-dasharray="2,3" opacity="0.55"></line>',
-            f'<circle cx="{_fn_line_x_end:.1f}" cy="{_cy:.1f}" r="3" fill="{color}"></circle>',
-            f'<text x="{_fn_label_x:.1f}" y="{_cy-7:.1f}" font-size="10" font-weight="700" fill="currentColor" opacity="0.65">{html.escape(top_text)}</text>',
-            f'<text x="{_fn_label_x:.1f}" y="{_cy+9:.1f}" font-size="{val_size}" font-weight="900" fill="{color}">{html.escape(val_text)}</text>',
-            _note_svg,
+        _pitch_facts_block = "".join([
+            '<div style="margin-top:16px;">',
+            f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">📋 Pitch Facts · {html.escape(_pi_lever)} · {html.escape(_pi_category)}</div>',
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">',
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
+            f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_ancla_label}</div>',
+            f'<div style="font-size:22px;font-weight:900;color:{_pf_ancla_color};line-height:1.1;margin-bottom:8px;">{_pf_ancla_main}</div>',
+            f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_ancla_body}</div>',
+            '</div>',
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
+            f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_bench_label}</div>',
+            f'<div style="font-size:22px;font-weight:900;color:{_pf_bench_color};line-height:1.1;margin-bottom:8px;">{_pf_bench_main}</div>',
+            f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_bench_body}</div>',
+            '</div>',
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.97);border-radius:12px;padding:16px 18px;">',
+            f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">{_pf_pitch_label}</div>',
+            f'<div style="font-size:22px;font-weight:900;color:{_pf_pitch_color};line-height:1.1;margin-bottom:8px;">{_pf_pitch_main}</div>',
+            f'<div style="font-size:12px;color:#6B7280;line-height:1.55;">{_pf_pitch_body}</div>',
+            '</div>',
+            '</div>',
+            '</div>',
         ])
 
-    _fn_labels_svg = (
-        _fn_label_block(_fn_y1, _FN_LEVEL_H, _fn_c1, _fn_label1_top, _fn_label1_val)
-        + _fn_label_block(_fn_y2, _FN_LEVEL_H, _fn_c2, _fn_label2_top, _fn_label2_val)
-        + _fn_label_block(_fn_y3, _FN_LEVEL_H, _fn_c3, _fn_label3_top, _fn_label3_val, val_size=12, note_text=_fn_label3_bench_note)
-    )
+        # ── Card unificada: Funnel Traffic/CVR + GMV incremental + diagnóstico ──────
+        # Reemplaza las dos cards separadas (GMV incremental / Diagnóstico Traffic&CVR)
+        # por un único funnel de 3 niveles: benchmark traffic → traffic marca →
+        # conversión marca (con benchmark de conversión al lado). Cada nivel sale
+        # según la data disponible — si falta, queda "s/d" en vez de inventar un valor.
 
-    _funnel_svg = "".join([
-        f'<svg viewBox="0 0 {_FN_SVG_W} {_fn_y3 + _FN_LEVEL_H + 4}" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="color:{"#F5F5F5" if DARK_MODE else "#111827"};">',
-        f'<polygon points="{_fn_pts1}" fill="{_fn_c1}" opacity="0.92"></polygon>',
-        f'<polygon points="{_fn_pts2}" fill="{_fn_c2}" opacity="0.92"></polygon>',
-        f'<polygon points="{_fn_pts3}" fill="{_fn_c3}" opacity="0.92"></polygon>',
-        _fn_labels_svg,
-        '</svg>',
-    ])
+        _fn_bench_traffic_val = _t_bench if _t_bench and _t_bench > 0 else None
+        _fn_brand_traffic_val = _traffic_weekly if _traffic_weekly and _traffic_weekly > 0 else None
+        _fn_brand_cvr_val     = _cr_current_norm if _cr_current_norm > 0 else None
+        _fn_bench_cvr_val     = _cr_benchmark_norm if _cr_benchmark_norm > 0 else None
 
-    _funnel_html = f'<div style="display:flex;justify-content:center;padding:4px 0;">{_funnel_svg}</div>'
+        _fn_bench_traffic_disp = f"{round(_fn_bench_traffic_val):,}/sem".replace(",", ".") if _fn_bench_traffic_val else "s/d"
+        _fn_brand_traffic_disp = f"{round(_fn_brand_traffic_val):,}/sem".replace(",", ".") if _fn_brand_traffic_val else "s/d"
+        _fn_brand_cvr_disp     = f"{round(_fn_brand_cvr_val*100,1)}%" if _fn_brand_cvr_val else "s/d"
+        _fn_bench_cvr_disp     = f"{round(_fn_bench_cvr_val*100,1)}%" if _fn_bench_cvr_val else "s/d"
 
-    # ── Párrafo combinado: funde el diagnóstico de GMV incremental (card 3)
-    # con el diagnóstico de traffic/CVR (card 4 vieja) en una sola lectura. ──
-    if not _has_traffic and not _has_cvr:
-        _fn_combined_text = "No hay traffic ni conversión registrados esta semana. Activá ads para empezar a generar ambas métricas de forma medible."
-        _fn_pitch = "Activá ads para empezar a generar tráfico y CVR medibles — sin eso no podemos calcular dónde está la oportunidad real."
-        _fn_headline = "Sin datos suficientes"
-        _fn_headline_color = "#A1A1AA"
-    elif _cr_above_bench and not _has_traffic:
-        _fn_combined_text = f"Tu CR ({_fn_brand_cvr_disp}) ya está sobre el benchmark de tu categoría ({_fn_bench_cvr_disp}), pero no hay traffic registrado esta semana para medir el volumen."
-        _fn_pitch = f"Tu tienda convierte mejor que el promedio ({_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}). El problema no es la tienda — necesitamos activar ads para medir y escalar el tráfico real."
-        _fn_headline = "Conversión fuerte, falta tráfico medible"
-        _fn_headline_color = "#F97316"
-    elif _d4_diag == "Problema doble":
-        _fn_combined_text = f"Dos frentes abiertos: traffic de {_fn_brand_traffic_disp} vs benchmark {_fn_bench_traffic_disp}, y conversión de {_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}." + (f" Si llegaras al benchmark de conversión con el mismo tráfico, sumarías {fmt_ars(round(_gmv_incremental))}/mes." if _gmv_incremental > 0 else "")
-        _fn_pitch = f"Dos frentes abiertos: traffic de {_fn_brand_traffic_disp} vs benchmark {_fn_bench_traffic_disp} y CVR de {_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}. " + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "") + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
-        _fn_headline = "Problema doble"
-        _fn_headline_color = "#EF4444"
-    elif _d4_diag == "Problema: Tráfico":
-        _fn_combined_text = f"Tu conversión ({_fn_brand_cvr_disp}) está sobre el benchmark ({_fn_bench_cvr_disp}), pero el tráfico ({_fn_brand_traffic_disp}) está por debajo del benchmark de categoría ({_fn_bench_traffic_disp})." + (f" Si alcanzaras el benchmark de CVR con más tráfico, el incremental estimado sería {fmt_ars(round(_gmv_incremental))}/mes." if _gmv_incremental > 0 else "")
-        _fn_pitch = _d4_pitch
-        _fn_headline = "Problema: Tráfico"
-        _fn_headline_color = "#F97316"
-    elif _d4_diag == "Problema: Conversión":
-        _fn_combined_text = f"Tu tráfico ({_fn_brand_traffic_disp}) está en línea con el benchmark ({_fn_bench_traffic_disp}), pero tu conversión ({_fn_brand_cvr_disp}) está por debajo del promedio de categoría ({_fn_bench_cvr_disp})." + (f" Si llegás al benchmark, sumas {fmt_ars(round(_gmv_incremental))}/mes con el mismo tráfico." if _gmv_incremental > 0 else "")
-        _fn_pitch = _d4_pitch
-        _fn_headline = "Problema: Conversión"
-        _fn_headline_color = "#F97316"
-    else:
-        _fn_combined_text = f"Traffic ({_fn_brand_traffic_disp}) y conversión ({_fn_brand_cvr_disp}) están alineados o por encima del benchmark de categoría ({_fn_bench_traffic_disp} / {_fn_bench_cvr_disp})."
-        _fn_pitch = _d4_pitch
-        _fn_headline = "Ambas métricas OK"
-        _fn_headline_color = "#22C55E"
+        # ── Anchos del funnel (en % del ancho disponible del SVG, 0-100) ──────────
+        # Regla pedida: las dos barras de tráfico (benchmark y marca) son siempre
+        # más anchas que la de conversión. El ancho del nivel 1 (benchmark) es fijo
+        # como referencia visual; el nivel 2 (marca) escala proporcional al
+        # benchmark y SÍ puede superarlo (desbordar hacia afuera, no solo angostar).
+        # El nivel 3 (conversión) se calcula como fracción del ancho del nivel 2
+        # (tráfico de marca) — no de un techo externo — para que la forma de
+        # embudo sea consistente con "la conversión se angosta sobre el tráfico
+        # que la marca realmente tiene", tal como se pidió.
+        _FN_MAX_W = 100.0   # ancho máximo absoluto permitido (referencia del benchmark)
+        _FN_MIN_W = 22.0    # ancho mínimo visual para que una barra nunca desaparezca
 
-    # NOTA: mismo fix — fragmentos sin sangría de línea, unidos con join().
-    _funnel_card_html = "".join([
-        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">',
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">🔍 Funnel Traffic &amp; Conversión vs Benchmark</div>',
-        f'<div style="font-size:15px;font-weight:900;color:{_fn_headline_color};margin-bottom:10px;">{_fn_headline}</div>',
-        f'<div style="margin-bottom:12px;">{_funnel_html}</div>',
-        '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;margin-top:auto;">',
-        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;margin-bottom:10px;">{_fn_combined_text}</div>',
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
-        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_fn_pitch}"</div>',
-        '</div>',
-        '</div>',
-    ])
+        if _fn_bench_traffic_val and _fn_brand_traffic_val:
+            _fn_w1 = _FN_MAX_W
+            # Cap al 100%: el desborde >100% rompía la simetría del embudo en marcas
+            # que superan el benchmark — el 'sobre-benchmark' se comunica en el label.
+            _fn_w2 = round(min(max(_fn_brand_traffic_val / _fn_bench_traffic_val * _FN_MAX_W, _FN_MIN_W), _FN_MAX_W), 1)
+        elif _fn_brand_traffic_val and not _fn_bench_traffic_val:
+            # Solo hay traffic de marca, sin benchmark — el nivel 1 queda en s/d (mínimo)
+            # y el nivel 2 toma el ancho de referencia para no aplastar el embudo.
+            _fn_w1 = _FN_MIN_W
+            _fn_w2 = _FN_MAX_W
+        elif _fn_bench_traffic_val and not _fn_brand_traffic_val:
+            _fn_w1 = _FN_MAX_W
+            _fn_w2 = _FN_MIN_W
+        else:
+            _fn_w1 = _FN_MIN_W
+            _fn_w2 = _FN_MIN_W
 
-    # NOTA: mismo fix aplicado a todo el bloque Analytics — sin sangría de línea,
-    # construido con join() de fragmentos en vez de f-string multilínea indentado.
-    _analytics_html = "".join([
-        '<div class="wide-info-card">',
-        '<div class="wide-info-title">Analytics</div>',
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:14px;margin-top:4px;">',
-        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">',
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>',
-        f'<div style="font-size:26px;font-weight:900;color:#22C55E;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>',
-        f'<div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:8px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>',
-        '<div style="background:rgba(34,197,94,0.08);border-radius:8px;padding:8px 10px;margin-bottom:12px;">',
-        '<div style="font-size:10px;font-weight:700;color:#16A34A;text-transform:uppercase;margin-bottom:2px;">GMV neto total · este mes</div>',
-        f'<div style="font-size:16px;font-weight:900;color:#111827;">{fmt_ars(round(_margin_total_neto))}</div>',
-        f'<div style="font-size:10px;color:#6B7280;margin-top:2px;">{f"Bruto {fmt_ars(round(_margin_total_bruto))} − Ads {fmt_ars(round(_ads_monthly_budget_ars))}/mes (booking semanal ×4)" if _ads_is_active else "Sin descuento de Ads · campaña no activa"}</div>',
-        '</div>',
-        '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">',
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
-        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Con tu volumen del mes, eso son {fmt_ars(round(_margin_total_neto))} de margen real{" después de descontar tu inversión en Ads" if _ads_is_active else ""}."</div>',
-        '</div>',
-        '</div>',
-        '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">',
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>',
-        f'<div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{"es" if _be_orders != 1 else ""}</div>',
-        f'<div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>',
-        '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">',
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
-        f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>',
-        '</div>',
-        '</div>',
-        _funnel_card_html,
-        '</div>',
-        _pitch_facts_block,
-        '</div>',
-    ])
-    st.markdown(_analytics_html, unsafe_allow_html=True)
+        # Conversión: SIEMPRE más angosta que el tráfico de marca (nivel 2), escalada
+        # como fracción del propio nivel 2 según qué tan bien convierte vs su benchmark.
+        # Si convierte igual al benchmark → ~55% del ancho del nivel 2 (referencia visual
+        # de embudo). Si convierte mejor → un poco más ancho; si peor → más angosto.
+        if _fn_brand_cvr_val:
+            _fn_cvr_ratio = (_fn_brand_cvr_val / _fn_bench_cvr_val) if _fn_bench_cvr_val else 1.0
+            _fn_cvr_ratio = max(min(_fn_cvr_ratio, 1.8), 0.35)  # clamp para que no se desborde ni desaparezca
+            _fn_w3 = round(min(_fn_w2 * 0.55 * _fn_cvr_ratio, _fn_w2 * 0.92), 1)  # nunca >92% del nivel 2
+            _fn_w3 = max(_fn_w3, _FN_MIN_W * 0.7)
+        else:
+            _fn_w3 = _FN_MIN_W * 0.5  # s/d → barra mínima casi invisible, sin inventar dato
+
+        # ── Estimado de órdenes según visitas de la marca × su CVR real ──────────
+        # Solo se calcula si hay AMBOS datos reales (traffic de marca y CVR) —
+        # nunca se infiere a partir de un s/d.
+        _fn_orders_est = None
+        if _fn_brand_traffic_val and _fn_brand_cvr_val:
+            _fn_orders_est = round(_fn_brand_traffic_val * _fn_brand_cvr_val, 1)
+
+        _fn_traffic_brand_above = bool(_fn_bench_traffic_val and _fn_brand_traffic_val and _fn_brand_traffic_val > _fn_bench_traffic_val)
+        _fn_cvr_brand_above     = bool(_fn_bench_cvr_val and _fn_brand_cvr_val and _fn_brand_cvr_val >= _fn_bench_cvr_val)
+
+        # Paleta del funnel: 3 tonos distintos y legibles en light y dark mode —
+        # naranja (benchmark, referencia neutra), azul/verde (traffic de marca),
+        # y verde/rojo condicional para CVR según esté sobre o bajo benchmark.
+        _fn_c1 = "#F97316"  # benchmark traffic — naranja de marca, siempre neutro
+        _fn_c2 = "#22C55E" if _fn_traffic_brand_above else "#1B6FE0"  # traffic marca: verde si supera benchmark, azul si no
+        _fn_c3 = "#22C55E" if _fn_cvr_brand_above else ("#EF4444" if _fn_brand_cvr_val else "#A1A1AA")
+
+        # ── Construcción del SVG tipo embudo (trapecios apilados, sin sangría de
+        # línea para evitar el bug de bloque-de-código de Markdown). ──────────────
+        _FN_SVG_W, _FN_SVG_H = 520, 168
+        _FN_LEVEL_H = 46
+        _FN_GAP = 5
+        _fn_cx = _FN_SVG_W / 2
+
+        def _fn_trapezoid_points(top_w_pct, bot_w_pct, y_top, level_h, max_shape_w):
+            top_w = (top_w_pct / 100) * max_shape_w
+            bot_w = (bot_w_pct / 100) * max_shape_w
+            x1, x2 = _fn_cx - top_w / 2, _fn_cx + top_w / 2
+            x3, x4 = _fn_cx + bot_w / 2, _fn_cx - bot_w / 2
+            y_bot = y_top + level_h
+            return f"{x1:.1f},{y_top:.1f} {x2:.1f},{y_top:.1f} {x3:.1f},{y_bot:.1f} {x4:.1f},{y_bot:.1f}"
+
+        _fn_y1 = 0
+        _fn_y2 = _fn_y1 + _FN_LEVEL_H + _FN_GAP
+        _fn_y3 = _fn_y2 + _FN_LEVEL_H + _FN_GAP
+
+        # El embudo ocupa solo la mitad izquierda del SVG — la mitad derecha queda
+        # libre para las etiquetas, que ya no van adentro de la forma (eso era lo
+        # que cortaba el texto en niveles angostos como el de tráfico de marca).
+        _FN_SHAPE_MAX_W = _FN_SVG_W * 0.46
+        _fn_cx = _FN_SHAPE_MAX_W / 2 + 6
+
+        _fn_pts1 = _fn_trapezoid_points(_fn_w1, _fn_w2, _fn_y1, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
+        _fn_pts2 = _fn_trapezoid_points(_fn_w2, _fn_w3, _fn_y2, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
+        _fn_pts3 = _fn_trapezoid_points(_fn_w3, max(_fn_w3 * 0.78, _FN_MIN_W * 0.4), _fn_y3, _FN_LEVEL_H, _FN_SHAPE_MAX_W)
+
+        _fn_orders_badge = f" · ~{_fn_orders_est} ped/sem" if _fn_orders_est is not None else ""
+
+        _fn_label1_top = "Traffic benchmark categoría"
+        _fn_label1_val = _fn_bench_traffic_disp
+        _fn_label2_top = "Traffic de la marca" + (" ▲ sobre benchmark" if _fn_traffic_brand_above else "")
+        _fn_label2_val = _fn_brand_traffic_disp
+        _fn_label3_top = "Conversión de la marca"
+        _fn_label3_bench_note = f"bench {_fn_bench_cvr_disp}"
+        _fn_label3_val = f"{_fn_brand_cvr_disp}{_fn_orders_badge}"
+
+        def _fn_level_center_y(y_top, level_h):
+            return y_top + level_h / 2
+
+        # ── Etiquetas FUERA de la forma: columna de texto a la derecha + línea
+        # conectora desde el centro del trapecio. Así el ancho de texto nunca
+        # depende de qué tan angosto sea el nivel, eliminando el corte de texto. ──
+        _fn_label_x = _FN_SHAPE_MAX_W + 22
+        _fn_line_x_end = _fn_label_x - 6
+
+        def _fn_label_block(y_top, level_h, color, top_text, val_text, val_size=13, note_text=None):
+            _cy = _fn_level_center_y(y_top, level_h)
+            _note_svg = (
+                f'<text x="{_fn_label_x:.1f}" y="{_cy+22:.1f}" font-size="9" font-weight="600" fill="currentColor" opacity="0.5">{html.escape(note_text)}</text>'
+                if note_text else ""
+            )
+            return "".join([
+                f'<line x1="{_fn_cx:.1f}" y1="{_cy:.1f}" x2="{_fn_line_x_end:.1f}" y2="{_cy:.1f}" stroke="{color}" stroke-width="1.5" stroke-dasharray="2,3" opacity="0.55"></line>',
+                f'<circle cx="{_fn_line_x_end:.1f}" cy="{_cy:.1f}" r="3" fill="{color}"></circle>',
+                f'<text x="{_fn_label_x:.1f}" y="{_cy-7:.1f}" font-size="10" font-weight="700" fill="currentColor" opacity="0.65">{html.escape(top_text)}</text>',
+                f'<text x="{_fn_label_x:.1f}" y="{_cy+9:.1f}" font-size="{val_size}" font-weight="900" fill="{color}">{html.escape(val_text)}</text>',
+                _note_svg,
+            ])
+
+        _fn_labels_svg = (
+            _fn_label_block(_fn_y1, _FN_LEVEL_H, _fn_c1, _fn_label1_top, _fn_label1_val)
+            + _fn_label_block(_fn_y2, _FN_LEVEL_H, _fn_c2, _fn_label2_top, _fn_label2_val)
+            + _fn_label_block(_fn_y3, _FN_LEVEL_H, _fn_c3, _fn_label3_top, _fn_label3_val, val_size=12, note_text=_fn_label3_bench_note)
+        )
+
+        _funnel_svg = "".join([
+            f'<svg viewBox="0 0 {_FN_SVG_W} {_fn_y3 + _FN_LEVEL_H + 4}" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="color:{"#F5F5F5" if DARK_MODE else "#111827"};">',
+            f'<polygon points="{_fn_pts1}" fill="{_fn_c1}" opacity="0.92"></polygon>',
+            f'<polygon points="{_fn_pts2}" fill="{_fn_c2}" opacity="0.92"></polygon>',
+            f'<polygon points="{_fn_pts3}" fill="{_fn_c3}" opacity="0.92"></polygon>',
+            _fn_labels_svg,
+            '</svg>',
+        ])
+
+        _funnel_html = f'<div style="display:flex;justify-content:center;padding:4px 0;">{_funnel_svg}</div>'
+
+        # ── Párrafo combinado: funde el diagnóstico de GMV incremental (card 3)
+        # con el diagnóstico de traffic/CVR (card 4 vieja) en una sola lectura. ──
+        if not _has_traffic and not _has_cvr:
+            _fn_combined_text = "No hay traffic ni conversión registrados esta semana. Activá ads para empezar a generar ambas métricas de forma medible."
+            _fn_pitch = "Activá ads para empezar a generar tráfico y CVR medibles — sin eso no podemos calcular dónde está la oportunidad real."
+            _fn_headline = "Sin datos suficientes"
+            _fn_headline_color = "#A1A1AA"
+        elif _cr_above_bench and not _has_traffic:
+            _fn_combined_text = f"Tu CR ({_fn_brand_cvr_disp}) ya está sobre el benchmark de tu categoría ({_fn_bench_cvr_disp}), pero no hay traffic registrado esta semana para medir el volumen."
+            _fn_pitch = f"Tu tienda convierte mejor que el promedio ({_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}). El problema no es la tienda — necesitamos activar ads para medir y escalar el tráfico real."
+            _fn_headline = "Conversión fuerte, falta tráfico medible"
+            _fn_headline_color = "#F97316"
+        elif _d4_diag == "Problema doble":
+            _fn_combined_text = f"Dos frentes abiertos: traffic de {_fn_brand_traffic_disp} vs benchmark {_fn_bench_traffic_disp}, y conversión de {_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}." + (f" Si llegaras al benchmark de conversión con el mismo tráfico, sumarías {fmt_ars(round(_gmv_incremental))}/mes." if _gmv_incremental > 0 else "")
+            _fn_pitch = f"Dos frentes abiertos: traffic de {_fn_brand_traffic_disp} vs benchmark {_fn_bench_traffic_disp} y CVR de {_fn_brand_cvr_disp} vs {_fn_bench_cvr_disp}. " + (f"Combinados, perdés {_lost_orders} pedidos por semana. " if _lost_orders > 0 else "") + "La prioridad es primero limpiar la tienda y después escalar tráfico — al revés es tirar plata."
+            _fn_headline = "Problema doble"
+            _fn_headline_color = "#EF4444"
+        elif _d4_diag == "Problema: Tráfico":
+            _fn_combined_text = f"Tu conversión ({_fn_brand_cvr_disp}) está sobre el benchmark ({_fn_bench_cvr_disp}), pero el tráfico ({_fn_brand_traffic_disp}) está por debajo del benchmark de categoría ({_fn_bench_traffic_disp})." + (f" Si alcanzaras el benchmark de CVR con más tráfico, el incremental estimado sería {fmt_ars(round(_gmv_incremental))}/mes." if _gmv_incremental > 0 else "")
+            _fn_pitch = _d4_pitch
+            _fn_headline = "Problema: Tráfico"
+            _fn_headline_color = "#F97316"
+        elif _d4_diag == "Problema: Conversión":
+            _fn_combined_text = f"Tu tráfico ({_fn_brand_traffic_disp}) está en línea con el benchmark ({_fn_bench_traffic_disp}), pero tu conversión ({_fn_brand_cvr_disp}) está por debajo del promedio de categoría ({_fn_bench_cvr_disp})." + (f" Si llegás al benchmark, sumas {fmt_ars(round(_gmv_incremental))}/mes con el mismo tráfico." if _gmv_incremental > 0 else "")
+            _fn_pitch = _d4_pitch
+            _fn_headline = "Problema: Conversión"
+            _fn_headline_color = "#F97316"
+        else:
+            _fn_combined_text = f"Traffic ({_fn_brand_traffic_disp}) y conversión ({_fn_brand_cvr_disp}) están alineados o por encima del benchmark de categoría ({_fn_bench_traffic_disp} / {_fn_bench_cvr_disp})."
+            _fn_pitch = _d4_pitch
+            _fn_headline = "Ambas métricas OK"
+            _fn_headline_color = "#22C55E"
+
+        # NOTA: mismo fix — fragmentos sin sangría de línea, unidos con join().
+        _funnel_card_html = "".join([
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">',
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:10px;">🔍 Funnel Traffic &amp; Conversión vs Benchmark</div>',
+            f'<div style="font-size:15px;font-weight:900;color:{_fn_headline_color};margin-bottom:10px;">{_fn_headline}</div>',
+            f'<div style="margin-bottom:12px;">{_funnel_html}</div>',
+            '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;margin-top:auto;">',
+            f'<div style="font-size:11px;color:#6B7280;line-height:1.5;margin-bottom:10px;">{_fn_combined_text}</div>',
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
+            f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_fn_pitch}"</div>',
+            '</div>',
+            '</div>',
+        ])
+
+        # NOTA: mismo fix aplicado a todo el bloque Analytics — sin sangría de línea,
+        # construido con join() de fragmentos en vez de f-string multilínea indentado.
+        _analytics_html = "".join([
+            '<div class="wide-info-card">',
+            '<div class="wide-info-title">Analytics</div>',
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:14px;margin-top:4px;">',
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">',
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">💰 Margen neto / orden</div>',
+            f'<div style="font-size:26px;font-weight:900;color:#22C55E;line-height:1.1;">{fmt_ars(round(_margin_per_order))}</div>',
+            f'<div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:8px;">{_margin_pct_display}% del ticket · food cost {round(_food_cost_rate*100)}% + comisión {round(_comm_rate*100)}%</div>',
+            '<div style="background:rgba(34,197,94,0.08);border-radius:8px;padding:8px 10px;margin-bottom:12px;">',
+            '<div style="font-size:10px;font-weight:700;color:#16A34A;text-transform:uppercase;margin-bottom:2px;">GMV neto total · este mes</div>',
+            f'<div style="font-size:16px;font-weight:900;color:#111827;">{fmt_ars(round(_margin_total_neto))}</div>',
+            f'<div style="font-size:10px;color:#6B7280;margin-top:2px;">{f"Bruto {fmt_ars(round(_margin_total_bruto))} − Ads {fmt_ars(round(_ads_monthly_budget_ars))}/mes (booking semanal ×4)" if _ads_is_active else "Sin descuento de Ads · campaña no activa"}</div>',
+            '</div>',
+            '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">',
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
+            f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"Por cada pedido de {fmt_ars(round(_aov))} que te entra, después de la comisión ({round(_comm_rate*100)}%) y el costo del producto ({round(_food_cost_rate*100)}%), quedan {fmt_ars(round(_margin_per_order))} para cubrir fijos. Con tu volumen del mes, eso son {fmt_ars(round(_margin_total_neto))} de margen real{" después de descontar tu inversión en Ads" if _ads_is_active else ""}."</div>',
+            '</div>',
+            '</div>',
+            '<div style="background:rgba(255,255,255,0.90);border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:16px 18px;">',
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.60);letter-spacing:.06em;margin-bottom:8px;">⚖️ Punto de equilibrio MD 20%</div>',
+            f'<div style="font-size:26px;font-weight:900;color:{_be_color};line-height:1.1;">+{_be_orders} orden{"es" if _be_orders != 1 else ""}</div>',
+            f'<div style="font-size:12px;color:#6B7280;margin-top:4px;margin-bottom:12px;">Cada orden con promo te cuesta {fmt_ars(round(_promo_cost_per_order))}{_coverage_line}</div>',
+            '<div style="border-top:1px solid rgba(255,255,255,0.95);padding-top:10px;">',
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(107,114,128,0.55);margin-bottom:4px;">Cómo decírselo al dueño</div>',
+            f'<div style="font-size:11px;color:#6B7280;line-height:1.5;font-style:italic;">"{_be_pitch}"</div>',
+            '</div>',
+            '</div>',
+            _funnel_card_html,
+            '</div>',
+            _pitch_facts_block,
+            '</div>',
+        ])
+        st.markdown(_analytics_html, unsafe_allow_html=True)
 
     # ── Campaign Designer (after Analytics) ───────────────────────────────────
-    st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
+    with _bf_tab_campaign:
+        st.markdown(render_campaign_designer_html(campaign_design), unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
     # ✉️ PREDETERMINED OUTREACH (item 11) — reemplaza a Brand vs Brand (item 9;
@@ -17641,102 +17650,103 @@ def render_brand_profile(row, brand_id):
     # Regla Sabas: urgencia sin hambre, cierre con pregunta que abra conversación;
     # el email termina pidiendo canal preferido. Contenido SIEMPRE en español.
     # ══════════════════════════════════════════════════════════════════════
-    _po_email = clean(get_from_row(row, ["email", "mail", "correo"], ""), "")
-    _po_phone = fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"], ""))
-    _po_ads_roi = to_number(ads_current.get("roi"), 0)
-    try:
-        _po_topics = list(_collect_priority_topics(brand_id, name, ads_current, md_current, _po_ads_roi) or [])
-    except Exception:
-        _po_topics = []
+    with _bf_tab_outreach:
+        _po_email = clean(get_from_row(row, ["email", "mail", "correo"], ""), "")
+        _po_phone = fmt_contact_number(get_from_row(row, ["contact number", "phone", "contact"], ""))
+        _po_ads_roi = to_number(ads_current.get("roi"), 0)
+        try:
+            _po_topics = list(_collect_priority_topics(brand_id, name, ads_current, md_current, _po_ads_roi) or [])
+        except Exception:
+            _po_topics = []
 
-    if len(_po_topics) < 3 and campaign_design:
-        _a2 = campaign_design.get("ads2", {}) or {}
-        if _a2.get("mode") == "Acquisition" and _a2.get("monthly"):
-            _po_topics.append(f"activar visibilidad paga con un plan de {fmt_ars(_a2['monthly'])}/mes que proyecta pedidos incrementales desde la primera semana")
-        if campaign_design.get("md2_alert"):
-            _po_topics.append("la promo activa está rindiendo por debajo del benchmark — conviene reestructurarla ya")
-        _v2 = campaign_design.get("aov2", {}) or {}
-        if _v2.get("alert"):
-            _po_topics.append("el ticket promedio está por debajo de su categoría — hay plata sobre la mesa en combos")
-    if not _po_topics:
-        _po_topics = ["revisión general de performance y oportunidades activas de la marca"]
-    _po_top3 = _po_topics[:3]
+        if len(_po_topics) < 3 and campaign_design:
+            _a2 = campaign_design.get("ads2", {}) or {}
+            if _a2.get("mode") == "Acquisition" and _a2.get("monthly"):
+                _po_topics.append(f"activar visibilidad paga con un plan de {fmt_ars(_a2['monthly'])}/mes que proyecta pedidos incrementales desde la primera semana")
+            if campaign_design.get("md2_alert"):
+                _po_topics.append("la promo activa está rindiendo por debajo del benchmark — conviene reestructurarla ya")
+            _v2 = campaign_design.get("aov2", {}) or {}
+            if _v2.get("alert"):
+                _po_topics.append("el ticket promedio está por debajo de su categoría — hay plata sobre la mesa en combos")
+        if not _po_topics:
+            _po_topics = ["revisión general de performance y oportunidades activas de la marca"]
+        _po_top3 = _po_topics[:3]
 
-    _po_lines_num = "\n".join(f"{i+1}) {t[0].upper() + t[1:]}" for i, t in enumerate(_po_top3))
-    _po_lines_wa  = " ".join(f"{i+1}) {t}." for i, t in enumerate(_po_top3))
-    _po_subject = f"{name} · {_po_top3[0][:60].rstrip()} — definámoslo hoy"
+        _po_lines_num = "\n".join(f"{i+1}) {t[0].upper() + t[1:]}" for i, t in enumerate(_po_top3))
+        _po_lines_wa  = " ".join(f"{i+1}) {t}." for i, t in enumerate(_po_top3))
+        _po_subject = f"{name} · {_po_top3[0][:60].rstrip()} — definámoslo hoy"
 
-    _po_email_body = (
-        f"Hola Equipo de {name},\n\n"
-        f"Hablas con {FARMER_NAME}, {FARMER_ROLE_INLINE} en Rappi. "
-        f"Te escribo porque hoy tenemos {len(_po_top3)} frente{'s' if len(_po_top3) > 1 else ''} "
-        f"que conviene mover ya:\n\n"
-        f"{_po_lines_num}\n\n"
-        f"Cada día que pasa sin resolverlo es visibilidad y pedidos que la marca cede frente a su "
-        f"categoría — y lo bueno es que se define rápido si lo tomamos hoy.\n\n"
-        f"¿Preferís que te llame hoy mismo o seguimos por WhatsApp? Quedo atento.\n\n"
-        f"{FARMER_NAME}\nRappi"
-    )
-    _po_wa_body = (
-        f"Hola Equipo de {name},\n\n"
-        f"Hablas con {FARMER_NAME} de Rappi. "
-        f"Hoy quiero resolver contigo: {_po_lines_wa} "
-        f"Son definiciones rápidas y cada día que pasa nos cuesta pedidos. "
-        f"¿Tienes 10 minutos ahora para cerrarlo?"
-    )
+        _po_email_body = (
+            f"Hola Equipo de {name},\n\n"
+            f"Hablas con {FARMER_NAME}, {FARMER_ROLE_INLINE} en Rappi. "
+            f"Te escribo porque hoy tenemos {len(_po_top3)} frente{'s' if len(_po_top3) > 1 else ''} "
+            f"que conviene mover ya:\n\n"
+            f"{_po_lines_num}\n\n"
+            f"Cada día que pasa sin resolverlo es visibilidad y pedidos que la marca cede frente a su "
+            f"categoría — y lo bueno es que se define rápido si lo tomamos hoy.\n\n"
+            f"¿Preferís que te llame hoy mismo o seguimos por WhatsApp? Quedo atento.\n\n"
+            f"{FARMER_NAME}\nRappi"
+        )
+        _po_wa_body = (
+            f"Hola Equipo de {name},\n\n"
+            f"Hablas con {FARMER_NAME} de Rappi. "
+            f"Hoy quiero resolver contigo: {_po_lines_wa} "
+            f"Son definiciones rápidas y cada día que pasa nos cuesta pedidos. "
+            f"¿Tienes 10 minutos ahora para cerrarlo?"
+        )
 
-    # Dos cards fijas sólidas (estilo Brand Finder), con la plantilla escrita
-    # adentro — nada de scroll interno ni bloques de código.
-    _po_email_html = html.escape(_po_email_body).replace("\n", "<br>")
-    _po_wa_html = html.escape(_po_wa_body).replace("\n", "<br>")
-    _po_subject_html = html.escape(_po_subject)
-    _po_email_label = html.escape(_po_email) if _po_email else "sin email registrado"
-    _po_phone_label = html.escape(_po_phone) if _po_phone else "sin teléfono registrado"
+        # Dos cards fijas sólidas (estilo Brand Finder), con la plantilla escrita
+        # adentro — nada de scroll interno ni bloques de código.
+        _po_email_html = html.escape(_po_email_body).replace("\n", "<br>")
+        _po_wa_html = html.escape(_po_wa_body).replace("\n", "<br>")
+        _po_subject_html = html.escape(_po_subject)
+        _po_email_label = html.escape(_po_email) if _po_email else "sin email registrado"
+        _po_phone_label = html.escape(_po_phone) if _po_phone else "sin teléfono registrado"
 
-    st.markdown(
-        "<div class='wide-info-card' style='margin-bottom:12px;'>"
-        "<div class='wide-info-title'>✉️ Predetermined Outreach</div>"
-        "<div style='font-size:12px;color:#6B7280;margin:-4px 0 0;'>"
-        "Plantilla lista para enviar con los 3 temas del día — email y WhatsApp</div></div>",
-        unsafe_allow_html=True)
+        st.markdown(
+            "<div class='wide-info-card' style='margin-bottom:12px;'>"
+            "<div class='wide-info-title'>✉️ Predetermined Outreach</div>"
+            "<div style='font-size:12px;color:#6B7280;margin:-4px 0 0;'>"
+            "Plantilla lista para enviar con los 3 temas del día — email y WhatsApp</div></div>",
+            unsafe_allow_html=True)
 
-    _email_card = (
-        "<div class='business-mini-card lever-md' style='padding:18px 20px;'>"
-        "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>"
-        "<div class='card-label' style='margin:0;'>📧 Email</div>"
-        f"<span style='font-size:11px;color:#6B7280;font-weight:700;'>{_po_email_label}</span></div>"
-        "<div style='font-size:10px;font-weight:800;text-transform:uppercase;color:#2563EB;"
-        "letter-spacing:.04em;margin-top:12px;'>Asunto</div>"
-        f"<div style='font-size:13px;font-weight:800;color:#111827;margin-top:2px;line-height:1.4;'>{_po_subject_html}</div>"
-        "<div style='border-top:1px solid rgba(0,0,0,0.06);margin:12px 0;'></div>"
-        f"<div style='font-size:13px;color:#374151;line-height:1.7;'>{_po_email_html}</div>"
-        "</div>")
+        _email_card = (
+            "<div class='business-mini-card lever-md' style='padding:18px 20px;'>"
+            "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>"
+            "<div class='card-label' style='margin:0;'>📧 Email</div>"
+            f"<span style='font-size:11px;color:#6B7280;font-weight:700;'>{_po_email_label}</span></div>"
+            "<div style='font-size:10px;font-weight:800;text-transform:uppercase;color:#2563EB;"
+            "letter-spacing:.04em;margin-top:12px;'>Asunto</div>"
+            f"<div style='font-size:13px;font-weight:800;color:#111827;margin-top:2px;line-height:1.4;'>{_po_subject_html}</div>"
+            "<div style='border-top:1px solid rgba(0,0,0,0.06);margin:12px 0;'></div>"
+            f"<div style='font-size:13px;color:#374151;line-height:1.7;'>{_po_email_html}</div>"
+            "</div>")
 
-    _wa_button = ""
-    if _po_phone:
-        _po_wa_digits = re.sub(r"\D", "", _po_phone)
-        if _po_wa_digits:
-            _wa_button = (
-                f"<a href='https://wa.me/{_po_wa_digits}?text={quote_plus(_po_wa_body)}' target='_blank' "
-                "style='display:inline-block;background:#25D366;color:#FFFFFF;border-radius:10px;"
-                "padding:9px 20px;font-size:13px;font-weight:900;text-decoration:none;margin-top:14px;'>"
-                "Open in WhatsApp →</a>")
-    _wa_card = (
-        "<div class='business-mini-card lever-menu' style='padding:18px 20px;border-left:3px solid #25D366 !important;'>"
-        "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>"
-        "<div class='card-label' style='margin:0;'>📱 WhatsApp</div>"
-        f"<span style='font-size:11px;color:#6B7280;font-weight:700;'>{_po_phone_label}</span></div>"
-        "<div style='font-size:10px;font-weight:800;text-transform:uppercase;color:#25D366;"
-        "letter-spacing:.04em;margin-top:12px;'>Mensaje</div>"
-        f"<div style='font-size:13px;color:#374151;line-height:1.7;margin-top:4px;'>{_po_wa_html}</div>"
-        f"{_wa_button}"
-        "</div>")
+        _wa_button = ""
+        if _po_phone:
+            _po_wa_digits = re.sub(r"\D", "", _po_phone)
+            if _po_wa_digits:
+                _wa_button = (
+                    f"<a href='https://wa.me/{_po_wa_digits}?text={quote_plus(_po_wa_body)}' target='_blank' "
+                    "style='display:inline-block;background:#25D366;color:#FFFFFF;border-radius:10px;"
+                    "padding:9px 20px;font-size:13px;font-weight:900;text-decoration:none;margin-top:14px;'>"
+                    "Open in WhatsApp →</a>")
+        _wa_card = (
+            "<div class='business-mini-card lever-menu' style='padding:18px 20px;border-left:3px solid #25D366 !important;'>"
+            "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>"
+            "<div class='card-label' style='margin:0;'>📱 WhatsApp</div>"
+            f"<span style='font-size:11px;color:#6B7280;font-weight:700;'>{_po_phone_label}</span></div>"
+            "<div style='font-size:10px;font-weight:800;text-transform:uppercase;color:#25D366;"
+            "letter-spacing:.04em;margin-top:12px;'>Mensaje</div>"
+            f"<div style='font-size:13px;color:#374151;line-height:1.7;margin-top:4px;'>{_po_wa_html}</div>"
+            f"{_wa_button}"
+            "</div>")
 
-    _po_c1, _po_c2 = st.columns(2)
-    with _po_c1:
-        st.markdown(_email_card, unsafe_allow_html=True)
-    with _po_c2:
-        st.markdown(_wa_card, unsafe_allow_html=True)
+        _po_c1, _po_c2 = st.columns(2)
+        with _po_c1:
+            st.markdown(_email_card, unsafe_allow_html=True)
+        with _po_c2:
+            st.markdown(_wa_card, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
     # 📋 FICHA RESUMEN — imagen rápida para aliados (compacta, tipo ficha técnica)
@@ -17744,115 +17754,115 @@ def render_brand_profile(row, brand_id):
     # productos. Se AÑADE al final (no reemplaza nada). Defensiva: si falta algún
     # dato, la ficha simplemente no se dibuja en vez de romper la página.
     # ══════════════════════════════════════════════════════════════════════
-    try:
-        def _kv(label, value, flex=1, minw=120):
-            return (f"<div style='flex:{flex};min-width:{minw}px;'>"
-                    f"<div style='font-size:10px;font-weight:800;text-transform:uppercase;"
-                    f"letter-spacing:.05em;color:#6B7280;'>{html.escape(str(label))}</div>"
-                    f"<div style='font-size:13px;font-weight:800;color:#111827;margin-top:2px;"
-                    f"line-height:1.25;'>{html.escape(str(value))}</div></div>")
-
-        def _lev_status(d):
-            _act = bool(d.get("active", False))
-            _roi = to_number(d.get("roi"), 0)
-            return ("Activo" if _act else "Inactivo") + (f" · ROI {_roi:.1f}x" if (_act and _roi > 0) else "")
-
-        # 360: dato de arriba por área (sin Priority Signal)
-        _f360 = {"lever-ops": "—", "lever-menu": "—", "lever-md": "—", "lever-ads": "—"}
-        for _a in actions:
-            _lev = _action_area_lever_class(clean(_a.get("area"), ""))
-            if _lev in ("lever-md", "lever-ads"):
-                _f360[_lev] = _lev_status(md_current if _lev == "lever-md" else ads_current)
-            elif _lev in ("lever-ops", "lever-menu"):
-                _f360[_lev] = clean(_a.get("action"), "Following")
-
-        # Top 3 productos (sin VPD)
-        _f_prod_names = []
-        for _p in (get_definitive_top_products_for_brand(brand_id) or []):
-            _pn = clean(_p.get("name"), "-")
-            if _pn not in ("", "-"):
-                _f_prod_names.append(_pn)
-        _f_prod_names = _f_prod_names[:3]
-        while len(_f_prod_names) < 3:
-            _f_prod_names.append("—")
-
-        # Órdenes del mes (para las cajitas de los charts)
+    with _bf_tab_resumen:
         try:
-            _f_orders = _orders_from_caba
-        except Exception:
-            _f_orders = get_orders_from_detalle_caba(brand_id, brand_name=name)
+            def _kv(label, value, flex=1, minw=120):
+                return (f"<div style='flex:{flex};min-width:{minw}px;'>"
+                        f"<div style='font-size:10px;font-weight:800;text-transform:uppercase;"
+                        f"letter-spacing:.05em;color:#6B7280;'>{html.escape(str(label))}</div>"
+                        f"<div style='font-size:13px;font-weight:800;color:#111827;margin-top:2px;"
+                        f"line-height:1.25;'>{html.escape(str(value))}</div></div>")
 
-        # Charts 3 meses — solo ARS (sin USD/COP), con órdenes: lo único gráfico
-        _f_gmv_chart = _dot_line_chart_card("GMV · 3 meses", current_gmv_ars, may_gmv_ars,
-                                            abril_gmv_ars, fmt_ars, "", orders_inline=_f_orders)
-        _f_aov_chart = _dot_line_chart_card("AOV · 3 meses", current_aov_ars, may_aov_ars,
-                                            abril_aov_ars, fmt_ars, "", orders_inline=_f_orders)
+            def _lev_status(d):
+                _act = bool(d.get("active", False))
+                _roi = to_number(d.get("roi"), 0)
+                return ("Activo" if _act else "Inactivo") + (f" · ROI {_roi:.1f}x" if (_act and _roi > 0) else "")
 
-        # #4 · CVR de la ficha = el mismo CVR de Business Information + 4 puntos (siempre)
-        import re as _re_cvr
-        _m_cvr = _re_cvr.search(r"([\d]+(?:[.,]\d+)?)", str(conversion_display))
-        if _m_cvr:
-            _cvr_ficha = f"{float(_m_cvr.group(1).replace(',', '.')) + 4:.1f}%"
-        else:
-            _cvr_ficha = str(conversion_display)
+            # 360: dato de arriba por área (sin Priority Signal)
+            _f360 = {"lever-ops": "—", "lever-menu": "—", "lever-md": "—", "lever-ads": "—"}
+            for _a in actions:
+                _lev = _action_area_lever_class(clean(_a.get("area"), ""))
+                if _lev in ("lever-md", "lever-ads"):
+                    _f360[_lev] = _lev_status(md_current if _lev == "lever-md" else ads_current)
+                elif _lev in ("lever-ops", "lever-menu"):
+                    _f360[_lev] = clean(_a.get("action"), "Following")
 
-        _biz = (_kv("Ads", _lev_status(ads_current)) + _kv("Markdown", _lev_status(md_current))
-                + _kv("Markdown Pro", _lev_status(md_pro_current)) + _kv("Pro Users", pro_users_display)
-                + _kv("Conversion Rate", _cvr_ficha) + _kv("Commission Rate", commission_display))
-        _act360 = (_kv("OPS general", _f360["lever-ops"]) + _kv("Menú", _f360["lever-menu"])
-                   + _kv("Markdown", _f360["lever-md"]) + _kv("Ads", _f360["lever-ads"]))
-        _prods = "".join([
-            "<div style='flex:1;min-width:80px;text-align:center;background:#F6F9FF;"
-            "border:1px solid #E5ECFA;border-radius:10px;padding:9px 6px;'>"
-            f"<div style='font-size:10px;font-weight:800;color:#2563EB;'>#{_i+1}</div>"
-            f"<div style='font-size:12px;font-weight:700;color:#111827;margin-top:3px;"
-            f"line-height:1.2;'>{html.escape(_n)}</div></div>"
-            for _i, _n in enumerate(_f_prod_names)])
+            # Top 3 productos (sin VPD)
+            _f_prod_names = []
+            for _p in (get_definitive_top_products_for_brand(brand_id) or []):
+                _pn = clean(_p.get("name"), "-")
+                if _pn not in ("", "-"):
+                    _f_prod_names.append(_pn)
+            _f_prod_names = _f_prod_names[:3]
+            while len(_f_prod_names) < 3:
+                _f_prod_names.append("—")
 
-        _div = "<div style='border-top:1px solid #E5ECFA;margin:14px 0 12px;'></div>"
-        _sec = ("font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;"
-                "color:#2563EB;margin-bottom:8px;")
+            # Órdenes del mes (para las cajitas de los charts)
+            try:
+                _f_orders = _orders_from_caba
+            except Exception:
+                _f_orders = get_orders_from_detalle_caba(brand_id, brand_name=name)
 
-        _ficha_html = (
-            "<div class='wide-info-card' style='margin-top:8px;'>"
-            "<div class='wide-info-title'>📋 Ficha resumen — lista para enviar al aliado</div>"
-            # Identificación
-            "<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px;'>"
-            f"<div style='font-size:26px;font-weight:900;color:#111827;line-height:1;'>{html.escape(name)}</div>"
-            f"<span style='font-size:13px;font-weight:800;color:#6B7280;'>{html.escape(str(brand_id))}</span></div>"
-            "<div style='display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;'>"
-            f"{_kv('LTOR Tier', ltor)}{_kv('Category', category)}"
-            "<div style='flex:2;min-width:180px;'><div style='font-size:10px;font-weight:800;"
-            "text-transform:uppercase;letter-spacing:.05em;color:#6B7280;'>Stickers</div>"
-            f"<div style='margin-top:4px;'>{sticker_html}</div></div></div>"
-            + _div +
-            f"<div style='{_sec}'>Business &amp; Portfolio</div>"
-            f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{_biz}</div>"
-            + _div +
-            f"<div style='{_sec}'>360 Action</div>"
-            f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{_act360}</div>"
-            + _div +
-            "<div style='display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;'>"
-            "<div style='flex:1;min-width:190px;background:rgba(34,197,94,0.10);"
-            "border:1px solid rgba(34,197,94,0.30);border-radius:12px;padding:13px 15px;'>"
-            "<div style='font-size:10px;font-weight:800;color:#16A34A;text-transform:uppercase;'>"
-            "GMV neto total · este mes</div>"
-            f"<div style='font-size:20px;font-weight:900;color:#111827;margin-top:4px;'>"
-            f"{fmt_ars(round(_margin_total_neto))}</div></div>"
-            "<div style='flex:2;min-width:260px;'><div style='font-size:10px;font-weight:800;"
-            "text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-bottom:6px;'>"
-            "Top productos</div>"
-            f"<div style='display:flex;gap:8px;'>{_prods}</div></div></div>"
-            + _div +
-            "<div style='display:flex;gap:16px;flex-wrap:wrap;'>"
-            f"<div style='flex:1;min-width:260px;'>{_f_gmv_chart}</div>"
-            f"<div style='flex:1;min-width:260px;'>{_f_aov_chart}</div></div>"
-            "</div>"
-        )
-        with st.expander("📋 Ficha resumen de la marca — desplegar / ocultar", expanded=False):
+            # Charts 3 meses — solo ARS (sin USD/COP), con órdenes: lo único gráfico
+            _f_gmv_chart = _dot_line_chart_card("GMV · 3 meses", current_gmv_ars, may_gmv_ars,
+                                                abril_gmv_ars, fmt_ars, "", orders_inline=_f_orders)
+            _f_aov_chart = _dot_line_chart_card("AOV · 3 meses", current_aov_ars, may_aov_ars,
+                                                abril_aov_ars, fmt_ars, "", orders_inline=_f_orders)
+
+            # #4 · CVR de la ficha = el mismo CVR de Business Information + 4 puntos (siempre)
+            import re as _re_cvr
+            _m_cvr = _re_cvr.search(r"([\d]+(?:[.,]\d+)?)", str(conversion_display))
+            if _m_cvr:
+                _cvr_ficha = f"{float(_m_cvr.group(1).replace(',', '.')) + 4:.1f}%"
+            else:
+                _cvr_ficha = str(conversion_display)
+
+            _biz = (_kv("Ads", _lev_status(ads_current)) + _kv("Markdown", _lev_status(md_current))
+                    + _kv("Markdown Pro", _lev_status(md_pro_current)) + _kv("Pro Users", pro_users_display)
+                    + _kv("Conversion Rate", _cvr_ficha) + _kv("Commission Rate", commission_display))
+            _act360 = (_kv("OPS general", _f360["lever-ops"]) + _kv("Menú", _f360["lever-menu"])
+                       + _kv("Markdown", _f360["lever-md"]) + _kv("Ads", _f360["lever-ads"]))
+            _prods = "".join([
+                "<div style='flex:1;min-width:80px;text-align:center;background:#F6F9FF;"
+                "border:1px solid #E5ECFA;border-radius:10px;padding:9px 6px;'>"
+                f"<div style='font-size:10px;font-weight:800;color:#2563EB;'>#{_i+1}</div>"
+                f"<div style='font-size:12px;font-weight:700;color:#111827;margin-top:3px;"
+                f"line-height:1.2;'>{html.escape(_n)}</div></div>"
+                for _i, _n in enumerate(_f_prod_names)])
+
+            _div = "<div style='border-top:1px solid #E5ECFA;margin:14px 0 12px;'></div>"
+            _sec = ("font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;"
+                    "color:#2563EB;margin-bottom:8px;")
+
+            _ficha_html = (
+                "<div class='wide-info-card' style='margin-top:8px;'>"
+                "<div class='wide-info-title'>📋 Ficha resumen — lista para enviar al aliado</div>"
+                # Identificación
+                "<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px;'>"
+                f"<div style='font-size:26px;font-weight:900;color:#111827;line-height:1;'>{html.escape(name)}</div>"
+                f"<span style='font-size:13px;font-weight:800;color:#6B7280;'>{html.escape(str(brand_id))}</span></div>"
+                "<div style='display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;'>"
+                f"{_kv('LTOR Tier', ltor)}{_kv('Category', category)}"
+                "<div style='flex:2;min-width:180px;'><div style='font-size:10px;font-weight:800;"
+                "text-transform:uppercase;letter-spacing:.05em;color:#6B7280;'>Stickers</div>"
+                f"<div style='margin-top:4px;'>{sticker_html}</div></div></div>"
+                + _div +
+                f"<div style='{_sec}'>Business &amp; Portfolio</div>"
+                f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{_biz}</div>"
+                + _div +
+                f"<div style='{_sec}'>360 Action</div>"
+                f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{_act360}</div>"
+                + _div +
+                "<div style='display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;'>"
+                "<div style='flex:1;min-width:190px;background:rgba(34,197,94,0.10);"
+                "border:1px solid rgba(34,197,94,0.30);border-radius:12px;padding:13px 15px;'>"
+                "<div style='font-size:10px;font-weight:800;color:#16A34A;text-transform:uppercase;'>"
+                "GMV neto total · este mes</div>"
+                f"<div style='font-size:20px;font-weight:900;color:#111827;margin-top:4px;'>"
+                f"{fmt_ars(round(_margin_total_neto))}</div></div>"
+                "<div style='flex:2;min-width:260px;'><div style='font-size:10px;font-weight:800;"
+                "text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-bottom:6px;'>"
+                "Top productos</div>"
+                f"<div style='display:flex;gap:8px;'>{_prods}</div></div></div>"
+                + _div +
+                "<div style='display:flex;gap:16px;flex-wrap:wrap;'>"
+                f"<div style='flex:1;min-width:260px;'>{_f_gmv_chart}</div>"
+                f"<div style='flex:1;min-width:260px;'>{_f_aov_chart}</div></div>"
+                "</div>"
+            )
             st.markdown(_ficha_html, unsafe_allow_html=True)
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     return name
 
@@ -18438,160 +18448,162 @@ def page_campaign_weekly_tracker():
     ads_latest = latest[latest["channel"] == "Ads"].copy()
     md_latest  = latest[latest["channel"].isin(["Markdown", "Markdown PRO"])].copy()
 
-    st.markdown("### Ads CPC Monitor")
-    if ads_latest.empty:
-        ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Strategic Note"])
-    else:
-        ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
-        ads_latest["Consumption"] = ads_latest.apply(lambda r: (to_number(r.get("revenue_usd"),0) / to_number(r.get("bookings_usd"),0)) if to_number(r.get("bookings_usd"),0) else 0, axis=1)
-
-        # ── Enrich with CPC supervisor sheet data ────────────────────────────
-        _cpc_sup = _load_cpc_supervisor_data(EXCEL_FILE)
-        if not _cpc_sup.empty:
-            # Aggregate per brand (one brand can have multiple OK campaigns — take latest by END_DATE)
-            _cpc_sup["END_DATE"] = pd.to_datetime(_cpc_sup["END_DATE"], errors="coerce")
-            _cpc_sup_sorted = _cpc_sup.sort_values("END_DATE", ascending=False, na_position="last")
-            _cpc_latest = _cpc_sup_sorted.drop_duplicates(subset="BRAND_ID", keep="first")
-            _cpc_map = {}
-            for _, _cr in _cpc_latest.iterrows():
-                _bid = normalize_brand_id(_cr.get("BRAND_ID"))
-                _cpc_map[_bid] = {
-                    "_delivery_rate":        _cr.get("DELIVERY RATE"),
-                    "_pct_budget_sales":     _cr.get("%BUDGET/SALES"),
-                    "_pct_sug_budget_sales": _cr.get("%SUG_BUDGET/SALES"),
-                    "_accionables_raw":      _cr.get("ACCIONABLES"),
-                    "_accionables_parsed":   _parse_accionables(_cr.get("ACCIONABLES")),
-                    "_bidding_method":       _cr.get("BIDDING_METHOD"),
-                    "_revenue_supervisor":   _cr.get("REVENUE TOTAL"),
-                }
-            for col, default in [
-                ("_delivery_rate", None), ("_pct_budget_sales", None),
-                ("_pct_sug_budget_sales", None), ("_accionables_raw", None),
-                ("_accionables_parsed", {}), ("_bidding_method", None),
-                ("_revenue_supervisor", None),
-            ]:
-                ads_latest[col] = ads_latest["brand_id"].apply(
-                    lambda x, c=col, d=default: _cpc_map.get(normalize_brand_id(x), {}).get(c, d)
-                )
+    _tk_tab_ads, _tk_tab_md, _tk_tab_pro = st.tabs(["🟠 Ads", "🟦 Markdown", "💎 MD PRO"])
+    with _tk_tab_ads:
+        st.markdown("### Ads CPC Monitor")
+        if ads_latest.empty:
+            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Strategic Note"])
         else:
-            for col in ["_delivery_rate", "_pct_budget_sales", "_pct_sug_budget_sales",
-                        "_accionables_raw", "_accionables_parsed", "_bidding_method", "_revenue_supervisor"]:
-                ads_latest[col] = None
+            ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
+            ads_latest["Consumption"] = ads_latest.apply(lambda r: (to_number(r.get("revenue_usd"),0) / to_number(r.get("bookings_usd"),0)) if to_number(r.get("bookings_usd"),0) else 0, axis=1)
 
-        ads_latest["CPC Recommendation"] = ads_latest.apply(_ads_cpc_recommendation_from_row, axis=1)
-        ads_latest["Delivery Rate"] = ads_latest["_delivery_rate"].apply(
-            lambda v: f"{v*100:.0f}%" if pd.notna(v) else "—"
-        )
-        ads_latest["Accionables"] = ads_latest["_accionables_raw"].apply(
-            lambda v: str(v) if pd.notna(v) else "—"
-        )
-        ads_latest["False ROI Check"] = ads_latest.apply(lambda r: "Validate before scaling ⚠️" if to_number(r.get("roi"),0) >= 4 and to_number(r.get("bookings_usd"),0) < 10 else "OK", axis=1)
-        ads_latest["Pressure Stability"] = ads_latest.apply(lambda r: _pressure_stability_ads(r.get("roi"), r.get("Consumption")), axis=1)
-        ads_latest["ROI"] = ads_latest["roi"].apply(fmt_roi2)
-
-        # ROI Trend — inline SVG sparkline (dots + line, colored by direction)
-        def _roi_trend_for_brand(brand_id_val):
-            bid = normalize_brand_id(brand_id_val)
-            roi_vals = []
-            for p in periods:
-                subset = work[(work["period"].astype(str) == p) & (work["channel"] == "Ads") & (work["brand_id"].apply(normalize_brand_id) == bid)]
-                if not subset.empty:
-                    roi_vals.append(to_number(subset.iloc[0].get("roi", 0), 0))
-            if not roi_vals:
-                return "-"
-            # Build mini SVG sparkline 90x22
-            if len(roi_vals) == 1:
-                return fmt_roi2(roi_vals[0])
-            W, H, PAD = 90, 22, 4
-            _mn, _mx = min(roi_vals), max(roi_vals)
-            _rng = max(_mx - _mn, 0.1)
-            def _sx(i): return PAD + i * (W - 2*PAD) / max(len(roi_vals)-1, 1)
-            def _sy(v): return H - PAD - (v - _mn) / _rng * (H - 2*PAD)
-            line_color = "#22C55E" if roi_vals[-1] >= roi_vals[0] else "#EF4444"
-            pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(roi_vals))
-            dots = "".join(
-                f'<circle cx="{_sx(i):.1f}" cy="{_sy(v):.1f}" r="2.8" fill="{line_color}" title="{fmt_roi2(v)}"/>' 
-                for i, v in enumerate(roi_vals)
-            )
-            label_first = fmt_roi2(roi_vals[0])
-            label_last  = fmt_roi2(roi_vals[-1])
-            svg = (
-                f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" style="vertical-align:middle;" title="{label_first} → {label_last}">' 
-                f'<polyline points="{pts}" fill="none" stroke="{line_color}" stroke-width="1.8" stroke-linejoin="round"/>' 
-                + dots + f'</svg> <small style="color:{line_color};font-weight:700;">{label_last}</small>'
-            )
-            return svg
-
-        ads_latest["ROI Trend"] = ads_latest["brand_id"].apply(_roi_trend_for_brand)
-
-        # Strategic Note
-        def _ads_strategic_note(row):
-            roi = to_number(row.get("roi"), 0)
-            consumption = to_number(row.get("Consumption"), 0)
-            menu_ok = True  # placeholder — could cross with Perfect Store data
-            if roi < 2.0 and consumption > 0.80:
-                return "ROI bajo + presupuesto consumido — revisar CPC real externo antes de renovar."
-            if roi < 2.0:
-                return "ROI bajo · Maintain CPC, probar Markdown antes de subir tráfico."
-            if roi >= 4.5 and consumption < 0.60:
-                return "Buen ROI trend — posible upselling controlado de presupuesto."
-            if consumption >= 0.95:
-                return "Presupuesto consumido antes de 7d — revisar subida de presupuesto."
-            if roi >= 2.5:
-                return "ROI saludable — mantener y monitorear conversión semanal."
-            return "Sin fricción visible — revisar CPC real externo si ROI no sube."
-
-        ads_latest["Strategic Note"] = ads_latest.apply(_ads_strategic_note, axis=1)
-
-        # ── ROI drop detector: flag brands that dropped ≥1.0x WoW ────────────
-        def _roi_drop_alert(brand_id_val):
-            bid = normalize_brand_id(brand_id_val)
-            roi_series = []
-            for p in periods:
-                subset = work[(work["period"].astype(str) == p) & (work["channel"] == "Ads") & (work["brand_id"].apply(normalize_brand_id) == bid)]
-                if not subset.empty:
-                    roi_series.append(to_number(subset.iloc[0].get("roi", 0), 0))
-            if len(roi_series) >= 2:
-                drop = roi_series[-2] - roi_series[-1]   # prev - latest
-                if drop >= 1.0:
-                    return f"🔻 -{drop:.1f}x WoW"
-                if drop >= 0.5:
-                    return f"⚠️ -{drop:.1f}x WoW"
-            return ""
-
-        ads_latest["ROI Alert"] = ads_latest["brand_id"].apply(_roi_drop_alert)
-
-        # Revenue at Risk: revenue USD en juego si la cuenta se pierde o deteriora
-        def _ads_revenue_at_risk(row):
-            roi = to_number(row.get("roi"), 0)
-            consumption = to_number(row.get("Consumption"), 0)
-            rev = to_number(row.get("revenue_usd"), 0)
-            target = _ads_target_usd if _ads_target_usd > 0 else 1
-            if roi < 2.0 or consumption >= 0.95:
-                # Alto riesgo: toda la revenue está en riesgo
-                pct = round((rev / target) * 100, 1) if target > 0 else 0.0
-                return f"🔴 {fmt_usd(rev)} ({pct}% target)"
-            elif roi < 2.5 or consumption >= 0.80:
-                # Riesgo medio
-                at_risk = rev * 0.5
-                pct = round((at_risk / target) * 100, 1) if target > 0 else 0.0
-                return f"🟡 {fmt_usd(at_risk)} ({pct}% target)"
+            # ── Enrich with CPC supervisor sheet data ────────────────────────────
+            _cpc_sup = _load_cpc_supervisor_data(EXCEL_FILE)
+            if not _cpc_sup.empty:
+                # Aggregate per brand (one brand can have multiple OK campaigns — take latest by END_DATE)
+                _cpc_sup["END_DATE"] = pd.to_datetime(_cpc_sup["END_DATE"], errors="coerce")
+                _cpc_sup_sorted = _cpc_sup.sort_values("END_DATE", ascending=False, na_position="last")
+                _cpc_latest = _cpc_sup_sorted.drop_duplicates(subset="BRAND_ID", keep="first")
+                _cpc_map = {}
+                for _, _cr in _cpc_latest.iterrows():
+                    _bid = normalize_brand_id(_cr.get("BRAND_ID"))
+                    _cpc_map[_bid] = {
+                        "_delivery_rate":        _cr.get("DELIVERY RATE"),
+                        "_pct_budget_sales":     _cr.get("%BUDGET/SALES"),
+                        "_pct_sug_budget_sales": _cr.get("%SUG_BUDGET/SALES"),
+                        "_accionables_raw":      _cr.get("ACCIONABLES"),
+                        "_accionables_parsed":   _parse_accionables(_cr.get("ACCIONABLES")),
+                        "_bidding_method":       _cr.get("BIDDING_METHOD"),
+                        "_revenue_supervisor":   _cr.get("REVENUE TOTAL"),
+                    }
+                for col, default in [
+                    ("_delivery_rate", None), ("_pct_budget_sales", None),
+                    ("_pct_sug_budget_sales", None), ("_accionables_raw", None),
+                    ("_accionables_parsed", {}), ("_bidding_method", None),
+                    ("_revenue_supervisor", None),
+                ]:
+                    ads_latest[col] = ads_latest["brand_id"].apply(
+                        lambda x, c=col, d=default: _cpc_map.get(normalize_brand_id(x), {}).get(c, d)
+                    )
             else:
-                return "🟢 Estable"
+                for col in ["_delivery_rate", "_pct_budget_sales", "_pct_sug_budget_sales",
+                            "_accionables_raw", "_accionables_parsed", "_bidding_method", "_revenue_supervisor"]:
+                    ads_latest[col] = None
 
-        ads_latest["Revenue at Risk"] = ads_latest.apply(_ads_revenue_at_risk, axis=1)
-        ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Accionables","Delivery Rate","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
-    # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
-    # de marcas en un bloque de texto que parecía error de render. La misma señal ya
-    # vive por marca en la columna "ROI Alert" de la tabla de abajo.
+            ads_latest["CPC Recommendation"] = ads_latest.apply(_ads_cpc_recommendation_from_row, axis=1)
+            ads_latest["Delivery Rate"] = ads_latest["_delivery_rate"].apply(
+                lambda v: f"{v*100:.0f}%" if pd.notna(v) else "—"
+            )
+            ads_latest["Accionables"] = ads_latest["_accionables_raw"].apply(
+                lambda v: str(v) if pd.notna(v) else "—"
+            )
+            ads_latest["False ROI Check"] = ads_latest.apply(lambda r: "Validate before scaling ⚠️" if to_number(r.get("roi"),0) >= 4 and to_number(r.get("bookings_usd"),0) < 10 else "OK", axis=1)
+            ads_latest["Pressure Stability"] = ads_latest.apply(lambda r: _pressure_stability_ads(r.get("roi"), r.get("Consumption")), axis=1)
+            ads_latest["ROI"] = ads_latest["roi"].apply(fmt_roi2)
 
-    # Sort by Bookings USD descending so highest-spend brands appear first
-    if not ads_view.empty and "Bookings USD" in ads_view.columns:
-        ads_view = ads_view.sort_values("Bookings USD", ascending=False).reset_index(drop=True)
-        ads_view.index = ads_view.index + 1  # N. starts at 1
+            # ROI Trend — inline SVG sparkline (dots + line, colored by direction)
+            def _roi_trend_for_brand(brand_id_val):
+                bid = normalize_brand_id(brand_id_val)
+                roi_vals = []
+                for p in periods:
+                    subset = work[(work["period"].astype(str) == p) & (work["channel"] == "Ads") & (work["brand_id"].apply(normalize_brand_id) == bid)]
+                    if not subset.empty:
+                        roi_vals.append(to_number(subset.iloc[0].get("roi", 0), 0))
+                if not roi_vals:
+                    return "-"
+                # Build mini SVG sparkline 90x22
+                if len(roi_vals) == 1:
+                    return fmt_roi2(roi_vals[0])
+                W, H, PAD = 90, 22, 4
+                _mn, _mx = min(roi_vals), max(roi_vals)
+                _rng = max(_mx - _mn, 0.1)
+                def _sx(i): return PAD + i * (W - 2*PAD) / max(len(roi_vals)-1, 1)
+                def _sy(v): return H - PAD - (v - _mn) / _rng * (H - 2*PAD)
+                line_color = "#22C55E" if roi_vals[-1] >= roi_vals[0] else "#EF4444"
+                pts = " ".join(f"{_sx(i):.1f},{_sy(v):.1f}" for i, v in enumerate(roi_vals))
+                dots = "".join(
+                    f'<circle cx="{_sx(i):.1f}" cy="{_sy(v):.1f}" r="2.8" fill="{line_color}" title="{fmt_roi2(v)}"/>' 
+                    for i, v in enumerate(roi_vals)
+                )
+                label_first = fmt_roi2(roi_vals[0])
+                label_last  = fmt_roi2(roi_vals[-1])
+                svg = (
+                    f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" style="vertical-align:middle;" title="{label_first} → {label_last}">' 
+                    f'<polyline points="{pts}" fill="none" stroke="{line_color}" stroke-width="1.8" stroke-linejoin="round"/>' 
+                    + dots + f'</svg> <small style="color:{line_color};font-weight:700;">{label_last}</small>'
+                )
+                return svg
 
-    _render_html_table(ads_view)
-    _quick_goto_finder(ads_view, "tracker_ads")
+            ads_latest["ROI Trend"] = ads_latest["brand_id"].apply(_roi_trend_for_brand)
+
+            # Strategic Note
+            def _ads_strategic_note(row):
+                roi = to_number(row.get("roi"), 0)
+                consumption = to_number(row.get("Consumption"), 0)
+                menu_ok = True  # placeholder — could cross with Perfect Store data
+                if roi < 2.0 and consumption > 0.80:
+                    return "ROI bajo + presupuesto consumido — revisar CPC real externo antes de renovar."
+                if roi < 2.0:
+                    return "ROI bajo · Maintain CPC, probar Markdown antes de subir tráfico."
+                if roi >= 4.5 and consumption < 0.60:
+                    return "Buen ROI trend — posible upselling controlado de presupuesto."
+                if consumption >= 0.95:
+                    return "Presupuesto consumido antes de 7d — revisar subida de presupuesto."
+                if roi >= 2.5:
+                    return "ROI saludable — mantener y monitorear conversión semanal."
+                return "Sin fricción visible — revisar CPC real externo si ROI no sube."
+
+            ads_latest["Strategic Note"] = ads_latest.apply(_ads_strategic_note, axis=1)
+
+            # ── ROI drop detector: flag brands that dropped ≥1.0x WoW ────────────
+            def _roi_drop_alert(brand_id_val):
+                bid = normalize_brand_id(brand_id_val)
+                roi_series = []
+                for p in periods:
+                    subset = work[(work["period"].astype(str) == p) & (work["channel"] == "Ads") & (work["brand_id"].apply(normalize_brand_id) == bid)]
+                    if not subset.empty:
+                        roi_series.append(to_number(subset.iloc[0].get("roi", 0), 0))
+                if len(roi_series) >= 2:
+                    drop = roi_series[-2] - roi_series[-1]   # prev - latest
+                    if drop >= 1.0:
+                        return f"🔻 -{drop:.1f}x WoW"
+                    if drop >= 0.5:
+                        return f"⚠️ -{drop:.1f}x WoW"
+                return ""
+
+            ads_latest["ROI Alert"] = ads_latest["brand_id"].apply(_roi_drop_alert)
+
+            # Revenue at Risk: revenue USD en juego si la cuenta se pierde o deteriora
+            def _ads_revenue_at_risk(row):
+                roi = to_number(row.get("roi"), 0)
+                consumption = to_number(row.get("Consumption"), 0)
+                rev = to_number(row.get("revenue_usd"), 0)
+                target = _ads_target_usd if _ads_target_usd > 0 else 1
+                if roi < 2.0 or consumption >= 0.95:
+                    # Alto riesgo: toda la revenue está en riesgo
+                    pct = round((rev / target) * 100, 1) if target > 0 else 0.0
+                    return f"🔴 {fmt_usd(rev)} ({pct}% target)"
+                elif roi < 2.5 or consumption >= 0.80:
+                    # Riesgo medio
+                    at_risk = rev * 0.5
+                    pct = round((at_risk / target) * 100, 1) if target > 0 else 0.0
+                    return f"🟡 {fmt_usd(at_risk)} ({pct}% target)"
+                else:
+                    return "🟢 Estable"
+
+            ads_latest["Revenue at Risk"] = ads_latest.apply(_ads_revenue_at_risk, axis=1)
+            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Accionables","Delivery Rate","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+        # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
+        # de marcas en un bloque de texto que parecía error de render. La misma señal ya
+        # vive por marca en la columna "ROI Alert" de la tabla de abajo.
+
+        # Sort by Bookings USD descending so highest-spend brands appear first
+        if not ads_view.empty and "Bookings USD" in ads_view.columns:
+            ads_view = ads_view.sort_values("Bookings USD", ascending=False).reset_index(drop=True)
+            ads_view.index = ads_view.index + 1  # N. starts at 1
+
+        _render_html_table(ads_view)
+        _quick_goto_finder(ads_view, "tracker_ads")
 
     # Separate MD Normal and MD PRO sections
     md_normal_latest = latest[latest["channel"] == "Markdown"].copy()
@@ -18810,8 +18822,10 @@ def page_campaign_weekly_tracker():
         _render_html_table(md_view_out)
         _quick_goto_finder(md_view_out, f"tracker_md_{'pro' if is_pro else 'normal'}")
 
-    _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
-    _build_md_monitor_view(md_pro_latest, "Markdown PRO Monitor", is_pro=True)
+    with _tk_tab_md:
+        _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
+    with _tk_tab_pro:
+        _build_md_monitor_view(md_pro_latest, "Markdown PRO Monitor", is_pro=True)
 
 def page_brand_finder():
     render_header("Brand Finder", "Search and review brand information")
