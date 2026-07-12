@@ -18507,7 +18507,7 @@ def page_campaign_weekly_tracker():
     with _tk_tab_ads:
         st.markdown("### Ads CPC Monitor")
         if ads_latest.empty:
-            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"])
+            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"])
         else:
             ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
             ads_latest["Consumption"] = ads_latest.apply(lambda r: (to_number(r.get("revenue_usd"),0) / to_number(r.get("bookings_usd"),0)) if to_number(r.get("bookings_usd"),0) else 0, axis=1)
@@ -18531,18 +18531,20 @@ def page_campaign_weekly_tracker():
             _mes_avance = _dias_transcurridos_mes() / _dias_del_mes()
 
             def _pace_badge(v):
+                """Solo el % consumido + luz del semáforo. El diagnóstico (sub-consumo /
+                en ritmo / review) y la recomendación viven en CPC Recommendation."""
                 cons = to_number(v, 0)
                 if cons <= 0 or _mes_avance <= 0:
                     return "—"
                 pace = cons / _mes_avance
-                proj = min(pace, 1.0) * 100          # % del budget que gastará al cierre
+                pct = cons * 100
                 if pace >= 1.20:
-                    return f"🔴 Sobre-consumo ({pace:.2f}x)"
+                    return f"🔴 {pct:.0f}%"
                 if pace >= 0.90:
-                    return f"✅ En ritmo ({pace:.2f}x)"
+                    return f"✅ {pct:.0f}%"
                 if pace >= 0.70:
-                    return f"🟡 Review ({pace:.2f}x · proy. {proj:.0f}%)"
-                return f"🔴 Sub-consumo ({pace:.2f}x · proy. {proj:.0f}%)"
+                    return f"🟡 {pct:.0f}%"
+                return f"🔴 {pct:.0f}%"
 
             ads_latest["Consumo Booking"] = ads_latest["Consumption"].apply(_pace_badge)
 
@@ -18673,24 +18675,6 @@ def page_campaign_weekly_tracker():
 
             ads_latest["ROI Trend"] = ads_latest["brand_id"].apply(_roi_trend_for_brand)
 
-            # Strategic Note
-            def _ads_strategic_note(row):
-                roi = to_number(row.get("roi"), 0)
-                consumption = to_number(row.get("Consumption"), 0)
-                menu_ok = True  # placeholder — could cross with Perfect Store data
-                if roi < 2.0 and consumption > 0.80:
-                    return "ROI bajo + presupuesto consumido — revisar CPC real externo antes de renovar."
-                if roi < 2.0:
-                    return "ROI bajo · probar Markdown antes de subir tráfico."
-                if roi >= 4.5 and consumption < 0.60:
-                    return "Buen ROI trend — posible upselling controlado de presupuesto."
-                if consumption >= 0.95:
-                    return "Presupuesto consumido antes de 7d — revisar subida de presupuesto."
-                if roi >= 2.5:
-                    return "ROI saludable — mantener y monitorear conversión semanal."
-                return "Sin fricción visible — revisar CPC real externo si ROI no sube."
-
-            ads_latest["Strategic Note"] = ads_latest.apply(_ads_strategic_note, axis=1)
 
             # ── ROI drop detector: flag brands that dropped ≥1.0x WoW ────────────
             def _roi_drop_alert(brand_id_val):
@@ -18710,29 +18694,10 @@ def page_campaign_weekly_tracker():
 
             ads_latest["ROI Alert"] = ads_latest["brand_id"].apply(_roi_drop_alert)
 
-            # Revenue at Risk: revenue USD en juego si la cuenta se pierde o deteriora
-            def _ads_revenue_at_risk(row):
-                roi = to_number(row.get("roi"), 0)
-                consumption = to_number(row.get("Consumption"), 0)
-                rev = to_number(row.get("revenue_usd"), 0)
-                target = _ads_target_usd if _ads_target_usd > 0 else 1
-                if roi < 2.0 or consumption >= 0.95:
-                    # Alto riesgo: toda la revenue está en riesgo
-                    pct = round((rev / target) * 100, 1) if target > 0 else 0.0
-                    return f"🔴 {fmt_usd(rev)} ({pct}% target)"
-                elif roi < 2.5 or consumption >= 0.80:
-                    # Riesgo medio
-                    at_risk = rev * 0.5
-                    pct = round((at_risk / target) * 100, 1) if target > 0 else 0.0
-                    return f"🟡 {fmt_usd(at_risk)} ({pct}% target)"
-                else:
-                    return "🟢 Estable"
-
-            ads_latest["Revenue at Risk"] = ads_latest.apply(_ads_revenue_at_risk, axis=1)
             # Consumption / Pressure Stability / False ROI Check / Delivery Rate se siguen
             # CALCULANDO (CPC Recommendation y Accionables dependen de ellas), pero se
             # ocultan de la tabla para dejar el monitor limpio.
-            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
             # Period: solo Q y W, sin la fecha completa.
             ads_view["Period"] = ads_view["Period"].apply(_short_period_label)
         # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
@@ -18757,6 +18722,7 @@ def page_campaign_weekly_tracker():
                 "Bookings USD":    f"<b>{_ab:,.2f}</b>",
                 "Revenue USD":     f"<b>{_ar:,.2f}</b>",
                 "Consumo Booking": f"<b>{_acons:.0f}%</b>",
+                "CPC Recommendation": f"<b>pace {(_acons/100)/(_dias_transcurridos_mes()/_dias_del_mes()):.2f}x</b>" if _ab > 0 else "",
                 "ROI":             f"<b>{_aroi:.2f}</b>",
             })
             ads_view = pd.concat([ads_view, pd.DataFrame([_atot])], ignore_index=True)
