@@ -3150,7 +3150,7 @@ def _read_md_totals_from_sheet(pro=False):
     """
     sheet = CURRENT_MD_PRO_SHEET if pro else CURRENT_MD_SHEET
     if not os.path.exists(EXCEL_FILE):
-        return {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0}
+        return {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0, "markdown_pct_sheet": 0}
     try:
         wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True, read_only=True)
         if sheet not in wb.sheetnames:
@@ -3168,16 +3168,21 @@ def _read_md_totals_from_sheet(pro=False):
             f_val = ws.cell(total_row_idx, 6).value  # MARKDOWN % — E/D ratio
             result["gmv_total_usd"] = to_number(d_val, 0)
             result["markdown_usd"]  = to_number(e_val, 0) if e_val else 0
-            # F = E/D — only valid when E > 0
-            if result["markdown_usd"] > 0:
-                result["markdown_pct"] = to_number(f_val, 0) if f_val else (
-                    result["markdown_usd"] / result["gmv_total_usd"]
-                    if result["gmv_total_usd"] > 0 else 0
-                )
+            # Penetración = E/D calculada EN VIVO, no leída de col F.
+            #
+            # Motivo: en "Current MD pro" la col F trae un valor pegado que no se
+            # deriva de D y E (coincide con E/D en solo 9 de 88 filas; el Total dice
+            # 6.48% cuando E/D = 4.07%). En "Current MD" la col F sí es consistente
+            # (107/107). Calcular E/D siempre da una única fuente de verdad y evita
+            # que la penetración mostrada contradiga el gap, que se computa con D y E.
+            _f_sheet = to_number(f_val, 0) if f_val else 0
+            if result["markdown_usd"] > 0 and result["gmv_total_usd"] > 0:
+                result["markdown_pct"] = result["markdown_usd"] / result["gmv_total_usd"]
+            result["markdown_pct_sheet"] = _f_sheet
         wb.close()
         return result
     except Exception:
-        return {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0}
+        return {"gmv_total_usd": 0, "markdown_usd": 0, "markdown_pct": 0, "markdown_pct_sheet": 0}
 
 
 def _read_ads_target_from_earnings():
@@ -3202,19 +3207,25 @@ def _read_ads_target_from_earnings():
 def _read_md_targets_from_earnings():
     """
     Reads MD and MD Pro penetration targets from the Earnings sheet.
-    Earnings row 3 (pandas index 2, header=None):
-      col index 5 (Excel col F) = MD target %      (e.g. 0.0667 = 6.67%)
-      col index 6 (Excel col G) = MD Pro target %  (e.g. 0.0727 = 7.27%)
+
+    Layout real de Earnings (fila 3 = pandas index 2, header=None):
+        col F (idx 5) = header "md"      -> TARGET MD        (ej. 0.0773 = 7.73%)
+        col G (idx 6) =                     penetración MD actual (NO es target)
+        col H (idx 7) = header "md pro"  -> TARGET MD PRO    (ej. 0.0800 = 8.00%)
+        col I (idx 8) =                     penetración MD Pro actual (NO es target)
+
+    Nota: antes se leía col G como target de MD Pro, lo que hacía que el monitor
+    comparara la penetración de MD Pro contra la penetración de MD. Corregido a col H.
     """
-    defaults = {"md_target_pct": 0.0675, "md_pro_target_pct": 0.0722}
+    defaults = {"md_target_pct": 0.0773, "md_pro_target_pct": 0.0800}
     if not os.path.exists(EXCEL_FILE):
         return defaults
     try:
         raw = load_earnings_data()
         if raw.empty:
             return defaults
-        md_pct     = to_number(raw.iloc[2, 5], 0)   # col F
-        md_pro_pct = to_number(raw.iloc[2, 6], 0)   # col G
+        md_pct     = to_number(raw.iloc[2, 5], 0)   # col F = target MD
+        md_pro_pct = to_number(raw.iloc[2, 7], 0)   # col H = target MD Pro
         return {
             "md_target_pct":     md_pct     if md_pct     > 0 else defaults["md_target_pct"],
             "md_pro_target_pct": md_pro_pct if md_pro_pct > 0 else defaults["md_pro_target_pct"],
@@ -10715,7 +10726,18 @@ def page_opportunity_list():
     with _opp_tab_mdpro:
         st.markdown("## 🟣 MD PRO")
         if md_pro_gmv_target_usd > 0:
-            pene_mdpro_pct = _md_pro_totals["markdown_pct"] * 100  # col F fila Total, Current MD pro
+            # Penetración calculada en vivo (E/D). Si la col F de la hoja discrepa,
+            # avisamos: significa que el % de la hoja está pegado/desactualizado.
+            pene_mdpro_pct = _md_pro_totals["markdown_pct"] * 100
+            _mdp_sheet_pct = _md_pro_totals.get("markdown_pct_sheet", 0) * 100
+            if _mdp_sheet_pct > 0 and abs(_mdp_sheet_pct - pene_mdpro_pct) > 0.05:
+                st.markdown(
+                    f"<div style='font-size:12px; color:#F97316; font-weight:700; margin-bottom:10px;'>"
+                    f"⚠️ La col F de <b>Current MD pro</b> dice {_mdp_sheet_pct:.2f}% pero "
+                    f"MARKDOWN $ ÷ GMV TOTAL $ da <b>{pene_mdpro_pct:.2f}%</b>. "
+                    f"Se usa el cálculo en vivo — revisá la fórmula de esa columna en el Excel.</div>",
+                    unsafe_allow_html=True,
+                )
             _render_target_progress_bar(
                 label=(
                     f"MD PRO GMV · penetración {pene_mdpro_pct:.2f}% "
