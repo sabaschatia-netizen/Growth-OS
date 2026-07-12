@@ -3272,6 +3272,33 @@ def _read_md_targets_from_earnings():
         return defaults
 
 
+def _read_md_penetration_from_earnings():
+    """Penetración MD y MD Pro tal como las anota el Earnings Calculator.
+
+    Earnings fila 3 (pandas index 2, header=None):
+        col G (idx 6) = penetración MD actual      (ej. 0.0604 = 6.04%)
+        col I (idx 8) = penetración MD Pro actual  (ej. 0.0648 = 6.48%)
+
+    OJO: esto se usa SOLO en los monitores (barra de cumplimiento del target).
+    La penetración POR MARCA de las tablas de Upsell se sigue calculando desde el
+    Excel (col E ÷ col D de Current MD / Current MD pro), que es lo que permite
+    identificar qué brand está por debajo del 10%.
+    """
+    defaults = {"md_pene_pct": 0.0, "md_pro_pene_pct": 0.0}
+    if not os.path.exists(EXCEL_FILE):
+        return defaults
+    try:
+        raw = load_earnings_data()
+        if raw.empty:
+            return defaults
+        return {
+            "md_pene_pct":     to_number(raw.iloc[2, 6], 0),   # col G
+            "md_pro_pene_pct": to_number(raw.iloc[2, 8], 0),   # col I
+        }
+    except Exception:
+        return defaults
+
+
 def get_markdown_dollar_total():
     """
     Returns the active MD GMV (MARKDOWN $) from the Total row of Current MD.
@@ -9890,7 +9917,7 @@ def _render_light_table(df, height=420):
     _render_html_table(df)
 
 
-def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#22C55E", color_pipeline="#F97316", projected_usd=0):
+def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#22C55E", color_pipeline="#F97316", projected_usd=0, show_projected=True):
     """
     Barra de 4 segmentos:
       - Verde:   Activo hoy (REVENUE NET MTD)
@@ -10004,10 +10031,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{ca};margin-right:5px;"></span>
       <b style="color:{ca};">Activo hoy</b>&nbsp; {v_active}
     </div>
-    <div style="font-size:12px;color:{muted};">
-      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{cp};margin-right:5px;"></span>
-      <b style="color:{cp};">Proyectado restante</b>&nbsp; {v_proj}
-    </div>
+    {proj_legend}
     <div style="font-size:12px;color:{muted};">
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{cpl};margin-right:5px;"></span>
       <b style="color:{cpl};">Pipeline (Opp List)</b>&nbsp; {v_pipe}
@@ -10034,6 +10058,12 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         marker=marker_html, scale=scale_html,
         v_active=fmt_usd(active_usd),
         v_proj=fmt_usd(projected_usd),
+        proj_legend=(
+            f'<div style="font-size:12px;color:{COLORS["muted"]};">'
+            f'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;'
+            f'background:{color_pipeline};margin-right:5px;"></span>'
+            f'<b style="color:{color_pipeline};">Proyectado restante</b>&nbsp; {fmt_usd(projected_usd)}</div>'
+        ) if show_projected else "",
         v_pipe=fmt_usd(pipeline_usd),
         gl=gap_label, v_gap=fmt_usd(gap_usd),
         v_target=fmt_usd(target_usd), ol=overall_label,
@@ -10202,6 +10232,10 @@ def page_opportunity_list():
 
     # MD targets: read % from Earnings sheet (col F=MD, col G=MD Pro), row 3
     _md_targets = _read_md_targets_from_earnings()
+    # Penetración para los MONITORES (barra de target) — fuente: Earnings Calculator.
+    _md_pene_earn     = _read_md_penetration_from_earnings()
+    md_pene_monitor     = _md_pene_earn["md_pene_pct"]
+    md_pro_pene_monitor = _md_pene_earn["md_pro_pene_pct"]
     md_target_pct     = _md_targets["md_target_pct"]      # e.g. 0.0667
     md_pro_target_pct = _md_targets["md_pro_target_pct"]  # e.g. 0.0727
 
@@ -10697,7 +10731,9 @@ def page_opportunity_list():
         # exactamente como ya la calcula el sistema. Sin target combinado con MD Pro.
         st.markdown("## 🔵 MARKDOWN")
         if md_gmv_target_usd > 0:
-            pene_md_pct = _md_totals["markdown_pct"] * 100   # col F fila Total, Current MD
+            # Penetración del MONITOR = Earnings Calculator (col G). La tabla de Upsell
+            # sigue midiendo penetración por marca desde el Excel (col E ÷ col D).
+            pene_md_pct = md_pene_monitor * 100
             _render_target_progress_bar(
                 label=(
                     f"MD GMV · penetración {pene_md_pct:.2f}% "
@@ -10706,6 +10742,7 @@ def page_opportunity_list():
                 active_usd=active_md_gmv_usd,
                 pipeline_usd=min(md_pipeline_usd, md_gap_usd),
                 target_usd=md_gmv_target_usd,
+                show_projected=False,
                 color_active="#2563EB",
                 color_pipeline="#F97316",
             )
@@ -10828,18 +10865,9 @@ def page_opportunity_list():
     with _opp_tab_mdpro:
         st.markdown("## 🟣 MD PRO")
         if md_pro_gmv_target_usd > 0:
-            # Penetración calculada en vivo (E/D). Si la col F de la hoja discrepa,
-            # avisamos: significa que el % de la hoja está pegado/desactualizado.
-            pene_mdpro_pct = _md_pro_totals["markdown_pct"] * 100
-            _mdp_sheet_pct = _md_pro_totals.get("markdown_pct_sheet", 0) * 100
-            if _mdp_sheet_pct > 0 and abs(_mdp_sheet_pct - pene_mdpro_pct) > 0.05:
-                st.markdown(
-                    f"<div style='font-size:12px; color:#F97316; font-weight:700; margin-bottom:10px;'>"
-                    f"⚠️ La col F de <b>Current MD pro</b> dice {_mdp_sheet_pct:.2f}% pero "
-                    f"MARKDOWN $ ÷ GMV TOTAL $ da <b>{pene_mdpro_pct:.2f}%</b>. "
-                    f"Se usa el cálculo en vivo — revisá la fórmula de esa columna en el Excel.</div>",
-                    unsafe_allow_html=True,
-                )
+            # Penetración del MONITOR = Earnings Calculator (col I). La tabla de Upsell
+            # sigue midiendo penetración por marca desde el Excel (col E ÷ col D).
+            pene_mdpro_pct = md_pro_pene_monitor * 100
             _render_target_progress_bar(
                 label=(
                     f"MD PRO GMV · penetración {pene_mdpro_pct:.2f}% "
@@ -10848,6 +10876,7 @@ def page_opportunity_list():
                 active_usd=active_md_pro_gmv_usd,
                 pipeline_usd=min(mdp_pipeline_usd, mdp_gap_usd),
                 target_usd=md_pro_gmv_target_usd,
+                show_projected=False,
                 color_active="#8B5CF6",
                 color_pipeline="#F97316",
             )
