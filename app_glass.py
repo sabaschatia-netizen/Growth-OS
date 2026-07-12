@@ -18405,7 +18405,7 @@ def page_campaign_weekly_tracker():
     # Ads Revenue: suma de REVENUE NET de Current ADS.
     # MD GMV / MD PRO GMV: suma de la columna MARKDOWN $ (y MARKDOWN PRO USR $)
     # de sus respectivas hojas — es el neto de markdown, no el GMV facturado.
-    _live_ads_revenue = to_number(get_current_ads_totals().get("revenue_net"), 0)
+    _live_ads_revenue = to_number(get_current_ads_totals().get("revenue_usd"), 0)
     # _read_md_totals_from_sheet lee la fila Total: col E = MARKDOWN $ / MARKDOWN PRO USR $
     _live_md_gmv      = to_number(_read_md_totals_from_sheet(pro=False).get("markdown_usd"), 0)
     _live_md_pro_gmv  = to_number(_read_md_totals_from_sheet(pro=True).get("markdown_usd"), 0)
@@ -18465,10 +18465,58 @@ def page_campaign_weekly_tracker():
     with _tk_tab_ads:
         st.markdown("### Ads CPC Monitor")
         if ads_latest.empty:
-            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"])
+            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","Consumo Booking","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"])
         else:
             ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
             ads_latest["Consumption"] = ads_latest.apply(lambda r: (to_number(r.get("revenue_usd"),0) / to_number(r.get("bookings_usd"),0)) if to_number(r.get("bookings_usd"),0) else 0, axis=1)
+
+            # ── Consumo del booking (semáforo) ────────────────────────────────────
+            # % del presupuesto reservado que efectivamente se ejecutó en revenue.
+            # Verde ≥80% · Amarillo 65–79% · Rojo <65%.
+            def _consumo_badge(v):
+                pct = to_number(v, 0) * 100
+                if pct <= 0:
+                    return "—"
+                if pct >= 80:
+                    return f"✅ {pct:.0f}%"
+                if pct >= 65:
+                    return f"🟡 {pct:.0f}%"
+                return f"🔴 {pct:.0f}%"
+            ads_latest["Consumo Booking"] = ads_latest["Consumption"].apply(_consumo_badge)
+
+            # ── Penetración ADS ───────────────────────────────────────────────────
+            # Revenue de ads ÷ GMV mensual del brand (MAY GMV, mes cerrado).
+            # Alerta si supera 65%: la marca está poniendo demasiado de su venta en ads.
+            _ads_pen_gmv = {}
+            try:
+                _mg = load_may_gmv_data()
+                if not _mg.empty:
+                    _mgc = _first_existing_col(_mg, ["gmv ars", "gmv local", "gmv"])
+                    if _mgc:
+                        for _, _mr in _mg.iterrows():
+                            _mb = normalize_brand_id(_mr.get("_id", ""))
+                            _mv = to_number(_mr.get(_mgc), 0)
+                            if _mb and _mv > 0:
+                                _ads_pen_gmv[_mb] = _mv / ARS_PER_USD   # USD
+            except Exception:
+                pass
+
+            def _ads_pen_value(r):
+                bid = normalize_brand_id(r.get("brand_id"))
+                gmv = _ads_pen_gmv.get(bid, 0)
+                rev = to_number(r.get("revenue_usd"), 0)
+                return (rev / gmv) if gmv > 0 else 0
+
+            ads_latest["_pen_ads"] = ads_latest.apply(_ads_pen_value, axis=1)
+
+            def _ads_pen_badge(v):
+                pct = to_number(v, 0) * 100
+                if pct <= 0:
+                    return "Sin GMV base"
+                if pct > 65:
+                    return f"⚠️ {pct:.1f}% (>65%)"
+                return f"{pct:.1f}%"
+            ads_latest["Penetración ADS"] = ads_latest["_pen_ads"].apply(_ads_pen_badge)
 
             # ── Enrich with CPC supervisor sheet data ────────────────────────────
             _cpc_sup = _load_cpc_supervisor_data(EXCEL_FILE)
@@ -18608,7 +18656,7 @@ def page_campaign_weekly_tracker():
             # Consumption / Pressure Stability / False ROI Check / Delivery Rate se siguen
             # CALCULANDO (CPC Recommendation y Accionables dependen de ellas), pero se
             # ocultan de la tabla para dejar el monitor limpio.
-            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","Consumo Booking","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
             # Period: solo Q y W, sin la fecha completa.
             ads_view["Period"] = ads_view["Period"].apply(_short_period_label)
         # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
@@ -18619,6 +18667,23 @@ def page_campaign_weekly_tracker():
         if not ads_view.empty and "Bookings USD" in ads_view.columns:
             ads_view = ads_view.sort_values("Bookings USD", ascending=False).reset_index(drop=True)
             ads_view.index = ads_view.index + 1  # N. starts at 1
+
+        # ── Fila TOTAL del monitor de Ads ────────────────────────────────────
+        if not ads_view.empty:
+            _ab = pd.to_numeric(ads_view["Bookings USD"], errors="coerce").fillna(0).sum()
+            _ar = pd.to_numeric(ads_view["Revenue USD"], errors="coerce").fillna(0).sum()
+            _aroi = (_ar / _ab) if _ab > 0 else 0
+            _acons = (_ar / _ab * 100) if _ab > 0 else 0
+            _atot = {c: "" for c in ads_view.columns}
+            _atot.update({
+                "Period":          "<b>TOTAL</b>",
+                "Brand":           f"<b>{len(ads_view)} brands</b>",
+                "Bookings USD":    f"<b>{_ab:,.2f}</b>",
+                "Revenue USD":     f"<b>{_ar:,.2f}</b>",
+                "Consumo Booking": f"<b>{_acons:.0f}%</b>",
+                "ROI":             f"<b>{_aroi:.2f}</b>",
+            })
+            ads_view = pd.concat([ads_view, pd.DataFrame([_atot])], ignore_index=True)
 
         _render_html_table(ads_view)
 
@@ -18800,13 +18865,35 @@ def page_campaign_weekly_tracker():
                 + dots + f'</svg> <small style="color:{line_color};font-weight:700;">{label_last}</small>'
             )
 
+        # ── Mapa MARKDOWN $ por brand, leído tal cual de la hoja del Excel ────
+        # (col E: MARKDOWN $ / MARKDOWN PRO USR $). Es el neto de markdown: la
+        # inversión real en descuento, no el GMV facturado.
+        try:
+            _mk_map = load_md_brand_gmv_map(pro=is_pro)
+        except Exception:
+            _mk_map = {}
+
         rows = []
         for _, r in md_subset.iterrows():
             channel = clean(r.get("channel"))
-            key = (channel, normalize_brand_id(r.get("brand_id")))
-            change = _pct_change(r.get("gmv_usd"), prev_map.get(key, 0))
+            bid     = normalize_brand_id(r.get("brand_id"))
+            key     = (channel, bid)
             gmv    = to_number(r.get("gmv_usd"), 0)
             roi    = to_number(r.get("roi"), 0)
+
+            # MARKDOWN $ directo de la hoja.
+            _mk_entry   = _mk_map.get(bid, {})
+            markdown_usd = to_number(_mk_entry.get("promo_usd"), 0)
+            _mk_gmv_base = to_number(_mk_entry.get("gmv_usd"), 0)
+
+            # ── WoW PENETRATION (reemplaza WoW GMV) ──────────────────────────
+            # El modelo de negocio se mide por penetración, no por GMV bruto: un
+            # GMV que sube no dice nada si la promo no penetró. Comparamos la
+            # penetración de esta semana (MARKDOWN $ ÷ GMV) contra la anterior.
+            _pen_now  = (markdown_usd / _mk_gmv_base) if _mk_gmv_base > 0 else 0
+            _prev_gmv = to_number(prev_map.get(key, 0), 0)
+            _pen_prev = (markdown_usd / _prev_gmv) if _prev_gmv > 0 else 0
+            change = _pct_change(_pen_now, _pen_prev) if _pen_prev > 0 else None
 
             # Penetración real desde Current MD en vivo
             pene = _penetration_block(r.get("brand_id"), is_pro=is_pro)
@@ -18821,21 +18908,59 @@ def page_campaign_weekly_tracker():
             pi = _md_weekly_intelligence(change, roi)
 
             rows.append({
-                "Brand ID":        normalize_brand_id(r.get("brand_id")),
-                "Brand":           names.get(normalize_brand_id(r.get("brand_id")), "-"),
+                "_gmv_num":        gmv,
+                "_mk_num":         markdown_usd,
+                "_sales_num":      to_number(r.get("sales_usd"), 0),
+                "_orders_num":     to_number(r.get("orders"), 0),
+                "_gap_num":        to_number(pene.get("gap_usd"), 0),
+                "Brand ID":        bid,
+                "Brand":           names.get(bid, "-"),
                 "GMV USD":         f"{gmv:,.0f}",
-                "GMV Trend":       _gmv_trend_for_brand(r.get("brand_id"), channel),
+                "MARKDOWN $":      f"{markdown_usd:,.0f}",
                 "Sales USD":       f"{to_number(r.get('sales_usd'), 0):,.0f}",
-                "Orders":          fmt_number(to_number(r.get("orders"), 0)),
                 "ROI":             fmt_roi2(roi),
-                "WoW GMV":         (f'<span style="color:{"#22C55E" if change >= 0 else "#EF4444"};font-weight:700;">{fmt_signed_percent(change)}</span>' if change is not None else "-"),
-                "Penetración MD":  pene["label"],
+                "Penetration":     pene["label"],
+                "WoW Penetration": (f'<span style="color:{"#22C55E" if change >= 0 else "#EF4444"};font-weight:700;">{fmt_signed_percent(change)}</span>' if change is not None else "—"),
                 "Gap al 10%":      fmt_usd(pene["gap_usd"]) if pene["gap_usd"] > 0 else "—",
+                "Orders":          fmt_number(to_number(r.get("orders"), 0)),
                 "Revenue at Risk": revenue_at_risk,
                 "Renegotiación":   renegotiation_status,
                 "Recomendación":   recommendation,
             })
+
         md_view_out = pd.DataFrame(rows)
+        if md_view_out.empty:
+            st.info("Sin datos para este canal en el período actual.")
+            return
+
+        # Rank por GMV descendente — la marca que más mueve va primero.
+        md_view_out = md_view_out.sort_values("_gmv_num", ascending=False).reset_index(drop=True)
+        md_view_out.insert(0, "Rank", [f"#{i+1}" for i in range(len(md_view_out))])
+
+        # ── Fila TOTAL: suma de cada columna numérica ────────────────────────
+        _tot_gmv    = md_view_out["_gmv_num"].sum()
+        _tot_mk     = md_view_out["_mk_num"].sum()
+        _tot_sales  = md_view_out["_sales_num"].sum()
+        _tot_orders = md_view_out["_orders_num"].sum()
+        _tot_gap    = md_view_out["_gap_num"].sum()
+        _tot_roi    = (_tot_sales / _tot_mk) if _tot_mk > 0 else 0
+        _tot_pen    = (_tot_mk / _tot_gmv * 100) if _tot_gmv > 0 else 0
+
+        total_row = {c: "" for c in md_view_out.columns}
+        total_row.update({
+            "Rank":            "<b>TOTAL</b>",
+            "Brand":           f"<b>{len(md_view_out)} brands</b>",
+            "GMV USD":         f"<b>{_tot_gmv:,.0f}</b>",
+            "MARKDOWN $":      f"<b>{_tot_mk:,.0f}</b>",
+            "Sales USD":       f"<b>{_tot_sales:,.0f}</b>",
+            "ROI":             f"<b>{_tot_roi:.2f}</b>",
+            "Penetration":     f"<b>{_tot_pen:.2f}%</b>",
+            "Gap al 10%":      f"<b>{fmt_usd(_tot_gap)}</b>",
+            "Orders":          f"<b>{fmt_number(_tot_orders)}</b>",
+        })
+        md_view_out = pd.concat([md_view_out, pd.DataFrame([total_row])], ignore_index=True)
+
+        md_view_out = md_view_out.drop(columns=["_gmv_num", "_mk_num", "_sales_num", "_orders_num", "_gap_num"])
         _render_html_table(md_view_out)
 
     with _tk_tab_md:
