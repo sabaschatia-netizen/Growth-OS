@@ -2967,12 +2967,33 @@ def get_current_ads_totals():
     revenue = _sum("revenue net")
     sales = _sum("sales ads usd")
     roi = sales / revenue if revenue else 0
-    projected_revenue_usd = bookings * 0.90
+
+    # ── Proyección de cierre de mes: se calcula con el RITMO REAL, no con un supuesto ──
+    # Antes era `bookings * 0.90`: asumía que el 90% del booking se iba a ejecutar solo.
+    # El consumo real medido (REVENUE NET ÷ BOOKINGS NET, ajustado por avance del mes)
+    # da un PACE ~0.68 — o sea, al ritmo actual se ejecuta el 68%, no el 90%.
+    # Ese supuesto optimista inflaba el "Proyectado restante" de la Opportunity List
+    # y escondía casi la mitad del gap real de ADS.
+    #
+    #   proyección de cierre = revenue MTD ÷ (% del mes transcurrido)
+    #
+    # Se topea al booking: no se puede ejecutar más presupuesto del reservado.
+    import calendar as _cal
+    _n = datetime.now()
+    _avance_mes = _n.day / _cal.monthrange(_n.year, _n.month)[1]
+    if _avance_mes > 0 and revenue > 0:
+        projected_revenue_usd = min(revenue / _avance_mes, bookings)
+    else:
+        projected_revenue_usd = 0.0
+
+    pace = (revenue / bookings / _avance_mes) if (bookings > 0 and _avance_mes > 0) else 0
 
     return {
         "bookings_usd": bookings,
         "revenue_usd": revenue,
         "projected_revenue_usd": projected_revenue_usd,
+        "pace": pace,
+        "budget_sin_ejecutar_usd": max(bookings - projected_revenue_usd, 0),
         "sales_usd": sales,
         "roi": roi,
     }
@@ -10319,8 +10340,15 @@ def page_opportunity_list():
     active_ads_revenue_usd = ads_result_from_sheet
     # Proyectado RESTANTE = (BOOKINGS NET × 80%) - REVENUE NET ya consumido
     # Es el tramo azul: lo que todavía falta llegar de las campañas que ya están corriendo
+    # Proyección al RITMO REAL de consumo (no un supuesto del 90%): ver get_current_ads_totals.
     _projected_total = to_number(ads_totals.get("projected_revenue_usd"), 0)
     ads_projected_usd = max(_projected_total - ads_result_from_sheet, 0)
+
+    # Cuánto revenue se recupera si las campañas ya activas llegaran a ejecutar
+    # el 100% de su booking. Es dinero que YA tenés reservado y estás dejando ir
+    # por sub-consumo — se recupera arreglando CPC/segmentación, sin vender nada nuevo.
+    _ads_pace           = to_number(ads_totals.get("pace"), 0)
+    _ads_budget_no_ejec = to_number(ads_totals.get("budget_sin_ejecutar_usd"), 0)
 
     # weeks_left para Rev Proj de la tabla
     import calendar as _cal
@@ -10558,6 +10586,19 @@ def page_opportunity_list():
                     f"<div style='font-size:13px; color:{COLORS['accent']}; font-weight:700; margin-bottom:12px;'>"
                     f"⚡ Cierra los top <b>{brands_needed}</b> brands de esta lista para cubrir el gap de {fmt_usd(ads_gap_usd)} "
                     f"({'ya cubierto por activos 🎉' if ads_result_from_sheet >= ads_target_usd else ''})</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Dinero ya reservado que se está perdiendo por sub-consumo. No requiere
+            # vender nada nuevo: se recupera arreglando CPC/segmentación en las campañas
+            # que YA están corriendo (ver Campaign Weekly Tracker → Ads CPC Monitor).
+            if _ads_budget_no_ejec > 0 and _ads_pace > 0:
+                _cubre = min(_ads_budget_no_ejec / ads_gap_usd * 100, 100) if ads_gap_usd > 0 else 100
+                st.markdown(
+                    f"<div style='font-size:13px; color:#8B5CF6; font-weight:700; margin-bottom:12px;'>"
+                    f"🔧 Las campañas activas van a un <b>pace de {_ads_pace:.2f}x</b> — si llegaran al 100% "
+                    f"de su booking recuperás <b>{fmt_usd(_ads_budget_no_ejec)}</b> "
+                    f"({_cubre:.0f}% del gap) sin vender nada nuevo. Revisá CPC en el Campaign Weekly Tracker.</div>",
                     unsafe_allow_html=True,
                 )
 
