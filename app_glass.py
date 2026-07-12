@@ -9773,6 +9773,23 @@ def _quick_goto_finder(df, key_prefix, id_col_candidates=("Brand ID", "brand_id"
                 st.rerun()
 
 
+def _render_channel_tab_colors(colors):
+    """Colorea los tabs por canal (Ads naranja · MD azul · MD Pro morado · Churn rojo).
+
+    Streamlit no permite estilar tabs individualmente, así que se pinta por posición
+    con nth-child sobre el contenedor de tabs de la página activa.
+    """
+    rules = []
+    for idx, col in enumerate(colors, start=1):
+        rules.append(
+            f'div[data-testid="stTabs"] button[data-baseweb="tab"]:nth-child({idx}) {{ color: {col} !important; }}'
+            f'div[data-testid="stTabs"] button[data-baseweb="tab"]:nth-child({idx})[aria-selected="true"] {{'
+            f' color: {col} !important; border-bottom: 3px solid {col} !important;'
+            f' background: {col}14 !important; font-weight: 800 !important; border-radius: 8px 8px 0 0 !important; }}'
+        )
+    st.markdown(f"<style>{''.join(rules)}</style>", unsafe_allow_html=True)
+
+
 def _render_light_table(df, height=420):
     _render_html_table(df)
 
@@ -10163,6 +10180,19 @@ def page_opportunity_list():
                 # Proyectar GMV acumulado MTD al mes completo
                 _current_gmv_map[_cgid] = _cg_gmv * _gmv_projection_factor
 
+    # ── Mapa de GMV del último mes cerrado (hoja MAY GMV) ────────────────────
+    # Base oficial para el presupuesto sugerido: 15% del GMV mensual / 4 semanas.
+    _may_gmv_df = load_may_gmv_data()
+    _may_gmv_map: dict = {}  # {brand_id: gmv_ars_mes_cerrado}
+    if not _may_gmv_df.empty:
+        _may_gmv_col = _first_existing_col(_may_gmv_df, ["gmv ars", "gmv local", "gmv"])
+        if _may_gmv_col:
+            for _, _mrow in _may_gmv_df.iterrows():
+                _mid = normalize_brand_id(_mrow.get("_id", ""))
+                _mg  = to_number(_mrow.get(_may_gmv_col), 0)
+                if _mid and _mg > 0:
+                    _may_gmv_map[_mid] = _mg
+
     # ── Build ADS and MD maps ─────────────────────────────────────────────────
     def build_ads_map():
         current_ads = load_current_ads_data(portfolio_only=False)
@@ -10200,8 +10230,9 @@ def page_opportunity_list():
             metrics[brand_id] = {"active": orders > 0, "roi": roi, "gmv_usd": gmv}
         return metrics
 
-    ads_metrics = build_ads_map()
-    md_metrics  = build_md_map(pro=False)
+    ads_metrics    = build_ads_map()
+    md_metrics     = build_md_map(pro=False)
+    md_pro_metrics = build_md_map(pro=True)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # ADS SEGMENT
@@ -10214,9 +10245,8 @@ def page_opportunity_list():
     )
 
     ads_acquire   = ~data["_ads_current_active"]
-    # Upselling (ROI > 4.5x) ya está contabilizado en ads_result_from_sheet (BOOKINGS × 90%),
-    # por lo que el pipeline solo incluye Acquire — marcas que aún no están activas.
-    ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > 4.5)
+    # Upselling = activo con ROI > 3.5x (umbral comercial vigente).
+    ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > 3.5)
 
     ads_df = data[ads_acquire | ads_upselling].copy()
     ads_df["_opp_group"] = ads_df.apply(
@@ -10233,16 +10263,12 @@ def page_opportunity_list():
 
     def _ads_suggested_booking(row):
         """
-        Weekly budget estimate: 15% of projected monthly GMV / 4 weeks (Sabas model).
-        GMV source priority:
-          1. Current GMV sheet (GMV acumulado MTD × factor proyección al mes)
-          2. Fallback: Last GMV ARS del Growth OS (columna _gmv)
-        Projection factor = 4 / semana_del_mes (ej: semana 2 → ×2, semana 3 → ×1.33)
+        Presupuesto semanal = 15% del GMV mensual del ÚLTIMO MES CERRADO (MAY GMV) / 4 semanas.
+        Fuente única de verdad: hoja MAY GMV (mes completo real, no proyección).
+        Fallback: Last GMV ARS del Growth OS si la marca no figura en MAY GMV.
         """
         brand_id = normalize_brand_id(row.get("_id", ""))
-        # 1) Current GMV proyectado
-        gmv = _current_gmv_map.get(brand_id, 0)
-        # 2) Fallback: Last GMV ARS del Growth OS (sin proyección, ya es mensual)
+        gmv = _may_gmv_map.get(brand_id, 0)
         if gmv <= 0:
             gmv = to_number(row.get("_gmv"), 0)
         if gmv <= 0:
@@ -10251,9 +10277,10 @@ def page_opportunity_list():
 
     ads_df["_suggested_booking_ars"] = ads_df.apply(_ads_suggested_booking, axis=1)
     ads_df["_suggested_booking_usd"] = ads_df["_suggested_booking_ars"] / ARS_PER_USD
-    # Rev Proj = booking semanal estimado × semanas restantes del mes × 90% (umbral comisión).
+    # Rev Proj = booking semanal estimado × semanas restantes del mes × 85%.
     # Refleja lo que puede generar este brand si entra hoy, hasta el cierre del mes.
-    ads_df["_revenue_proj_weekly_usd"] = ads_df["_suggested_booking_usd"] * 0.90
+    ADS_BOOKING_TO_REVENUE_PCT = 0.85
+    ads_df["_revenue_proj_weekly_usd"] = ads_df["_suggested_booking_usd"] * ADS_BOOKING_TO_REVENUE_PCT
     ads_df["_revenue_proj_monthly_usd"] = ads_df["_revenue_proj_weekly_usd"] * weeks_left
 
     # ── Opportunity score comercial (Opción C) ──────────────────────────────
@@ -10289,9 +10316,14 @@ def page_opportunity_list():
         + _gmv_current_norm * 0.10
     )
 
+    # Orden: mayor GMV mensual primero, sin importar si es Acquire o Upselling.
+    ads_df["_gmv_rank_ars"] = ads_df.apply(
+        lambda r: _may_gmv_map.get(normalize_brand_id(r.get("_id", "")), 0) or to_number(r.get("_gmv"), 0),
+        axis=1,
+    )
     ads_df = ads_df.sort_values(
-        by=["_opp_group", "_opportunity_score"],
-        ascending=[True, False],
+        by=["_gmv_rank_ars", "_opportunity_score"],
+        ascending=[False, False],
     ).reset_index(drop=True)
 
     # ── Cumulative target coverage ────────────────────────────────────────────
@@ -10322,7 +10354,10 @@ def page_opportunity_list():
     ads_pipeline_usd = ads_df["_revenue_proj_monthly_usd"].sum()
 
     # ── Progress bar ADS ─────────────────────────────────────────────────────
-    _opp_tab_ads, _opp_tab_md, _opp_tab_churn = st.tabs(["🟠 ADS", "🔵 MARKDOWN", "🧊 CHURN"])
+    _render_channel_tab_colors(["#F97316", "#2563EB", "#8B5CF6", "#EF4444"])
+    _opp_tab_ads, _opp_tab_md, _opp_tab_mdpro, _opp_tab_churn = st.tabs(
+        ["🟠 ADS", "🔵 MARKDOWN", "🟣 MD PRO", "🔴 CHURN"]
+    )
     with _opp_tab_ads:
         st.markdown("## 🟠 ADS")
         if ads_target_usd > 0:
@@ -10349,22 +10384,14 @@ def page_opportunity_list():
                     unsafe_allow_html=True,
                 )
 
-        st.caption(
-            f"Acquire = inactive en Current ADS · Upselling = activo con ROI > 4.5x · "
-            f"GMV base: Current GMV × proyección semana {_week_of_month_opp}/4 (factor ×{_gmv_projection_factor:.2f}) "
-            f"— fallback a Last GMV ARS si la marca no figura en Current GMV · "
-            f"Rev Proj = 90% del booking estimado × semanas restantes del mes · "
-            f"% Target = cobertura acumulada sobre el target mensual ADS."
-        )
-
         def _gmv_source_label(row):
-            """Indica si el GMV usado viene de Current GMV (proyectado) o del Growth OS (histórico)."""
+            """GMV mensual del último mes cerrado (MAY GMV); fallback histórico Growth OS."""
             brand_id = normalize_brand_id(row.get("_id", ""))
-            if brand_id in _current_gmv_map and _current_gmv_map[brand_id] > 0:
-                return f"📡 ARS {fmt_number(_current_gmv_map[brand_id])} (W{_week_of_month_opp}→mes)"
+            if brand_id in _may_gmv_map and _may_gmv_map[brand_id] > 0:
+                return f"📡 ARS {fmt_number(_may_gmv_map[brand_id])}"
             gmv_fallback = to_number(row.get("_gmv"), 0)
             if gmv_fallback > 0:
-                return f"📁 ARS {fmt_number(gmv_fallback)} (histórico)"
+                return f"📁 ARS {fmt_number(gmv_fallback)}"
             return "-"
 
         ads_view = pd.DataFrame({
@@ -10464,30 +10491,23 @@ def page_opportunity_list():
     #   1 = ⚡ Upselling        → activo + ROI > 3.2x + penetración ≥ 10% (escalar lo que funciona)
     #   2 = 🏆 Acquire          → inactivo (nuevo negocio)
 
-    md_upsell_urgente = (
+    # Criterio único de Upsell: penetración por debajo del 10%. Sin criterio de ROI.
+    md_upsell = (
         data["_md_current_active"] &
-        data["_pene_status"].isin(["bajo", "sin_promo", "cero"])
-    )
-    md_upselling = (
-        data["_md_current_active"] &
-        (data["_md_current_roi"] > 3.2) &
-        ~md_upsell_urgente
+        data["_pene_status"].isin(["bajo", "sin_promo", "cero", "unknown"])
     )
     md_acquire = ~data["_md_current_active"]
 
-    md_df = data[md_upsell_urgente | md_upselling | md_acquire].copy()
+    md_df = data[md_upsell | md_acquire].copy()
 
     def _md_opp_group(row):
         if not row["_md_current_active"]:
-            return 2  # Acquire
-        if row["_pene_status"] in ("bajo", "sin_promo", "cero", "unknown"):
-            return 0  # Upsell Urgente — penetración < 10%
-        return 1      # Upselling — activo, penetración sana, ROI > 3.2x
+            return 2  # Acquire — inactivo en Current MD
+        return 0      # Upsell — activo con penetración < 10%
 
     md_df["_opp_group"] = md_df.apply(_md_opp_group, axis=1)
     md_df["Opp"] = md_df["_opp_group"].map({
-        0: "🔧 Upsell Urgente",
-        1: "⚡ Upselling",
+        0: "🔧 Upsell",
         2: "🏆 Acquire",
     })
     # Status = cadencia de contacto (🟢/🟡/🟠/🔴) — mismo lenguaje que Salud de Cartera
@@ -10498,15 +10518,9 @@ def page_opportunity_list():
 
     def _md_opp_type(row):
         if row["_opp_group"] == 0:
-            pene_status = row.get("_pene_status", "")
-            if pene_status == "sin_promo":
-                return "Urgente · 0% penetración"
-            return "Urgente · penetración < 10%"
-        if row["_opp_group"] == 1:
-            roi = to_number(row.get("_md_current_roi", 0), 0)
-            if roi > 5.0:
-                return "Upselling · Arquitectura"
-            return "Upselling · Profundidad"
+            if row.get("_pene_status", "") == "sin_promo":
+                return "Upsell · 0% penetración"
+            return "Upsell · penetración < 10%"
         return "Adquisición promocional"
 
     md_df["MD Strategy"] = md_df.apply(_md_opp_type, axis=1)
@@ -10518,21 +10532,14 @@ def page_opportunity_list():
     md_df["_pene_low_usd"]   = pene_data.apply(lambda x: x["target_low_usd"])
     md_df["_pene_high_usd"]  = pene_data.apply(lambda x: x["target_high_usd"])
 
-    # Recomendación de paso siguiente por brand — aparece en columna nueva
+    # Recomendación de paso siguiente por brand — basada solo en penetración.
     def _md_next_step(row):
-        group  = row.get("_opp_group", 2)
-        pstatus = row.get("_pene_status", "")
-        roi    = to_number(row.get("_md_current_roi", 0), 0)
-        gap    = to_number(row.get("_pene_gap_usd", 0), 0)
-        if group != 0:
+        if row.get("_opp_group", 2) != 0:
             return "—"
-        if pstatus == "sin_promo":
+        gap = to_number(row.get("_pene_gap_usd", 0), 0)
+        if row.get("_pene_status", "") == "sin_promo":
             return f"Promo activa sin penetración · Revisar config · Gap: {fmt_usd(gap)}"
-        if roi < 2.0:
-            return f"ROI bajo ({roi:.1f}x) + pene < 10% · Renegociar descuento · Gap: {fmt_usd(gap)}"
-        if roi >= 3.5:
-            return f"ROI OK ({roi:.1f}x) pero alcance bajo · Ampliar promo · Gap: {fmt_usd(gap)}"
-        return f"Penetración baja · Revisar promo con brand · Gap: {fmt_usd(gap)}"
+        return f"Penetración baja · Ampliar promo con el brand · Gap: {fmt_usd(gap)}"
 
     md_df["Próximo Paso"] = md_df.apply(_md_next_step, axis=1)
 
@@ -10542,15 +10549,20 @@ def page_opportunity_list():
         lambda x: (to_number(x, 0) * 0.15) / ARS_PER_USD
     )
 
+    # Orden: mayor GMV mensual primero, sin importar si es Upsell o Acquire.
+    md_df["_gmv_rank_ars"] = md_df.apply(
+        lambda r: _may_gmv_map.get(normalize_brand_id(r.get("_id", "")), 0) or to_number(r.get("_gmv"), 0),
+        axis=1,
+    )
     md_df = md_df.sort_values(
-        by=["_opp_group", "_opportunity_score"],
-        ascending=[True, False],
+        by=["_gmv_rank_ars", "_opportunity_score"],
+        ascending=[False, False],
     ).reset_index(drop=True)
 
     # ── MD barra de progreso: activo vs target ───────────────────────────────
     # Activo  = col E fila Total de Current MD + Current MD Pro (solo cuando E > 0)
     # Target  = col D fila Total × % target de Earnings (MD=col F, MD Pro=col G)
-    md_gap_usd = max(md_combined_target_usd - active_md_combined_usd, 0) if md_combined_target_usd > 0 else 0
+    md_gap_usd = max(md_gmv_target_usd - active_md_gmv_usd, 0) if md_gmv_target_usd > 0 else 0
     # Pipeline desde Opp List: suma de rango medio (15%) de cada brand recomendado
     md_df["_gmv_proj_monthly_usd"] = md_df["_gmv"].apply(
         lambda x: (to_number(x, 0) * 0.15) / ARS_PER_USD
@@ -10558,7 +10570,7 @@ def page_opportunity_list():
     md_df["_cum_gmv_usd"] = md_df["_gmv_proj_monthly_usd"].cumsum()
 
     def _md_closes_at(idx):
-        if md_combined_target_usd <= 0:
+        if md_gmv_target_usd <= 0:
             return ""
         cum  = md_df.loc[:idx, "_gmv_proj_monthly_usd"].sum()
         prev = md_df.loc[:idx - 1, "_gmv_proj_monthly_usd"].sum() if idx > 0 else 0
@@ -10571,51 +10583,22 @@ def page_opportunity_list():
 
     with _opp_tab_md:
         # ── Progress bar MD ──────────────────────────────────────────────────────
-        if md_combined_target_usd > 0:
-            st.markdown("## 🔵 MARKDOWN")
-            pene_md_pct     = _md_totals["markdown_pct"] * 100      # col F total row Current MD
-            pene_mdpro_pct  = _md_pro_totals["markdown_pct"] * 100  # col F total row Current MD pro
-            _label_md = (
-                f"MD GMV · MD {pene_md_pct:.2f}% (target {md_target_pct*100:.2f}%) + "
-                f"MD Pro {pene_mdpro_pct:.2f}% (target {md_pro_target_pct*100:.2f}%) · "
-                f"Target combinado {fmt_usd(md_combined_target_usd)}"
-            )
+        # Base: penetración MD de la hoja Current MD (col E / col D de la fila Total),
+        # exactamente como ya la calcula el sistema. Sin target combinado con MD Pro.
+        st.markdown("## 🔵 MARKDOWN")
+        if md_gmv_target_usd > 0:
+            pene_md_pct = _md_totals["markdown_pct"] * 100   # col F fila Total, Current MD
             _render_target_progress_bar(
-                label=_label_md,
-                active_usd=active_md_combined_usd,
+                label=(
+                    f"MD GMV · penetración {pene_md_pct:.2f}% "
+                    f"(target {md_target_pct*100:.2f}%) · Target {fmt_usd(md_gmv_target_usd)}"
+                ),
+                active_usd=active_md_gmv_usd,
                 pipeline_usd=min(md_pipeline_usd, md_gap_usd),
-                target_usd=md_combined_target_usd,
+                target_usd=md_gmv_target_usd,
                 color_active="#2563EB",
                 color_pipeline="#F97316",
             )
-            st.markdown(
-                f"<div style='font-size:12px; color:{COLORS['muted']}; margin-bottom:10px;'>"
-                f"📊 MD activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_gmv_usd)}</b> ({pene_md_pct:.2f}%)"
-                f" &nbsp;·&nbsp; MD Pro activo: <b style='color:{COLORS['intel']};'>{fmt_usd(active_md_pro_gmv_usd)}</b> ({pene_mdpro_pct:.2f}%)"
-                f" &nbsp;·&nbsp; GMV base (col D): <b>{fmt_usd(md_gmv_total_usd)}</b></div>",
-                unsafe_allow_html=True,
-            )
-
-            # ── Aviso umbral de comisión MD (90% del target MD) ──────────────────
-            # La comisión NO depende del target combinado (MD+MD Pro) sino de que
-            # la penetración MD sola alcance al menos el 90% del target MD.
-            if md_commission_paid:
-                st.markdown(
-                    f"<div style='font-size:12px; color:#22C55E; font-weight:700; margin-bottom:10px;'>"
-                    f"✅ Comisión MD habilitada · penetración MD {pene_md_pct:.2f}% es "
-                    f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
-                    f"— ≥ {MD_COMMISSION_THRESHOLD_PCT*100:.0f}% requerido</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f"<div style='font-size:12px; color:#F97316; font-weight:700; margin-bottom:10px;'>"
-                    f"⚠️ Comisión MD NO habilitada · penetración MD {pene_md_pct:.2f}% es "
-                    f"{md_commission_pct_of_target*100:.1f}% del target MD ({md_target_pct*100:.2f}%) "
-                    f"— falta {fmt_usd(md_commission_gap_usd)} de MD activo para llegar al "
-                    f"{MD_COMMISSION_THRESHOLD_PCT*100:.0f}% del target</div>",
-                    unsafe_allow_html=True,
-                )
             if md_gap_usd > 0:
                 md_brands_needed = 0
                 running_md = 0
@@ -10630,16 +10613,7 @@ def page_opportunity_list():
                     unsafe_allow_html=True,
                 )
         else:
-            st.markdown("## 🔵 MARKDOWN")
             st.info("No se pudo leer la fila Total de Current MD. Verificá que el sheet esté cargado.")
-
-        st.caption(
-            "Upsell Urgente = activo con penetración < 10% · "
-            "Upselling = activo + ROI > 3.2x + penetración ≥ 10% · "
-            "Acquire = inactivo en Current MD · "
-            "Penetración = GMV en promo ÷ GMV mensual del brand · "
-            "Gap al 10% = cuánto GMV falta para entrar al rango mínimo."
-        )
 
         md_view = pd.DataFrame({
             "Rank":            md_df["Rank"].apply(_format_rank),
@@ -10659,6 +10633,132 @@ def page_opportunity_list():
             "Próximo Paso":    md_df["Próximo Paso"],
         })
         _render_light_table(md_view, height=380)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MD PRO SEGMENT — mismas reglas que MD, pero sobre la hoja "Current MD pro"
+    # Upsell = activo con penetración < 10% · Acquire = inactivo en Current MD pro
+    # Orden: mayor GMV mensual primero, sin importar el tipo de oportunidad.
+    # ═══════════════════════════════════════════════════════════════════════════
+    data["_mdp_current_active"] = data["_id"].apply(
+        lambda x: md_pro_metrics.get(normalize_brand_id(x), {}).get("active", False)
+    )
+    data["_mdp_current_gmv_usd"] = data["_id"].apply(
+        lambda x: md_pro_metrics.get(normalize_brand_id(x), {}).get("gmv_usd", 0)
+    )
+
+    def _mdp_penetration(row):
+        """Penetración MD Pro = GMV en promo Pro ÷ GMV mensual del brand."""
+        gmv_brand_ars = to_number(row.get("_gmv"), 0)
+        gmv_brand_usd = gmv_brand_ars / ARS_PER_USD if gmv_brand_ars > 0 else 0
+        gmv_mdp_usd   = to_number(row.get("_mdp_current_gmv_usd"), 0)
+        if gmv_brand_usd <= 0:
+            return {"actual_pct": None, "target_low_usd": 0, "target_high_usd": 0,
+                    "gap_usd": 0, "label": "Sin GMV", "status": "unknown"}
+        actual_pct  = gmv_mdp_usd / gmv_brand_usd if gmv_mdp_usd > 0 else 0
+        target_low  = gmv_brand_usd * MD_PENE_LOW
+        target_high = gmv_brand_usd * MD_PENE_HIGH
+        gap_usd     = max(target_low - gmv_mdp_usd, 0)
+        if actual_pct == 0:
+            status, label = "sin_promo", f"0% · objetivo {MD_PENE_LOW*100:.0f}–{MD_PENE_HIGH*100:.0f}%"
+        elif actual_pct < MD_PENE_LOW:
+            status, label = "bajo", f"{actual_pct*100:.1f}% · bajo ({MD_PENE_LOW*100:.0f}% mín)"
+        elif actual_pct <= MD_PENE_HIGH:
+            status, label = "sano", f"{actual_pct*100:.1f}% ✅ en rango"
+        else:
+            status, label = "alto", f"{actual_pct*100:.1f}% ⚠️ sobre techo"
+        return {"actual_pct": actual_pct, "target_low_usd": target_low,
+                "target_high_usd": target_high, "gap_usd": gap_usd,
+                "label": label, "status": status}
+
+    data["_mdp_pene_data"]   = data.apply(_mdp_penetration, axis=1)
+    data["_mdp_pene_status"] = data["_mdp_pene_data"].apply(lambda x: x["status"])
+
+    mdp_upsell  = data["_mdp_current_active"] & data["_mdp_pene_status"].isin(
+        ["bajo", "sin_promo", "cero", "unknown"]
+    )
+    mdp_acquire = ~data["_mdp_current_active"]
+    mdp_df = data[mdp_upsell | mdp_acquire].copy()
+
+    mdp_df["_opp_group"] = mdp_df.apply(lambda r: 0 if r["_mdp_current_active"] else 2, axis=1)
+    mdp_df["Opp"] = mdp_df["_opp_group"].map({0: "🔧 Upsell", 2: "🏆 Acquire"})
+    mdp_df["MD Pro Strategy"] = mdp_df.apply(
+        lambda r: ("Upsell · 0% penetración" if r.get("_mdp_pene_status") == "sin_promo"
+                   else "Upsell · penetración < 10%") if r["_opp_group"] == 0
+        else "Adquisición promocional Pro", axis=1
+    )
+    mdp_df["_last_contact_dt"] = mdp_df.apply(
+        lambda r: get_last_contact_dt(r.get("_id", ""), r.get("_name", ""), _opp_prod_map, _opp_meta_map), axis=1
+    )
+    mdp_df["Status"] = mdp_df["_last_contact_dt"].apply(_cadencia_status)
+
+    _mdp_pene = mdp_df.apply(_mdp_penetration, axis=1)
+    mdp_df["_pene_label"]    = _mdp_pene.apply(lambda x: x["label"])
+    mdp_df["_pene_gap_usd"]  = _mdp_pene.apply(lambda x: x["gap_usd"])
+    mdp_df["_pene_low_usd"]  = _mdp_pene.apply(lambda x: x["target_low_usd"])
+    mdp_df["_pene_high_usd"] = _mdp_pene.apply(lambda x: x["target_high_usd"])
+
+    mdp_df["_gmv_proj_monthly_usd"] = mdp_df["_gmv"].apply(
+        lambda x: (to_number(x, 0) * 0.15) / ARS_PER_USD
+    )
+    mdp_df["_gmv_rank_ars"] = mdp_df.apply(
+        lambda r: _may_gmv_map.get(normalize_brand_id(r.get("_id", "")), 0) or to_number(r.get("_gmv"), 0),
+        axis=1,
+    )
+    mdp_df = mdp_df.sort_values(
+        by=["_gmv_rank_ars", "_opportunity_score"], ascending=[False, False]
+    ).reset_index(drop=True)
+    mdp_df["Rank"] = mdp_df.index + 1
+
+    mdp_gap_usd      = max(md_pro_gmv_target_usd - active_md_pro_gmv_usd, 0) if md_pro_gmv_target_usd > 0 else 0
+    mdp_pipeline_usd = mdp_df["_gmv_proj_monthly_usd"].sum()
+
+    with _opp_tab_mdpro:
+        st.markdown("## 🟣 MD PRO")
+        if md_pro_gmv_target_usd > 0:
+            pene_mdpro_pct = _md_pro_totals["markdown_pct"] * 100  # col F fila Total, Current MD pro
+            _render_target_progress_bar(
+                label=(
+                    f"MD PRO GMV · penetración {pene_mdpro_pct:.2f}% "
+                    f"(target {md_pro_target_pct*100:.2f}%) · Target {fmt_usd(md_pro_gmv_target_usd)}"
+                ),
+                active_usd=active_md_pro_gmv_usd,
+                pipeline_usd=min(mdp_pipeline_usd, mdp_gap_usd),
+                target_usd=md_pro_gmv_target_usd,
+                color_active="#8B5CF6",
+                color_pipeline="#F97316",
+            )
+            if mdp_gap_usd > 0:
+                _mdp_needed, _run = 0, 0
+                for _, r in mdp_df.iterrows():
+                    _run += r["_gmv_proj_monthly_usd"]
+                    _mdp_needed += 1
+                    if _run >= mdp_gap_usd:
+                        break
+                st.markdown(
+                    f"<div style='font-size:13px; color:#8B5CF6; font-weight:700; margin-bottom:12px;'>"
+                    f"⚡ Cierra los top <b>{_mdp_needed}</b> brands para cubrir el gap de {fmt_usd(mdp_gap_usd)}</div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("No se pudo leer la fila Total de Current MD pro. Verificá que el sheet esté cargado.")
+
+        mdp_view = pd.DataFrame({
+            "Rank":               mdp_df["Rank"].apply(_format_rank),
+            "Opp":                mdp_df["Opp"],
+            "MD Pro Strategy":    mdp_df["MD Pro Strategy"],
+            "ID":                 mdp_df["_id"].apply(_format_id),
+            "Name":               mdp_df["_name"],
+            "Status":             mdp_df["Status"],
+            "Penetración MD Pro": [mdp_df.loc[i, "_pene_label"] for i in mdp_df.index],
+            "Objetivo (USD)":     mdp_df.apply(
+                lambda r: f"{fmt_usd(r['_pene_low_usd'])} – {fmt_usd(r['_pene_high_usd'])}"
+                if r["_pene_low_usd"] > 0 else "-", axis=1
+            ),
+            "Gap al 10%":         mdp_df["_pene_gap_usd"].apply(
+                lambda x: fmt_usd(x) if x > 0 else "—"
+            ),
+        })
+        _render_light_table(mdp_view, height=380)
 
     with _opp_tab_churn:
         # ═══════════════════════════════════════════════════════════════════════════
@@ -18448,7 +18548,8 @@ def page_campaign_weekly_tracker():
     ads_latest = latest[latest["channel"] == "Ads"].copy()
     md_latest  = latest[latest["channel"].isin(["Markdown", "Markdown PRO"])].copy()
 
-    _tk_tab_ads, _tk_tab_md, _tk_tab_pro = st.tabs(["🟠 Ads", "🟦 Markdown", "💎 MD PRO"])
+    _render_channel_tab_colors(["#F97316", "#2563EB", "#8B5CF6"])
+    _tk_tab_ads, _tk_tab_md, _tk_tab_pro = st.tabs(["🟠 Ads", "🔵 Markdown", "🟣 MD PRO"])
     with _tk_tab_ads:
         st.markdown("### Ads CPC Monitor")
         if ads_latest.empty:
@@ -18603,7 +18704,6 @@ def page_campaign_weekly_tracker():
             ads_view.index = ads_view.index + 1  # N. starts at 1
 
         _render_html_table(ads_view)
-        _quick_goto_finder(ads_view, "tracker_ads")
 
     # Separate MD Normal and MD PRO sections
     md_normal_latest = latest[latest["channel"] == "Markdown"].copy()
@@ -18820,7 +18920,6 @@ def page_campaign_weekly_tracker():
             })
         md_view_out = pd.DataFrame(rows)
         _render_html_table(md_view_out)
-        _quick_goto_finder(md_view_out, f"tracker_md_{'pro' if is_pro else 'normal'}")
 
     with _tk_tab_md:
         _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
