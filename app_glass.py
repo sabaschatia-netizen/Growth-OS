@@ -6665,7 +6665,6 @@ NAV_GROUPS = [
         ("Opportunity List",     "🎯"),
         ("Follow-Up List",       "🔁"),
         ("Brand Finder",         "🔍"),
-        ("Pareto Hub",           "🧭"),
     ]),
     ("Tracking", [
         ("Sales Control Center",     "🎯"),
@@ -6839,7 +6838,6 @@ with st.sidebar:
         "Opportunity List": "Para detectar oportunidades comerciales y cerrar el gap de revenue del mes.",
         "Follow-Up List": "Para gestionar los seguimientos pendientes de cada marca.",
         "Brand Finder": "Para buscar una marca y revisar toda su ficha comercial en detalle.",
-        "Pareto Hub": "Para trabajar las marcas Tier A que concentran el 80% del GMV.",
         "Sales Control Center": "Diagnóstico de tu proceso comercial: funnels de adquisición y upselling.",
         "Campaign Weekly Tracker": "Para monitorear el desempeño semanal de las campañas.",
         "Weekly Calendar": "Para ver la agenda de contactos y actividades de la semana.",
@@ -9868,7 +9866,7 @@ def _quick_goto_finder(df, key_prefix, id_col_candidates=("Brand ID", "brand_id"
 
     Las tablas se pintan con st.markdown(HTML) — no pueden devolver clicks a Python.
     Este helper agrega debajo un selector + botón que reusa el patrón _bf_goto_brand_id
-    (el mismo que ya usa Pareto Hub) para saltar al Brand Finder con la marca cargada.
+    para saltar al Brand Finder con la marca cargada.
     Así toda tabla queda conectada al Finder sin reescribir el motor de render.
     """
     if df is None or df.empty:
@@ -15869,310 +15867,6 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     cards.append(comm_card)
     return f"<div class='wide-info-card'><div class='wide-info-title'>Business Information + Portfolio Metrics</div><div class='business-card-grid'>{''.join(cards)}</div></div>"
 
-@st.cache_data(ttl=600, show_spinner=False)
-def _build_pareto_hub_data():
-    """
-    Construye los datos completos de todas las marcas Tier A (80% de GMV)
-    para el Pareto Hub: cruza Growth OS, Current GMV/ADS/MD/MD PRO/Churn,
-    Perfect Store, CVR%/Traffic, y Priority Data (requerimiento de PDF).
-    Devuelve lista de dicts, uno por marca, ya con la clasificación de salud.
-    """
-    growth_df = load_growth_data()
-    if growth_df.empty:
-        return []
-
-    id_col = get_id_column_name(growth_df)
-    if not id_col:
-        return []
-
-    tiers_map = get_pareto_tiers_map()
-    tier_a_ids = {bid for bid, t in tiers_map.items() if t == "A"}
-    if not tier_a_ids:
-        return []
-
-    # Restringir al portafolio vigente (Asignacion Junio) por si Current GMV
-    # todavía trae marcas que ya fueron reasignadas a otro Farmer.
-    try:
-        _aj_pareto = load_asignacion_activa()
-        if not _aj_pareto.empty:
-            _aj_pareto_ids = set(_aj_pareto["brand_id"].dropna().astype(str))
-            _aj_pareto_ids.discard("")
-            if _aj_pareto_ids:
-                tier_a_ids = tier_a_ids & _aj_pareto_ids
-    except Exception:
-        pass
-    if not tier_a_ids:
-        return []
-
-    prod_map = get_productivity_last_contact_map(EXCEL_FILE)
-    meta_map = get_last_comment_meta_map(limit=1)
-    priority_df = load_priority_data()
-
-    # Set de brand_ids que tienen una fila "PDF Menu" pendiente en Priority Data
-    _pdf_required_ids = set()
-    if not priority_df.empty and "_metric_norm" in priority_df.columns:
-        _pdf_rows = priority_df[priority_df["_metric_norm"] == norm_text("PDF Menu")]
-        _pdf_required_ids = set(_pdf_rows["_id"].apply(normalize_brand_id))
-
-    rows = []
-    for _, row in growth_df.iterrows():
-        bid = normalize_brand_id(row.get(id_col))
-        if bid not in tier_a_ids:
-            continue
-
-        name = clean(get_from_row(row, ["name", "brand name", "restaurant name"]), "-")
-        category = clean(get_from_row(row, ["category"]), "-")
-        category_main, _ = _split_category_and_stickers(category)
-
-        ads_m    = get_current_ads_metrics(bid)
-        md_m     = get_current_md_metrics(bid, pro=False)
-        mdpro_m  = get_current_md_metrics(bid, pro=True)
-        churn_lbl = get_churn_status(bid)
-
-        menu_metrics = get_menu_metrics_for_brand(name)
-        perfect_store_pct = round(menu_metrics.get("health_score", 0)) if menu_metrics.get("found") else None
-        requires_pdf = bid in _pdf_required_ids
-
-        cvr_raw, _ = get_cvr_for_brand(name, cr_fallback=get_from_row(row, ["cr %", "conversion rate"], 0))
-        cvr_bench  = get_cvr_category_benchmark(category_main)
-        traffic_raw   = get_traffic_for_brand(name)
-        traffic_bench = get_traffic_category_benchmark(category_main)
-
-        last_dt = get_last_contact_dt(bid, name, prod_map=prod_map, meta_map=meta_map)
-        days_since = _days_since_timestamp(last_dt)
-
-        ads_active   = bool(ads_m.get("active", False))
-        md_active    = bool(md_m.get("active", False))
-        mdpro_active = bool(mdpro_m.get("active", False))
-        ads_roi   = to_number(ads_m.get("roi"), 0)
-        md_roi    = to_number(md_m.get("roi"), 0)
-        mdpro_roi = to_number(mdpro_m.get("roi"), 0)
-
-        # ── Clasificación de salud (verde / azul / review / tangerine) ──────────
-        # Regla: Acquisition = le falta activar al menos UNA de las 3 palancas
-        # (0, 1 o 2 activas). Si tiene las TRES activas:
-        #   - alguna con ROI/ROAS por debajo de 3.5x -> Review (color distinto, no Acquisition)
-        #   - las tres por encima de 3.5x -> Sana (verde) si hay contacto reciente
-        #     y Perfect Store ok, sino Upselling (azul) como reconocimiento del buen ROI
-        #     sin las otras condiciones de salud cumplidas todavía
-        _is_recent_contact = (days_since is not None and days_since <= 21)
-        _perfect_store_ok  = (perfect_store_pct is not None and perfect_store_pct > 90 and not requires_pdf)
-        _has_all_three = ads_active and md_active and mdpro_active
-        _needs_acquisition = not _has_all_three
-
-        if _needs_acquisition:
-            health = "tangerine"
-        else:
-            _all_rois = [ads_roi, md_roi, mdpro_roi]
-            _below_review_threshold = any(r < 3.5 for r in _all_rois)
-
-            if _below_review_threshold:
-                health = "review"
-            elif _is_recent_contact and _perfect_store_ok:
-                health = "green"
-            else:
-                health = "blue"
-
-        _acq_missing = []
-        if not ads_active:
-            _acq_missing.append("Ads")
-        if not md_active:
-            _acq_missing.append("MD")
-        if not mdpro_active:
-            _acq_missing.append("MD PRO")
-
-        rows.append({
-            "brand_id":    bid,
-            "name":        name,
-            "category":    category_main,
-            "last_contact_days": days_since,
-            "ads_active":  ads_active,  "ads_roi":  ads_roi,
-            "md_active":   md_active,   "md_roi":   md_roi,
-            "mdpro_active": mdpro_active, "mdpro_roi": mdpro_roi,
-            "perfect_store_pct": perfect_store_pct,
-            "requires_pdf": requires_pdf,
-            "churn_label": churn_lbl,
-            "cvr_brand":   cvr_raw,
-            "cvr_bench":   cvr_bench,
-            "traffic_brand": traffic_raw,
-            "traffic_bench": traffic_bench,
-            "health":      health,
-            "acq_missing": _acq_missing,
-        })
-
-    return rows
-
-
-def page_pareto_hub():
-    render_header("Pareto Hub", "Brands driving 80% of total GMV · Tier A")
-
-    data = _build_pareto_hub_data()
-    if not data:
-        st.info("No se pudo construir el Pareto Hub — verificá que Current GMV y Growth OS tengan datos cargados.")
-        return
-
-    _HEALTH_STYLE = {
-        "green":     {"border": "#22C55E", "bg": "rgba(34,197,94,0.14)",  "label": "🟢 Sana"},
-        "blue":      {"border": "#2563EB", "bg": "rgba(46,107,255,0.14)",  "label": "🔵 Upselling"},
-        "review":    {"border": "#D9A300", "bg": "rgba(255,196,0,0.16)",   "label": "🟡 Review"},
-        "tangerine": {"border": "#F97316", "bg": "rgba(249,115,22,0.14)",  "label": "🟠 Acquisition"},
-    }
-
-    _n_green  = sum(1 for d in data if d["health"] == "green")
-    _n_blue   = sum(1 for d in data if d["health"] == "blue")
-    _n_review = sum(1 for d in data if d["health"] == "review")
-    _n_tang   = sum(1 for d in data if d["health"] == "tangerine")
-
-    if "_pareto_health_filter" not in st.session_state:
-        st.session_state["_pareto_health_filter"] = "all"
-
-    _filter_cols = st.columns(5)
-    _filter_specs = [
-        ("all",       f"📊 Todas ({len(data)})",        _filter_cols[0]),
-        ("green",     f"🟢 Sanas ({_n_green})",          _filter_cols[1]),
-        ("blue",      f"🔵 Upselling ({_n_blue})",       _filter_cols[2]),
-        ("review",    f"🟡 Review ({_n_review})",        _filter_cols[3]),
-        ("tangerine", f"🟠 Acquisition ({_n_tang})",     _filter_cols[4]),
-    ]
-    for _health_key, _btn_label, _col in _filter_specs:
-        with _col:
-            _is_selected = st.session_state["_pareto_health_filter"] == _health_key
-            if st.button(_btn_label, key=f"pareto_filter_{_health_key}", use_container_width=True,
-                         type="primary" if _is_selected else "secondary"):
-                st.session_state["_pareto_health_filter"] = _health_key
-                st.rerun()
-
-    _active_filter = st.session_state["_pareto_health_filter"]
-    if _active_filter != "all":
-        data = [d for d in data if d["health"] == _active_filter]
-        if not data:
-            st.info(f"No hay marcas en el filtro seleccionado. Volviendo a 'Todas'.")
-            st.session_state["_pareto_health_filter"] = "all"
-            st.rerun()
-
-    st.markdown("""
-    <style>
-    .pareto-scroll {
-        max-height: 760px;
-        overflow-y: auto;
-        padding-right: 6px;
-    }
-    .pareto-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: 14px;
-    }
-    .pareto-card {
-        background: #FFFFFF;
-        border: 1px solid rgba(37,99,235,0.09);
-        border-left: 4px solid var(--pareto-accent, #22C55E);
-        border-radius: 12px;
-        padding: 16px 18px 14px;
-        box-shadow: 0 2px 10px rgba(37,99,235,0.07), 0 1px 3px rgba(0,0,0,0.04);
-        transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease;
-        cursor: pointer;
-    }
-    .pareto-card:hover {
-        transform: translateY(-4px) scale(1.02);
-        box-shadow: 0 12px 30px rgba(37,99,235,0.14), 0 3px 8px rgba(0,0,0,0.06);
-    }
-    .pareto-name { font-size: 14px; font-weight: 800; color: #111827; line-height: 1.2; }
-    .pareto-meta { font-size: 11px; color: #6B7280; margin-top: 2px; margin-bottom: 10px; }
-    .pareto-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-bottom: 1px solid rgba(0,0,0,0.03); }
-    .pareto-row-label { color: #6B7280; }
-    .pareto-row-value { font-weight: 700; color: #111827; }
-    .pareto-status-pill { display:inline-block; border-radius:999px; padding:3px 12px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.04em; margin-top:10px; }
-    .pareto-badge {
-        display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .04em;
-        text-transform: uppercase; padding: 2px 8px; border-radius: 10px; margin-top: 8px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    def _fmt_roi_cell(active, roi):
-        if not active:
-            return '<span style="color:#F97316;">No</span>'
-        return f'<span style="color:#22C55E;">Sí ({fmt_ratio(roi)})</span>'
-
-    def _fmt_cvr_cell(brand, bench):
-        if not brand or brand <= 0:
-            return '<span style="color:#aaa;">s/d</span>'
-        brand_pct = brand if brand <= 1 else brand / 100
-        bench_pct = bench if bench and bench > 0 else None
-        if bench_pct:
-            color = "#22C55E" if brand_pct >= bench_pct else "#EF4444"
-            return f'<span style="color:{color};">{round(brand_pct*100,1)}% (bench {round(bench_pct*100,1)}%)</span>'
-        return f'{round(brand_pct*100,1)}%'
-
-    def _fmt_traffic_cell(brand, bench):
-        if not brand or brand <= 0:
-            return '<span style="color:#aaa;">s/d</span>'
-        if bench and bench > 0:
-            color = "#22C55E" if brand >= bench else "#EF4444"
-            return f'<span style="color:{color};">{round(brand):,}/sem (bench {round(bench):,})</span>'.replace(",", ".")
-        return f'{round(brand):,}/sem'.replace(",", ".")
-
-    # ── Render en filas de 4 cards con scroll ──────────────────────────────────
-    st.markdown('<div class="pareto-scroll">', unsafe_allow_html=True)
-
-    _sorted_data = sorted(data, key=lambda d: (d["health"] != "tangerine", d["health"] != "review", d["health"] != "blue", d["name"]))
-
-    def _build_pareto_card_html(d):
-        style = _HEALTH_STYLE[d["health"]]
-        _days_lbl = f"{d['last_contact_days']}d" if d["last_contact_days"] is not None else "Sin contacto"
-        _ps_lbl = (
-            f'{d["perfect_store_pct"]}%' + (' · requiere PDF' if d["requires_pdf"] else '')
-            if d["perfect_store_pct"] is not None else "s/d"
-        )
-        _acq_note = (
-            f'<div class="pareto-badge" style="background:rgba(249,115,22,0.10);color:#FB923C;margin-top:6px;">'
-            f'Falta: {", ".join(d["acq_missing"])}</div>'
-        ) if d["health"] == "tangerine" and d["acq_missing"] else ""
-
-        # NOTA: cada línea sin indentación inicial — un f-string multilínea con
-        # 4+ espacios al comienzo de línea es interpretado por el parser de
-        # Markdown de Streamlit como bloque de código, mostrando el HTML crudo
-        # en vez de renderizarlo. Por eso este builder concatena con join() en
-        # una sola línea lógica por fragmento, sin sangría.
-        parts = [
-            f'<div class="pareto-card" style="--pareto-accent:{style["border"]};">',
-            f'<div class="pareto-name">{html.escape(d["name"])}</div>',
-            f'<div class="pareto-meta">AR-{d["brand_id"]} · {html.escape(d["category"])}</div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">Last Contact</span><span class="pareto-row-value">{_days_lbl}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">Ads</span><span class="pareto-row-value">{_fmt_roi_cell(d["ads_active"], d["ads_roi"])}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">MD</span><span class="pareto-row-value">{_fmt_roi_cell(d["md_active"], d["md_roi"])}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">MD PRO</span><span class="pareto-row-value">{_fmt_roi_cell(d["mdpro_active"], d["mdpro_roi"])}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">Perfect Store</span><span class="pareto-row-value">{_ps_lbl}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">Churn</span><span class="pareto-row-value">{html.escape(d["churn_label"])}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">CVR vs bench</span><span class="pareto-row-value">{_fmt_cvr_cell(d["cvr_brand"], d["cvr_bench"])}</span></div>',
-            f'<div class="pareto-row"><span class="pareto-row-label">Traffic vs bench</span><span class="pareto-row-value">{_fmt_traffic_cell(d["traffic_brand"], d["traffic_bench"])}</span></div>',
-            f'<div class="pareto-status-pill" style="background:{style["bg"]};color:{style["border"]};">{style["label"]}</div>',
-            _acq_note,
-            '</div>',
-        ]
-        return "".join(parts)
-
-    for i in range(0, len(_sorted_data), 4):
-        chunk = _sorted_data[i:i+4]
-        cards_html = "".join(_build_pareto_card_html(d) for d in chunk)
-
-        st.markdown(f'<div class="pareto-grid">{cards_html}</div>', unsafe_allow_html=True)
-
-        # Botones reales de Streamlit para navegar al Brand Finder (debajo de cada fila,
-        # ya que el onclick de arriba es solo decorativo — Streamlit no puede recibir
-        # postMessage sin un listener adicional, así que usamos botones nativos).
-        btn_cols = st.columns(4)
-        for ci, d in enumerate(chunk):
-            with btn_cols[ci]:
-                if st.button("Ver ficha →", key=f"pareto_goto_{i+ci}_{d['brand_id']}", use_container_width=True):
-                    st.session_state["_bf_goto_brand_id"] = d["brand_id"]
-                    st.session_state["active_page"] = "Brand Finder"
-                    st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
 def render_brand_profile(row, brand_id):
     name = clean(get_from_row(row, ["name", "brand name", "restaurant name"]))
     ltor = clean(get_from_row(row, ["ltor tier", "ltor"]))
@@ -21126,7 +20820,6 @@ _PAGE_FN = {
     "Opportunity List":         page_opportunity_list,
     "Follow-Up List":           page_follow_up_list,
     "Brand Finder":             page_brand_finder,
-    "Pareto Hub":               page_pareto_hub,
     "Sales Control Center":     page_acquisition_tracker,
     "Campaign Weekly Tracker":  page_campaign_weekly_tracker,
     "Weekly Calendar":          page_weekly_calendar,
