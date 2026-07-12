@@ -9970,13 +9970,17 @@ def _render_light_table(df, height=420):
     _render_html_table(df)
 
 
-def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#22C55E", color_pipeline="#F97316", projected_usd=0, show_projected=True):
+def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#22C55E", color_pipeline="#F97316", projected_usd=0, show_projected=True, recovery_usd=0):
     """
-    Barra de 4 segmentos:
+    Barra de 5 segmentos:
       - Verde:   Activo hoy (REVENUE NET MTD)
-      - Azul:    Proyectado restante (BOOKINGS x 90% - REVENUE NET)
-      - Naranja: Pipeline (Opp List) — hacia 100% o hacia 120% si ya se cubrió
-      - Gris:    Gap — distancia a 100% o a 120% según el caso
+      - Azul:    Proyectado restante — lo que las campañas activas facturarán AL RITMO ACTUAL
+      - Morado:  Recuperable por CPC — lo que esas MISMAS campañas facturarían DE MÁS si
+                 llegaran al 100% de su booking. NO es negocio nuevo: es budget ya reservado
+                 que hoy se pierde por sub-consumo. Va pegado al azul porque son las mismas
+                 marcas, en un escenario mejor — no se suma aparte, se apila encima.
+      - Naranja: Pipeline (Opp List) — esto SÍ es negocio nuevo (marcas a cerrar)
+      - Gris:    Gap — lo que falta aun con todo lo anterior
     """
     if target_usd <= 0:
         return
@@ -10006,6 +10010,8 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
 
     pct_active    = min(active_usd / bar_ceiling, 1.0) * 100
     pct_projected = min(projected_usd / bar_ceiling, max(0.0, 1.0 - pct_active / 100)) * 100
+    _used         = pct_active + pct_projected
+    pct_recovery  = min(recovery_usd / bar_ceiling * 100, max(0.0, 100.0 - _used)) if recovery_usd > 0 else 0.0
 
     if at_120:
         # Ya superó 120% — peleando por 140%
@@ -10062,9 +10068,31 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     color_gap_seg   = "rgba(255,255,255,0.14)" if DARK_MODE else "rgba(0,0,0,0.07)"
     color_gap_dot   = "rgba(255,255,255,0.30)" if DARK_MODE else "rgba(255,255,255,.25)"
 
+    # El tramo morado (recovery) se toma DEL GAP: no agranda la barra, muestra qué
+    # parte del hueco se puede tapar sin vender nada nuevo, solo arreglando el CPC.
+    # Orden de prelación: primero el morado (plata ya reservada), después el naranja
+    # (pipeline = negocio nuevo). Si el morado ya tapa el gap, el pipeline se reduce:
+    # no tiene sentido pintar prospección para un hueco que ya está cubierto.
+    if pct_recovery > 0:
+        pct_recovery  = min(pct_recovery, pct_gap)
+        pct_gap       = max(pct_gap - pct_recovery, 0.0)
+        pct_pipeline  = min(pct_pipeline, pct_gap)
+        pct_gap       = max(pct_gap - pct_pipeline, 0.0)
+
     # Leyenda "Proyectado restante": se omite por completo cuando show_projected=False
     # (MD y MD PRO). Se arma en una sola línea plana — si el HTML queda indentado,
     # Markdown lo interpreta como bloque de código y lo imprime como texto.
+    # Leyenda del tramo recuperable por CPC (rayado = "todavía no es tuyo, hay que ir a buscarlo")
+    if pct_recovery > 0:
+        rec_legend_html = (
+            '<div style="font-size:12px;color:%s;">'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%%;'
+            'background:%s;margin-right:5px;"></span>'
+            '<b style="color:%s;">Recuperable (CPC)</b>&nbsp; %s</div>'
+        ) % (color_muted, "#8B5CF6", "#8B5CF6", fmt_usd(recovery_usd))
+    else:
+        rec_legend_html = ""
+
     if show_projected:
         proj_legend_html = (
             '<div style="font-size:12px;color:%s;">'
@@ -10085,6 +10113,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     <div style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:{track};">
       <div style="width:{pa:.1f}%;background:{ca};border-radius:8px 0 0 8px;transition:width .4s;"></div>
       <div style="width:{pp:.1f}%;background:{cp};transition:width .4s;"></div>
+      <div style="width:{prc:.1f}%;background:repeating-linear-gradient(45deg,{crec},{crec} 4px,rgba(255,255,255,.25) 4px,rgba(255,255,255,.25) 8px);transition:width .4s;"></div>
       <div style="width:{ppl:.1f}%;background:{cpl};transition:width .4s;"></div>
       <div style="width:{pg:.1f}%;background:{gap_seg};transition:width .4s;"></div>
       <div style="flex:1;background:{rest};border-radius:0 8px 8px 0;"></div>
@@ -10124,6 +10153,9 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         v_active=fmt_usd(active_usd),
         v_proj=fmt_usd(projected_usd),
         proj_legend=proj_legend_html,
+        rec_legend=rec_legend_html,
+        prc=pct_recovery,
+        crec="#8B5CF6",
         v_pipe=fmt_usd(pipeline_usd),
         gl=gap_label, v_gap=fmt_usd(gap_usd),
         v_target=fmt_usd(target_usd), ol=overall_label,
@@ -10570,6 +10602,7 @@ def page_opportunity_list():
                 label=f"ADS Revenue Target · USD {fmt_number(ads_target_usd)}",
                 active_usd=ads_result_from_sheet,
                 projected_usd=ads_projected_usd,
+                recovery_usd=_ads_budget_no_ejec,
                 pipeline_usd=min(ads_pipeline_usd, max(ads_gap_usd, 0)),
                 target_usd=ads_target_usd,
             )
@@ -10586,19 +10619,6 @@ def page_opportunity_list():
                     f"<div style='font-size:13px; color:{COLORS['accent']}; font-weight:700; margin-bottom:12px;'>"
                     f"⚡ Cierra los top <b>{brands_needed}</b> brands de esta lista para cubrir el gap de {fmt_usd(ads_gap_usd)} "
                     f"({'ya cubierto por activos 🎉' if ads_result_from_sheet >= ads_target_usd else ''})</div>",
-                    unsafe_allow_html=True,
-                )
-
-            # Dinero ya reservado que se está perdiendo por sub-consumo. No requiere
-            # vender nada nuevo: se recupera arreglando CPC/segmentación en las campañas
-            # que YA están corriendo (ver Campaign Weekly Tracker → Ads CPC Monitor).
-            if _ads_budget_no_ejec > 0 and _ads_pace > 0:
-                _cubre = min(_ads_budget_no_ejec / ads_gap_usd * 100, 100) if ads_gap_usd > 0 else 100
-                st.markdown(
-                    f"<div style='font-size:13px; color:#8B5CF6; font-weight:700; margin-bottom:12px;'>"
-                    f"🔧 Las campañas activas van a un <b>pace de {_ads_pace:.2f}x</b> — si llegaran al 100% "
-                    f"de su booking recuperás <b>{fmt_usd(_ads_budget_no_ejec)}</b> "
-                    f"({_cubre:.0f}% del gap) sin vender nada nuevo. Revisá CPC en el Campaign Weekly Tracker.</div>",
                     unsafe_allow_html=True,
                 )
 
