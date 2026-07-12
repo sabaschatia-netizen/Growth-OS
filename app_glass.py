@@ -18057,6 +18057,15 @@ def render_priority_overview_controls():
             _render_html_table(df_detail)
 
 
+def _short_period_label(value):
+    """'Q3 W28 · Sun 12 Jul 2026' -> 'Q3 W28'. Deja solo el trimestre y la semana."""
+    txt = str(value or "").strip()
+    m = re.search(r"(Q\d)\s*[·\-]?\s*(W\d+)", txt, re.IGNORECASE)
+    if m:
+        return f"{m.group(1).upper()} {m.group(2).upper()}"
+    return txt.split("·")[0].strip() if "·" in txt else txt
+
+
 def _campaign_period_label(baseline=False):
     if baseline:
         return "Q2 W20 2026"
@@ -18387,29 +18396,29 @@ def page_campaign_weekly_tracker():
     live_coverage = get_live_campaign_coverage_counts()
 
     # Ads Revenue en vivo: suma revenue_net de Current ADS (portfolio)
-    _live_ads_df = load_current_ads_data(portfolio_only=True)
-    _live_ads_revenue = (
-        pd.to_numeric(_live_ads_df["revenue net"], errors="coerce").fillna(0).sum()
-        if not _live_ads_df.empty and "revenue net" in _live_ads_df.columns
-        else 0.0
-    )
+    # ── KPIs en vivo ─────────────────────────────────────────────────────────
+    # Active Ads / MD / MD PRO: mismo criterio que la card Brand Coverage del
+    # Management Dashboard (get_live_campaign_coverage_counts) — base Asignación
+    # Junio, contando marcas con campaña activa. Ya NO se suman MD + MD PRO:
+    # son palancas distintas y cada una tiene su propio contador.
+    #
+    # Ads Revenue: suma de REVENUE NET de Current ADS.
+    # MD GMV / MD PRO GMV: suma de la columna MARKDOWN $ (y MARKDOWN PRO USR $)
+    # de sus respectivas hojas — es el neto de markdown, no el GMV facturado.
+    _live_ads_revenue = to_number(get_current_ads_totals().get("revenue_net"), 0)
+    # _read_md_totals_from_sheet lee la fila Total: col E = MARKDOWN $ / MARKDOWN PRO USR $
+    _live_md_gmv      = to_number(_read_md_totals_from_sheet(pro=False).get("markdown_usd"), 0)
+    _live_md_pro_gmv  = to_number(_read_md_totals_from_sheet(pro=True).get("markdown_usd"), 0)
 
-    # MD GMV en vivo: suma _gmv_usd de Current MD + Current MD PRO (portfolio)
-    _live_md_df     = load_current_md_data(portfolio_only=True, pro=False)
-    _live_md_pro_df = load_current_md_data(portfolio_only=True, pro=True)
-    _live_md_gmv = (
-        pd.to_numeric(_live_md_df["_gmv_usd"], errors="coerce").fillna(0).sum()
-        if not _live_md_df.empty else 0.0
-    ) + (
-        pd.to_numeric(_live_md_pro_df["_gmv_usd"], errors="coerce").fillna(0).sum()
-        if not _live_md_pro_df.empty else 0.0
-    )
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Active Ads",        fmt_number(live_coverage["ads"]))
+    c2.metric("Active MD",         fmt_number(live_coverage["md"]))
+    c3.metric("Active MD PRO",     fmt_number(live_coverage["md_pro"]))
+    c4.metric("Ads Revenue (vivo)", fmt_usd(_live_ads_revenue))
+    c5.metric("MD GMV (vivo)",      fmt_usd(_live_md_gmv))
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Active Ads",         fmt_number(live_coverage["ads"]))
-    c2.metric("Active MD / MD PRO", fmt_number(live_coverage["md"]))
-    c3.metric("Ads Revenue (vivo)",  fmt_usd(_live_ads_revenue))
-    c4.metric("MD GMV (vivo)",       fmt_usd(_live_md_gmv))
+    c6, _c7, _c8, _c9, _c10 = st.columns(5)
+    c6.metric("MD PRO GMV (vivo)",  fmt_usd(_live_md_pro_gmv))
 
     # ── Tabla Ads CPC Monitor (histórico de snapshots + foto viva actual) ─────
     # La comparativa SIEMPRE usa la foto en vivo de Current como período más reciente.
@@ -18456,7 +18465,7 @@ def page_campaign_weekly_tracker():
     with _tk_tab_ads:
         st.markdown("### Ads CPC Monitor")
         if ads_latest.empty:
-            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Strategic Note"])
+            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"])
         else:
             ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
             ads_latest["Consumption"] = ads_latest.apply(lambda r: (to_number(r.get("revenue_usd"),0) / to_number(r.get("bookings_usd"),0)) if to_number(r.get("bookings_usd"),0) else 0, axis=1)
@@ -18596,7 +18605,12 @@ def page_campaign_weekly_tracker():
                     return "🟢 Estable"
 
             ads_latest["Revenue at Risk"] = ads_latest.apply(_ads_revenue_at_risk, axis=1)
-            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","Consumption","Pressure Stability","False ROI Check","CPC Recommendation","Accionables","Delivery Rate","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            # Consumption / Pressure Stability / False ROI Check / Delivery Rate se siguen
+            # CALCULANDO (CPC Recommendation y Accionables dependen de ellas), pero se
+            # ocultan de la tabla para dejar el monitor limpio.
+            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables","Revenue at Risk","Strategic Note"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            # Period: solo Q y W, sin la fecha completa.
+            ads_view["Period"] = ads_view["Period"].apply(_short_period_label)
         # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
         # de marcas en un bloque de texto que parecía error de render. La misma señal ya
         # vive por marca en la columna "ROI Alert" de la tabla de abajo.
