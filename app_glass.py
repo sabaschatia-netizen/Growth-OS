@@ -3097,6 +3097,44 @@ def load_current_md_data(portfolio_only=False, pro=False):
     return df
 
 @st.cache_data(ttl=3000, show_spinner=False)
+def load_md_brand_gmv_map(pro=False):
+    """Mapa por BRAND de la hoja Current MD / Current MD pro: {brand_id: {gmv_usd, promo_usd}}.
+
+    Lee col D (GMV TOTAL $) y col E (MARKDOWN $ / MARKDOWN PRO USR $) directamente,
+    SIN el filtro de orders>0 que aplica load_current_md_data — necesitamos también
+    las marcas inactivas (Acquire), que tienen GMV en col D pero cero promo en col E.
+
+    Agrupa por brand sumando todas sus stores: la hoja trae una fila por STORE, y una
+    marca multi-tienda aparecía repetida en la Opportunity List (ej. AR-99515 dos veces).
+
+    La penetración se deriva de estas dos columnas (E÷D, misma hoja, mismo período).
+    No se usa el GMV de Growth OS ni la col F de la hoja (que en MD pro está pegada).
+    """
+    sheet = CURRENT_MD_PRO_SHEET if pro else CURRENT_MD_SHEET
+    out = {}
+    if not os.path.exists(EXCEL_FILE):
+        return out
+    try:
+        raw = pd.read_excel(_excel_handle(EXCEL_FILE, _excel_mtime()), sheet_name=sheet, header=None)
+    except Exception:
+        return out
+    for i in range(1, len(raw)):
+        row = raw.iloc[i]
+        if str(row.iloc[0]).strip().lower().startswith("total"):
+            continue
+        bid = normalize_brand_id(row.iloc[1])   # col B = BRAND ID
+        if not bid:
+            continue
+        gmv   = to_number(row.iloc[3], 0)       # col D = GMV TOTAL $
+        promo = to_number(row.iloc[4], 0)       # col E = MARKDOWN $ / MARKDOWN PRO USR $
+        if bid not in out:
+            out[bid] = {"gmv_usd": 0.0, "promo_usd": 0.0}
+        out[bid]["gmv_usd"]   += max(gmv, 0)
+        out[bid]["promo_usd"] += max(promo, 0)
+    return out
+
+
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_md_metrics(brand_id, pro=False):
     df = load_current_md_data(portfolio_only=False, pro=pro)
 
@@ -9432,7 +9470,28 @@ def _prepare_growth_scored_data():
     data["_is_new"]   = data["_id"].isin(_aj_new_ids)    # marca nueva (rojo en Excel)
     data["_is_turbo"] = data["_id"].isin(_aj_turbo_ids)  # tiene Store Turbo asignado
     data["_name"] = get_col(data, ["name", "brand name", "restaurant name"], "").apply(lambda x: clean(x, ""))
-    data["_gmv"] = _to_numeric_series(get_col(data, ["last gmv ars", "gmv ars"], 0))
+    # ── _gmv: FUENTE DE VERDAD = hoja MAY GMV (mes cerrado) ───────────────────
+    # La hoja Growth OS ya NO se usa para nada numérico: solo aporta identificación
+    # (nombre, correo, contacto, categoría) y el histórico de su propio mes.
+    # 'last gmv ars' quedó desactualizada y arrastraba ceros que hacían aparecer
+    # "Sin GMV" en marcas que sí facturan, y además distorsionaba _opportunity_score
+    # (donde el GMV pesa 45%). Ahora el GMV mensual de cada brand se toma de MAY GMV
+    # y solo se cae a 'last gmv ars' cuando la marca no figura ahí (marcas nuevas).
+    _mg_df = load_may_gmv_data()
+    _mg_map = {}
+    if not _mg_df.empty:
+        _mg_col = _first_existing_col(_mg_df, ["gmv ars", "gmv local", "gmv"])
+        if _mg_col:
+            for _, _mr in _mg_df.iterrows():
+                _mb = normalize_brand_id(_mr.get("_id", ""))
+                _mv = to_number(_mr.get(_mg_col), 0)
+                if _mb and _mv > 0:
+                    _mg_map[_mb] = _mv
+    _gmv_legacy = _to_numeric_series(get_col(data, ["last gmv ars", "gmv ars"], 0))
+    data["_gmv"] = [
+        _mg_map.get(normalize_brand_id(_bid), 0) or to_number(_lg, 0)
+        for _bid, _lg in zip(data["_id"], _gmv_legacy)
+    ]
     data["_aov"] = _to_numeric_series(get_col(data, ["last aov ars", "aov ars"], 0))
     data["_cr"] = _to_numeric_series(get_col(data, ["cr %", "conversion rate", "conversion"], 0))
     data["_pro"] = _to_numeric_series(get_col(data, ["pro users %", "pro %"], 0))
@@ -9799,6 +9858,32 @@ def _render_channel_tab_colors(colors):
             f' background: {col}14 !important; font-weight: 800 !important; border-radius: 8px 8px 0 0 !important; }}'
         )
     st.markdown(f"<style>{''.join(rules)}</style>", unsafe_allow_html=True)
+
+
+def get_brand_monthly_gmv_ars(row=None, brand_id="", legacy_keys=("last gmv ars", "gmv ars", "last gmv local", "last gmv")):
+    """GMV mensual del brand en ARS. Fuente de verdad: hoja MAY GMV (mes cerrado).
+
+    Growth OS quedó SOLO para identificación (nombre, correo, contacto) y el histórico
+    de su propio mes; su columna 'last gmv ars' está desactualizada. Se usa como fallback
+    únicamente cuando la marca no figura en MAY GMV (típicamente marcas nuevas).
+    """
+    bid = normalize_brand_id(brand_id or (get_from_row(row, ["id", "brand id"], "") if row is not None else ""))
+    if bid:
+        try:
+            _df = load_may_gmv_data()
+            if not _df.empty:
+                _c = _first_existing_col(_df, ["gmv ars", "gmv local", "gmv"])
+                if _c:
+                    for _, _r in _df.iterrows():
+                        if normalize_brand_id(_r.get("_id", "")) == bid:
+                            _v = to_number(_r.get(_c), 0)
+                            if _v > 0:
+                                return _v
+        except Exception:
+            pass
+    if row is not None:
+        return to_number(get_from_row(row, list(legacy_keys), 0), 0)
+    return 0
 
 
 def _render_light_table(df, height=420):
@@ -10245,6 +10330,11 @@ def page_opportunity_list():
     md_metrics     = build_md_map(pro=False)
     md_pro_metrics = build_md_map(pro=True)
 
+    # Mapas por BRAND (col D = GMV, col E = promo) de las hojas Current MD / MD pro.
+    # Incluyen marcas inactivas (Acquire) y agrupan stores del mismo brand.
+    _md_sheet_map  = load_md_brand_gmv_map(pro=False)
+    _mdp_sheet_map = load_md_brand_gmv_map(pro=True)
+
     # ═══════════════════════════════════════════════════════════════════════════
     # ADS SEGMENT
     # ═══════════════════════════════════════════════════════════════════════════
@@ -10332,6 +10422,9 @@ def page_opportunity_list():
         lambda r: _may_gmv_map.get(normalize_brand_id(r.get("_id", "")), 0) or to_number(r.get("_gmv"), 0),
         axis=1,
     )
+    # Una fila por BRAND: las hojas traen una fila por store y las marcas
+    # multi-tienda se repetían en la lista (ADS).
+    ads_df = ads_df.drop_duplicates(subset=["_id"], keep="first")
     ads_df = ads_df.sort_values(
         by=["_gmv_rank_ars", "_opportunity_score"],
         ascending=[False, False],
@@ -10429,7 +10522,7 @@ def page_opportunity_list():
     # MARKDOWN SEGMENT
     # ═══════════════════════════════════════════════════════════════════════════
     data["_md_current_active"] = data["_id"].apply(
-        lambda x: md_metrics.get(normalize_brand_id(x), {}).get("active", False)
+        lambda x: to_number(_md_sheet_map.get(normalize_brand_id(x), {}).get("promo_usd"), 0) > 0
     )
     data["_md_current_roi"] = data["_id"].apply(
         lambda x: md_metrics.get(normalize_brand_id(x), {}).get("roi", 0)
@@ -10449,9 +10542,12 @@ def page_opportunity_list():
     MD_PENE_HIGH = 0.20   # 20% ceiling
 
     def _md_penetration(row):
-        gmv_brand_ars = to_number(row.get("_gmv"), 0)
-        gmv_brand_usd = gmv_brand_ars / ARS_PER_USD if gmv_brand_ars > 0 else 0
-        gmv_md_usd    = to_number(row.get("_md_current_gmv_usd"), 0)
+        # Penetración = col E ÷ col D de Current MD (misma hoja, mismo período).
+        # No se usa el GMV de Growth OS: esa hoja quedó solo para identificación.
+        _mb = normalize_brand_id(row.get("_id", ""))
+        _e = _md_sheet_map.get(_mb, {})
+        gmv_brand_usd = to_number(_e.get("gmv_usd"), 0)
+        gmv_md_usd    = to_number(_e.get("promo_usd"), 0)
 
         if gmv_brand_usd <= 0:
             return {
@@ -10565,6 +10661,9 @@ def page_opportunity_list():
         lambda r: _may_gmv_map.get(normalize_brand_id(r.get("_id", "")), 0) or to_number(r.get("_gmv"), 0),
         axis=1,
     )
+    # Una fila por BRAND: las hojas traen una fila por store y las marcas
+    # multi-tienda se repetían en la lista (MD).
+    md_df = md_df.drop_duplicates(subset=["_id"], keep="first")
     md_df = md_df.sort_values(
         by=["_gmv_rank_ars", "_opportunity_score"],
         ascending=[False, False],
@@ -10651,17 +10750,18 @@ def page_opportunity_list():
     # Orden: mayor GMV mensual primero, sin importar el tipo de oportunidad.
     # ═══════════════════════════════════════════════════════════════════════════
     data["_mdp_current_active"] = data["_id"].apply(
-        lambda x: md_pro_metrics.get(normalize_brand_id(x), {}).get("active", False)
+        lambda x: to_number(_mdp_sheet_map.get(normalize_brand_id(x), {}).get("promo_usd"), 0) > 0
     )
     data["_mdp_current_gmv_usd"] = data["_id"].apply(
         lambda x: md_pro_metrics.get(normalize_brand_id(x), {}).get("gmv_usd", 0)
     )
 
     def _mdp_penetration(row):
-        """Penetración MD Pro = GMV en promo Pro ÷ GMV mensual del brand."""
-        gmv_brand_ars = to_number(row.get("_gmv"), 0)
-        gmv_brand_usd = gmv_brand_ars / ARS_PER_USD if gmv_brand_ars > 0 else 0
-        gmv_mdp_usd   = to_number(row.get("_mdp_current_gmv_usd"), 0)
+        """Penetración MD Pro = col E ÷ col D de Current MD pro (misma hoja)."""
+        _mb = normalize_brand_id(row.get("_id", ""))
+        _e = _mdp_sheet_map.get(_mb, {})
+        gmv_brand_usd = to_number(_e.get("gmv_usd"), 0)
+        gmv_mdp_usd   = to_number(_e.get("promo_usd"), 0)
         if gmv_brand_usd <= 0:
             return {"actual_pct": None, "target_low_usd": 0, "target_high_usd": 0,
                     "gap_usd": 0, "label": "Sin GMV", "status": "unknown"}
@@ -10715,6 +10815,8 @@ def page_opportunity_list():
         lambda r: _may_gmv_map.get(normalize_brand_id(r.get("_id", "")), 0) or to_number(r.get("_gmv"), 0),
         axis=1,
     )
+    # Una fila por BRAND (las marcas multi-tienda se repetían: ej. AR-99515).
+    mdp_df = mdp_df.drop_duplicates(subset=["_id"], keep="first")
     mdp_df = mdp_df.sort_values(
         by=["_gmv_rank_ars", "_opportunity_score"], ascending=[False, False]
     ).reset_index(drop=True)
@@ -16697,7 +16799,8 @@ def render_brand_profile(row, brand_id):
         </div>
         """, unsafe_allow_html=True)
 
-        growth_gmv_ars = to_number(get_from_row(row, ["last gmv ars", "gmv ars", "last gmv local", "last gmv"], 0), 0)
+        # GMV desde MAY GMV (Growth OS ya no se usa para números).
+        growth_gmv_ars = get_brand_monthly_gmv_ars(row=row, brand_id=get_from_row(row, ["id", "brand id"], ""))
         growth_gmv_usd = to_number(get_from_row(row, ["last gmv usd", "gmv usd"], 0), 0) or (growth_gmv_ars / ARS_PER_USD if growth_gmv_ars else 0)
         growth_aov_ars = to_number(get_from_row(row, ["last aov ars", "aov ars", "last aov local"], 0), 0)
         growth_aov_usd = to_number(get_from_row(row, ["last aov usd", "aov usd"], 0), 0) or (growth_aov_ars / ARS_PER_USD if growth_aov_ars else 0)
@@ -18741,7 +18844,7 @@ def page_campaign_weekly_tracker():
         if _id_col_g:
             for _, _gr in _growth_df.iterrows():
                 _bid = normalize_brand_id(_gr.get(_id_col_g))
-                _gmv_ars = to_number(get_from_row(_gr, ["last gmv ars", "gmv ars", "last gmv local"]), 0)
+                _gmv_ars = get_brand_monthly_gmv_ars(row=_gr, brand_id=_bid)
                 if _bid and _gmv_ars > 0:
                     _growth_gmv_map[_bid] = _gmv_ars / ARS_PER_USD
 
@@ -20271,7 +20374,7 @@ def page_brand_update():
     name_current = clean(get_from_row(row, ["name", "brand name", "restaurant name"], ""))
     ltor_current = clean(get_from_row(row, ["ltor tier", "ltor"], ""))
     churn_current = get_churn_status(brand_id)  # Source of truth: Current Churn sheet
-    gmv_ars_current = to_number(get_from_row(row, ["last gmv ars", "gmv ars"], 0))
+    gmv_ars_current = get_brand_monthly_gmv_ars(row=row, brand_id=brand_id)
     aov_ars_current = to_number(get_from_row(row, ["last aov ars", "aov ars"], 0))
 
     st.markdown(f"""
