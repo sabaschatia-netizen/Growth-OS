@@ -10009,6 +10009,19 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     color_gap_seg   = "rgba(255,255,255,0.14)" if DARK_MODE else "rgba(0,0,0,0.07)"
     color_gap_dot   = "rgba(255,255,255,0.30)" if DARK_MODE else "rgba(255,255,255,.25)"
 
+    # Leyenda "Proyectado restante": se omite por completo cuando show_projected=False
+    # (MD y MD PRO). Se arma en una sola línea plana — si el HTML queda indentado,
+    # Markdown lo interpreta como bloque de código y lo imprime como texto.
+    if show_projected:
+        proj_legend_html = (
+            '<div style="font-size:12px;color:%s;">'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%%;'
+            'background:%s;margin-right:5px;"></span>'
+            '<b style="color:%s;">Proyectado restante</b>&nbsp; %s</div>'
+        ) % (color_muted, color_projected, color_projected, fmt_usd(projected_usd))
+    else:
+        proj_legend_html = ""
+
     html = """
 <div style="background:{card};border:1px solid {border};border-radius:12px;padding:18px 22px 16px;margin-bottom:18px;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -10030,8 +10043,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
     <div style="font-size:12px;color:{muted};">
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{ca};margin-right:5px;"></span>
       <b style="color:{ca};">Activo hoy</b>&nbsp; {v_active}
-    </div>
-    {proj_legend}
+    </div>{proj_legend}
     <div style="font-size:12px;color:{muted};">
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{cpl};margin-right:5px;"></span>
       <b style="color:{cpl};">Pipeline (Opp List)</b>&nbsp; {v_pipe}
@@ -10058,12 +10070,7 @@ def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, col
         marker=marker_html, scale=scale_html,
         v_active=fmt_usd(active_usd),
         v_proj=fmt_usd(projected_usd),
-        proj_legend=(
-            f'<div style="font-size:12px;color:{COLORS["muted"]};">'
-            f'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;'
-            f'background:{color_pipeline};margin-right:5px;"></span>'
-            f'<b style="color:{color_pipeline};">Proyectado restante</b>&nbsp; {fmt_usd(projected_usd)}</div>'
-        ) if show_projected else "",
+        proj_legend=proj_legend_html,
         v_pipe=fmt_usd(pipeline_usd),
         gl=gap_label, v_gap=fmt_usd(gap_usd),
         v_target=fmt_usd(target_usd), ol=overall_label,
