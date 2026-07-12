@@ -12916,282 +12916,296 @@ def page_earnings_calculator():
         </div>
         """, unsafe_allow_html=True)
 
-    top1, top2, top3 = st.columns(3)
-    with top1:
-        render_kpi_card("Ads", ads_target, ads_result, ads_ach, fmt_usd, fmt_usd)
-    with top2:
-        render_kpi_card("MD", md_target, md_result, md_ach, fmt_percent2, fmt_percent2)
-    with top3:
-        render_kpi_card("MD PRO", mdpro_target, mdpro_result, mdpro_ach, fmt_percent2, fmt_percent2)
-
-    bottom1, bottom2, bottom3 = st.columns(3)
-    with bottom1:
-        render_kpi_card("Churn", churn_target, churn_result, churn_ach, fmt_percent2, fmt_percent2)
-    with bottom2:
-        render_kpi_card("Productivity", prod_target, prod_result, prod_ach, fmt_number, fmt_number)
-    with bottom3:
-        render_variable_card(variable_percent)
-
-    if not _prod_qualifies:
-        st.warning(f"⚠️ Productividad en {fmt_percent0(prod_ach)} — por debajo del mínimo de 90%. No se gana variable este mes (Variable % = 0).")
-
-    st.markdown("## Revenue Share ADS")
-    st.caption("Bono adicional a tu variable · se gana cuando tu cumplimiento de ADS supera 90% Y tu cumplimiento de Markdown es ≥ 90%. Cap: 2.000 USD mensuales.")
-
-    _rs_md_qualifies = md_ach >= 0.90
-    bucket1 = max(min(ads_result, ads_target) - ads_target * 0.9, 0) * 0.10
-    bucket2 = max(min(ads_result, ads_target * 1.2) - ads_target, 0) * 0.20
-    bucket3 = max(ads_result - ads_target * 1.2, 0) * 0.30
-    total_comm_usd_uncapped = bucket1 + bucket2 + bucket3
-    total_comm_usd = min(total_comm_usd_uncapped, 2000.0) if _rs_md_qualifies else 0.0
-    _rs_capped_by_md   = not _rs_md_qualifies and total_comm_usd_uncapped > 0
-    _rs_capped_by_cap  = _rs_md_qualifies and total_comm_usd_uncapped > 2000.0
-
-    if not _rs_md_qualifies:
-        st.warning(f"⚠️ Markdown en {fmt_percent0(md_ach)} — por debajo del 90% requerido. Revenue Share ADS no se desbloquea este mes aunque ADS esté en {fmt_percent0(ads_ach)}.")
-    elif _rs_capped_by_cap:
-        st.info(f"ℹ️ Revenue Share ADS calculado: {fmt_usd(total_comm_usd_uncapped)} — topeado al máximo mensual de {fmt_usd(2000)}.")
-
-    # ── Proyección: cuánto falta para el siguiente bucket ─────────────────────
-    _b1_threshold   = ads_target * 0.90  # entrada bucket 1
-    _b2_threshold   = ads_target * 1.00  # entrada bucket 2
-    _b3_threshold   = ads_target * 1.20  # entrada bucket 3
-
-    if ads_result < _b1_threshold:
-        _next_bucket_name  = "Bucket 1 (90% del target)"
-        _gap_to_next        = _b1_threshold - ads_result
-        _next_color         = "#EF4444"
-        _next_note          = f"Todavía no entraste al rango comisionado. Necesitas cerrar {fmt_usd(_gap_to_next)} más."
-    elif ads_result < _b2_threshold:
-        _next_bucket_name  = "Bucket 2 (100% del target)"
-        _gap_to_next        = _b2_threshold - ads_result
-        _next_color         = "#F97316"
-        _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 20% de comisión. Bucket 1 acumulado: {fmt_usd(bucket1)}."
-    elif ads_result < _b3_threshold:
-        _next_bucket_name  = "Bucket 3 (120% del target)"
-        _gap_to_next        = _b3_threshold - ads_result
-        _next_color         = "#F97316"
-        _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 30% de comisión. Buckets 1+2 acumulados: {fmt_usd(bucket1 + bucket2)}."
-    else:
-        _next_bucket_name  = "Superaste los 3 buckets 🏆"
-        _gap_to_next        = 0
-        _next_color         = "#22C55E"
-        _next_note          = f"Estás en el máximo tier de ADS. Total Revenue Share (antes de cap): {fmt_usd(total_comm_usd_uncapped)}."
-
-    # Barra de progreso hacia el siguiente bucket
-    if _gap_to_next > 0:
-        _current_in_range = ads_result - (_b1_threshold if ads_result >= _b1_threshold else 0)
-        _range_size = _gap_to_next + max(_current_in_range, 0)
-        _bucket_pct = round(min(max(_current_in_range, 0) / _range_size * 100 if _range_size > 0 else 0, 100))
-    else:
-        _bucket_pct = 100
-
-    st.markdown(f"""
-<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:20px 24px;margin-bottom:16px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.05);">
-    <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:10px;">
-        🎯 Próximo hito de comisión
-    </div>
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div>
-            <div style="font-size:22px;font-weight:900;color:{_next_color};">{_next_bucket_name}</div>
-            <div style="font-size:15px;font-weight:800;color:#111827;margin-top:4px;">
-                {"Faltan " + fmt_usd(_gap_to_next) + " de ADS Revenue" if _gap_to_next > 0 else "¡Máximo nivel alcanzado!"}
-            </div>
-        </div>
-        <div style="flex:1;min-width:200px;">
-            <div style="height:10px;border-radius:8px;background:rgba(255,255,255,0.95);overflow:hidden;margin-bottom:6px;">
-                <div style="width:{_bucket_pct}%;height:100%;background:{_next_color};border-radius:8px;transition:width .4s;"></div>
-            </div>
-            <div style="font-size:11px;color:#6B7280;">{_next_note}</div>
-        </div>
-    </div>
-</div>
-    """, unsafe_allow_html=True)
-
-    buckets = [
-        ("Bucket 1: 90% to 100% (10%)", bucket1 if _rs_md_qualifies else 0),
-        ("Bucket 2: 100% to 120% (20%)", bucket2 if _rs_md_qualifies else 0),
-        ("Bucket 3: More than 120% (30%)", bucket3 if _rs_md_qualifies else 0),
-        ("Total Revenue Share USD (cap 2k)", total_comm_usd),
-    ]
-
-    bcols = st.columns(4)
-
-    for col, (label, value) in zip(bcols, buckets):
-        box_class = "zero-box" if value == 0 else "result-box"
-        with col:
-            st.markdown(f"""
-            <div class="bucket-card">
-                <div class="bucket-title">{label}</div>
-                <div class="{box_class}">
-                    <div class="kpi-label">Result</div>
-                    <div class="kpi-value">{fmt_usd(value)}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown("## Salary Summary")
-
-    _BASE_SALARY_COP = 2_000_000
-    _HEALTH_PENSION_DEDUCTION_COP = 244_000
-    _VARIABLE_BASE_COP = 510_000
-    salary = _BASE_SALARY_COP - _HEALTH_PENSION_DEDUCTION_COP
-    variable_cop = variable_percent * _VARIABLE_BASE_COP
-    commission_cop = total_comm_usd * COP_PER_USD
-    gross_total = salary + transport + variable_cop + commission_cop
-    net_total = gross_total
-
-    salary_items = [
-        ("Salary (neto de salud/pensión)", salary, False),
-        ("Transport + Connection", transport, False),
-        ("Variable", variable_cop, False),
-        ("Revenue Share ADS", commission_cop, False),
-        ("Gross Total", gross_total, False),
-        ("Net Total", net_total, True),
-    ]
-
-    scols = st.columns(3)
-
-    for i, (label, value, is_net) in enumerate(salary_items):
-        card_class = "salary-card net-card" if is_net else "salary-card"
-        with scols[i % 3]:
-            st.markdown(f"""
-            <div class="{card_class}">
-                <div class="salary-label">{label}</div>
-                <div class="salary-value">{fmt_cop(value)}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div class="legend-box">
-        Salario base: {fmt_cop(_BASE_SALARY_COP)} − {fmt_cop(_HEALTH_PENSION_DEDUCTION_COP)} (salud + pensión) = {fmt_cop(salary)} neto ·
-        Variable: {fmt_percent0(variable_percent)} sobre base de {fmt_cop(_VARIABLE_BASE_COP)} ·
-        Variable cap: ADS 100% / MD, MD PRO y Churn 150% · Qualifier productividad mínimo 90% ·
-        Revenue Share ADS requiere MD ≥ 90%, cap {fmt_usd(2000)}/mes
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("## Compiled Result")
-
-    _PERFORMANCE_TIERS = [
-        (1.0,  "LEGEND",       "#22C55E", "Top Performer, superando las metas y destacándose por su excelencia."),
-        (0.8,  "PROFESSIONAL", "#3B82F6", "Cumple con las expectativas y mantiene un rendimiento constante."),
-        (0.6,  "ROOKIE",       "#F97316", "Resultados por debajo del nivel óptimo con un potencial claro de mejora."),
-        (0.0,  "RED FLAG",     "#EF4444", "Resultados por debajo de las expectativas que necesitan atención inmediata."),
-    ]
-    _tier_name, _tier_color, _tier_desc = next(
-        (name, color, desc) for threshold, name, color, desc in _PERFORMANCE_TIERS
-        if variable_percent >= threshold
+    # ── 3 tabs: Quarter Compensation · Calculator · Performance ───────────────
+    # Los inputs y todos los cálculos quedan ARRIBA (fuera de los tabs) porque los
+    # tres los consumen: Streamlit ejecuta el cuerpo de todos los tabs en cada
+    # render, así que las variables deben existir antes de abrirlos.
+    _render_channel_tab_colors(["#F97316", "#2563EB", "#8B5CF6"])
+    _ec_tab_q, _ec_tab_calc, _ec_tab_perf = st.tabs(
+        ["🟠 Quarter Compensation", "🔵 Calculator", "🟣 Performance"]
     )
 
-    st.markdown(f"""
-<div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:22px 26px;margin-bottom:16px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.05);display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-    <div style="background:{_tier_color};color:#FFFFFF;font-weight:900;font-size:13px;letter-spacing:.06em;
-        padding:8px 18px;border-radius:30px;text-transform:uppercase;">{_tier_name}</div>
-    <div style="flex:1;min-width:200px;">
-        <div style="font-size:26px;font-weight:900;color:{_tier_color};">{fmt_percent0(variable_percent)}</div>
-        <div style="font-size:12px;color:#6B7280;margin-top:2px;">{_tier_desc}</div>
+    with _ec_tab_q:
+        top1, top2, top3 = st.columns(3)
+        with top1:
+            render_kpi_card("Ads", ads_target, ads_result, ads_ach, fmt_usd, fmt_usd)
+        with top2:
+            render_kpi_card("MD", md_target, md_result, md_ach, fmt_percent2, fmt_percent2)
+        with top3:
+            render_kpi_card("MD PRO", mdpro_target, mdpro_result, mdpro_ach, fmt_percent2, fmt_percent2)
+
+        bottom1, bottom2, bottom3 = st.columns(3)
+        with bottom1:
+            render_kpi_card("Churn", churn_target, churn_result, churn_ach, fmt_percent2, fmt_percent2)
+        with bottom2:
+            render_kpi_card("Productivity", prod_target, prod_result, prod_ach, fmt_number, fmt_number)
+        with bottom3:
+            render_variable_card(variable_percent)
+
+        if not _prod_qualifies:
+            st.warning(f"⚠️ Productividad en {fmt_percent0(prod_ach)} — por debajo del mínimo de 90%. No se gana variable este mes (Variable % = 0).")
+
+
+    with _ec_tab_calc:
+        st.markdown("## Revenue Share ADS")
+        st.caption("Bono adicional a tu variable · se gana cuando tu cumplimiento de ADS supera 90% Y tu cumplimiento de Markdown es ≥ 90%. Cap: 2.000 USD mensuales.")
+
+        _rs_md_qualifies = md_ach >= 0.90
+        bucket1 = max(min(ads_result, ads_target) - ads_target * 0.9, 0) * 0.10
+        bucket2 = max(min(ads_result, ads_target * 1.2) - ads_target, 0) * 0.20
+        bucket3 = max(ads_result - ads_target * 1.2, 0) * 0.30
+        total_comm_usd_uncapped = bucket1 + bucket2 + bucket3
+        total_comm_usd = min(total_comm_usd_uncapped, 2000.0) if _rs_md_qualifies else 0.0
+        _rs_capped_by_md   = not _rs_md_qualifies and total_comm_usd_uncapped > 0
+        _rs_capped_by_cap  = _rs_md_qualifies and total_comm_usd_uncapped > 2000.0
+
+        if not _rs_md_qualifies:
+            st.warning(f"⚠️ Markdown en {fmt_percent0(md_ach)} — por debajo del 90% requerido. Revenue Share ADS no se desbloquea este mes aunque ADS esté en {fmt_percent0(ads_ach)}.")
+        elif _rs_capped_by_cap:
+            st.info(f"ℹ️ Revenue Share ADS calculado: {fmt_usd(total_comm_usd_uncapped)} — topeado al máximo mensual de {fmt_usd(2000)}.")
+
+        # ── Proyección: cuánto falta para el siguiente bucket ─────────────────────
+        _b1_threshold   = ads_target * 0.90  # entrada bucket 1
+        _b2_threshold   = ads_target * 1.00  # entrada bucket 2
+        _b3_threshold   = ads_target * 1.20  # entrada bucket 3
+
+        if ads_result < _b1_threshold:
+            _next_bucket_name  = "Bucket 1 (90% del target)"
+            _gap_to_next        = _b1_threshold - ads_result
+            _next_color         = "#EF4444"
+            _next_note          = f"Todavía no entraste al rango comisionado. Necesitas cerrar {fmt_usd(_gap_to_next)} más."
+        elif ads_result < _b2_threshold:
+            _next_bucket_name  = "Bucket 2 (100% del target)"
+            _gap_to_next        = _b2_threshold - ads_result
+            _next_color         = "#F97316"
+            _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 20% de comisión. Bucket 1 acumulado: {fmt_usd(bucket1)}."
+        elif ads_result < _b3_threshold:
+            _next_bucket_name  = "Bucket 3 (120% del target)"
+            _gap_to_next        = _b3_threshold - ads_result
+            _next_color         = "#F97316"
+            _next_note          = f"Con {fmt_usd(_gap_to_next)} más entrás al 30% de comisión. Buckets 1+2 acumulados: {fmt_usd(bucket1 + bucket2)}."
+        else:
+            _next_bucket_name  = "Superaste los 3 buckets 🏆"
+            _gap_to_next        = 0
+            _next_color         = "#22C55E"
+            _next_note          = f"Estás en el máximo tier de ADS. Total Revenue Share (antes de cap): {fmt_usd(total_comm_usd_uncapped)}."
+
+        # Barra de progreso hacia el siguiente bucket
+        if _gap_to_next > 0:
+            _current_in_range = ads_result - (_b1_threshold if ads_result >= _b1_threshold else 0)
+            _range_size = _gap_to_next + max(_current_in_range, 0)
+            _bucket_pct = round(min(max(_current_in_range, 0) / _range_size * 100 if _range_size > 0 else 0, 100))
+        else:
+            _bucket_pct = 100
+
+        st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:20px 24px;margin-bottom:16px;
+        box-shadow:0 4px 14px rgba(0,0,0,0.05);">
+        <div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#6B7280;margin-bottom:10px;">
+            🎯 Próximo hito de comisión
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:22px;font-weight:900;color:{_next_color};">{_next_bucket_name}</div>
+                <div style="font-size:15px;font-weight:800;color:#111827;margin-top:4px;">
+                    {"Faltan " + fmt_usd(_gap_to_next) + " de ADS Revenue" if _gap_to_next > 0 else "¡Máximo nivel alcanzado!"}
+                </div>
+            </div>
+            <div style="flex:1;min-width:200px;">
+                <div style="height:10px;border-radius:8px;background:rgba(255,255,255,0.95);overflow:hidden;margin-bottom:6px;">
+                    <div style="width:{_bucket_pct}%;height:100%;background:{_next_color};border-radius:8px;transition:width .4s;"></div>
+                </div>
+                <div style="font-size:11px;color:#6B7280;">{_next_note}</div>
+            </div>
+        </div>
     </div>
-</div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # 🏆 PERFORMANCE SCORE · rolling últimos 3 meses (regla Sabas: NO por
-    # quarter — siempre los 3 meses más recientes). El título sale del
-    # promedio de los % de compensación:
-    #   Red Flag <60 · Rookie 60–<80 · Professional 80–100 · Legend >100
-    # El mes en curso entra "live"; con "Close month" queda sellado en el
-    # histórico (growth_os_earnings_history.csv, seed: Mayo 66%).
-    # ══════════════════════════════════════════════════════════════════════
-    _live_pct = float(variable_percent) * 100 if abs(float(variable_percent)) <= 2 else float(variable_percent)
-    _cur_month_key = date.today().strftime("%Y-%m")
+        buckets = [
+            ("Bucket 1: 90% to 100% (10%)", bucket1 if _rs_md_qualifies else 0),
+            ("Bucket 2: 100% to 120% (20%)", bucket2 if _rs_md_qualifies else 0),
+            ("Bucket 3: More than 120% (30%)", bucket3 if _rs_md_qualifies else 0),
+            ("Total Revenue Share USD (cap 2k)", total_comm_usd),
+        ]
 
-    # Histórico (seed Mayo 2026 = 66%)
-    if not os.path.exists(EARNINGS_HISTORY_FILE):
-        pd.DataFrame([{"month": "2026-05", "pct": 66.0}]).to_csv(EARNINGS_HISTORY_FILE, index=False)
-    try:
-        _hist = pd.read_csv(EARNINGS_HISTORY_FILE, dtype={"month": str})
-        _hist["pct"] = pd.to_numeric(_hist["pct"], errors="coerce")
-        _hist = _hist.dropna(subset=["pct"])
-    except Exception:
-        _hist = pd.DataFrame(columns=["month", "pct"])
+        bcols = st.columns(4)
 
-    _closed = dict(zip(_hist["month"], _hist["pct"]))
-    _cur_closed = _cur_month_key in _closed
+        for col, (label, value) in zip(bcols, buckets):
+            box_class = "zero-box" if value == 0 else "result-box"
+            with col:
+                st.markdown(f"""
+                <div class="bucket-card">
+                    <div class="bucket-title">{label}</div>
+                    <div class="{box_class}">
+                        <div class="kpi-label">Result</div>
+                        <div class="kpi-value">{fmt_usd(value)}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-    # Serie: meses cerrados + mes en curso live (si no está cerrado)
-    _series = [{"month": m, "pct": p, "live": False} for m, p in sorted(_closed.items())]
-    if not _cur_closed:
-        _series.append({"month": _cur_month_key, "pct": _live_pct, "live": True})
-    _series = _series[-3:]  # rolling 3 meses
+        st.markdown("## Salary Summary")
 
-    _avg = sum(s["pct"] for s in _series) / len(_series) if _series else 0
+        _BASE_SALARY_COP = 2_000_000
+        _HEALTH_PENSION_DEDUCTION_COP = 244_000
+        _VARIABLE_BASE_COP = 510_000
+        salary = _BASE_SALARY_COP - _HEALTH_PENSION_DEDUCTION_COP
+        variable_cop = variable_percent * _VARIABLE_BASE_COP
+        commission_cop = total_comm_usd * COP_PER_USD
+        gross_total = salary + transport + variable_cop + commission_cop
+        net_total = gross_total
 
-    if _avg > 100:
-        _p_title, _p_color, _p_bg = "LEGEND", "#16A34A", "rgba(34,197,94,0.14)"
-        _p_desc = "Top performer — superando las metas y destacándose por su excelencia."
-    elif _avg >= 80:
-        _p_title, _p_color, _p_bg = "PROFESSIONAL", "#22C55E", "rgba(34,197,94,0.08)"
-        _p_desc = "Cumple con las expectativas y mantiene un rendimiento constante."
-    elif _avg >= 60:
-        _p_title, _p_color, _p_bg = "ROOKIE", "#D9A400", "rgba(255,193,7,0.10)"
-        _p_desc = "Resultados por debajo del nivel óptimo con un potencial claro de mejora."
-    else:
-        _p_title, _p_color, _p_bg = "RED FLAG", "#E5332A", "rgba(229,51,42,0.10)"
-        _p_desc = "Resultados por debajo de las expectativas que necesitan atención inmediata."
+        salary_items = [
+            ("Salary (neto de salud/pensión)", salary, False),
+            ("Transport + Connection", transport, False),
+            ("Variable", variable_cop, False),
+            ("Revenue Share ADS", commission_cop, False),
+            ("Gross Total", gross_total, False),
+            ("Net Total", net_total, True),
+        ]
 
-    _month_names = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
-                    "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
-    _bars = ""
-    _max_pct = max([s["pct"] for s in _series] + [100])
-    for s in _series:
-        _h = max(8, int(s["pct"] / _max_pct * 120))
-        _mlabel = _month_names.get(s["month"][5:7], s["month"][5:7]) + " " + s["month"][2:4]
-        _bcolor = "#2563EB" if not s["live"] else "#F97316"
-        _tag = " · live" if s["live"] else ""
-        _bars += (
-            f"<div style='display:flex;flex-direction:column;align-items:center;gap:6px;'>"
-            f"<div style='font-size:13px;font-weight:900;color:{_bcolor};'>{s['pct']:.0f}%</div>"
-            f"<div style='width:54px;height:{_h}px;background:{_bcolor};border-radius:8px 8px 4px 4px;opacity:{0.55 if s['live'] else 0.9};'></div>"
-            f"<div style='font-size:11px;color:#6B7280;font-weight:700;'>{_mlabel}{_tag}</div></div>"
+        scols = st.columns(3)
+
+        for i, (label, value, is_net) in enumerate(salary_items):
+            card_class = "salary-card net-card" if is_net else "salary-card"
+            with scols[i % 3]:
+                st.markdown(f"""
+                <div class="{card_class}">
+                    <div class="salary-label">{label}</div>
+                    <div class="salary-value">{fmt_cop(value)}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="legend-box">
+            Salario base: {fmt_cop(_BASE_SALARY_COP)} − {fmt_cop(_HEALTH_PENSION_DEDUCTION_COP)} (salud + pensión) = {fmt_cop(salary)} neto ·
+            Variable: {fmt_percent0(variable_percent)} sobre base de {fmt_cop(_VARIABLE_BASE_COP)} ·
+            Variable cap: ADS 100% / MD, MD PRO y Churn 150% · Qualifier productividad mínimo 90% ·
+            Revenue Share ADS requiere MD ≥ 90%, cap {fmt_usd(2000)}/mes
+        </div>
+        """, unsafe_allow_html=True)
+
+
+    with _ec_tab_perf:
+        st.markdown("## Compiled Result")
+
+        _PERFORMANCE_TIERS = [
+            (1.0,  "LEGEND",       "#22C55E", "Top Performer, superando las metas y destacándose por su excelencia."),
+            (0.8,  "PROFESSIONAL", "#3B82F6", "Cumple con las expectativas y mantiene un rendimiento constante."),
+            (0.6,  "ROOKIE",       "#F97316", "Resultados por debajo del nivel óptimo con un potencial claro de mejora."),
+            (0.0,  "RED FLAG",     "#EF4444", "Resultados por debajo de las expectativas que necesitan atención inmediata."),
+        ]
+        _tier_name, _tier_color, _tier_desc = next(
+            (name, color, desc) for threshold, name, color, desc in _PERFORMANCE_TIERS
+            if variable_percent >= threshold
         )
 
-    st.markdown(f"""
-    <div class="wide-info-card" style="margin-top:16px;">
-      <div class="wide-info-title">🏆 Performance Score · rolling 3 months</div>
-      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:center;">
-        <div style="display:flex;align-items:flex-end;gap:22px;justify-content:center;padding:10px 0 4px;">{_bars}</div>
-        <div style="background:{_p_bg};border:1px solid {_p_color}33;border-radius:14px;padding:16px 18px;">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#6B7280;">3-month average</div>
-          <div style="font-size:34px;font-weight:900;color:{_p_color};line-height:1.1;">{_avg:.0f}%</div>
-          <div style="display:inline-block;background:{_p_color};color:#FFFFFF;border-radius:999px;padding:3px 14px;font-size:12px;font-weight:900;margin-top:6px;">{_p_title}</div>
-          <div style="font-size:12px;color:#374151;margin-top:8px;line-height:1.5;">{_p_desc}</div>
+        st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:22px 26px;margin-bottom:16px;
+        box-shadow:0 4px 14px rgba(0,0,0,0.05);display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="background:{_tier_color};color:#FFFFFF;font-weight:900;font-size:13px;letter-spacing:.06em;
+            padding:8px 18px;border-radius:30px;text-transform:uppercase;">{_tier_name}</div>
+        <div style="flex:1;min-width:200px;">
+            <div style="font-size:26px;font-weight:900;color:{_tier_color};">{fmt_percent0(variable_percent)}</div>
+            <div style="font-size:12px;color:#6B7280;margin-top:2px;">{_tier_desc}</div>
         </div>
-      </div>
     </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    if _cur_closed:
-        st.caption(f"✅ {_cur_month_key} closed at {_closed[_cur_month_key]:.0f}% — locked in history.")
-    else:
-        _cm1, _cm2 = st.columns([1, 4])
-        with _cm1:
-            if st.button(f"🔒 Close month ({_cur_month_key})", key="earn_close_month", use_container_width=True):
-                _hist = pd.concat([_hist[_hist["month"] != _cur_month_key],
-                                   pd.DataFrame([{"month": _cur_month_key, "pct": round(_live_pct, 1)}])],
-                                  ignore_index=True).sort_values("month")
-                _hist.to_csv(EARNINGS_HISTORY_FILE, index=False)
-                st.toast(f"Month {_cur_month_key} closed at {_live_pct:.0f}%", icon="🔒")
-                st.rerun()
-        with _cm2:
-            st.caption("Seals the current month's compensation % into the 3-month rolling history. Do it on the last day of the month.")
+        # ══════════════════════════════════════════════════════════════════════
+        # 🏆 PERFORMANCE SCORE · rolling últimos 3 meses (regla Sabas: NO por
+        # quarter — siempre los 3 meses más recientes). El título sale del
+        # promedio de los % de compensación:
+        #   Red Flag <60 · Rookie 60–<80 · Professional 80–100 · Legend >100
+        # El mes en curso entra "live"; con "Close month" queda sellado en el
+        # histórico (growth_os_earnings_history.csv, seed: Mayo 66%).
+        # ══════════════════════════════════════════════════════════════════════
+        _live_pct = float(variable_percent) * 100 if abs(float(variable_percent)) <= 2 else float(variable_percent)
+        _cur_month_key = date.today().strftime("%Y-%m")
+
+        # Histórico (seed Mayo 2026 = 66%)
+        if not os.path.exists(EARNINGS_HISTORY_FILE):
+            pd.DataFrame([{"month": "2026-05", "pct": 66.0}]).to_csv(EARNINGS_HISTORY_FILE, index=False)
+        try:
+            _hist = pd.read_csv(EARNINGS_HISTORY_FILE, dtype={"month": str})
+            _hist["pct"] = pd.to_numeric(_hist["pct"], errors="coerce")
+            _hist = _hist.dropna(subset=["pct"])
+        except Exception:
+            _hist = pd.DataFrame(columns=["month", "pct"])
+
+        _closed = dict(zip(_hist["month"], _hist["pct"]))
+        _cur_closed = _cur_month_key in _closed
+
+        # Serie: meses cerrados + mes en curso live (si no está cerrado)
+        _series = [{"month": m, "pct": p, "live": False} for m, p in sorted(_closed.items())]
+        if not _cur_closed:
+            _series.append({"month": _cur_month_key, "pct": _live_pct, "live": True})
+        _series = _series[-3:]  # rolling 3 meses
+
+        _avg = sum(s["pct"] for s in _series) / len(_series) if _series else 0
+
+        if _avg > 100:
+            _p_title, _p_color, _p_bg = "LEGEND", "#16A34A", "rgba(34,197,94,0.14)"
+            _p_desc = "Top performer — superando las metas y destacándose por su excelencia."
+        elif _avg >= 80:
+            _p_title, _p_color, _p_bg = "PROFESSIONAL", "#22C55E", "rgba(34,197,94,0.08)"
+            _p_desc = "Cumple con las expectativas y mantiene un rendimiento constante."
+        elif _avg >= 60:
+            _p_title, _p_color, _p_bg = "ROOKIE", "#D9A400", "rgba(255,193,7,0.10)"
+            _p_desc = "Resultados por debajo del nivel óptimo con un potencial claro de mejora."
+        else:
+            _p_title, _p_color, _p_bg = "RED FLAG", "#E5332A", "rgba(229,51,42,0.10)"
+            _p_desc = "Resultados por debajo de las expectativas que necesitan atención inmediata."
+
+        _month_names = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun",
+                        "07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec"}
+        _bars = ""
+        _max_pct = max([s["pct"] for s in _series] + [100])
+        for s in _series:
+            _h = max(8, int(s["pct"] / _max_pct * 120))
+            _mlabel = _month_names.get(s["month"][5:7], s["month"][5:7]) + " " + s["month"][2:4]
+            _bcolor = "#2563EB" if not s["live"] else "#F97316"
+            _tag = " · live" if s["live"] else ""
+            _bars += (
+                f"<div style='display:flex;flex-direction:column;align-items:center;gap:6px;'>"
+                f"<div style='font-size:13px;font-weight:900;color:{_bcolor};'>{s['pct']:.0f}%</div>"
+                f"<div style='width:54px;height:{_h}px;background:{_bcolor};border-radius:8px 8px 4px 4px;opacity:{0.55 if s['live'] else 0.9};'></div>"
+                f"<div style='font-size:11px;color:#6B7280;font-weight:700;'>{_mlabel}{_tag}</div></div>"
+            )
+
+        st.markdown(f"""
+        <div class="wide-info-card" style="margin-top:16px;">
+          <div class="wide-info-title">🏆 Performance Score · rolling 3 months</div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:center;">
+            <div style="display:flex;align-items:flex-end;gap:22px;justify-content:center;padding:10px 0 4px;">{_bars}</div>
+            <div style="background:{_p_bg};border:1px solid {_p_color}33;border-radius:14px;padding:16px 18px;">
+              <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#6B7280;">3-month average</div>
+              <div style="font-size:34px;font-weight:900;color:{_p_color};line-height:1.1;">{_avg:.0f}%</div>
+              <div style="display:inline-block;background:{_p_color};color:#FFFFFF;border-radius:999px;padding:3px 14px;font-size:12px;font-weight:900;margin-top:6px;">{_p_title}</div>
+              <div style="font-size:12px;color:#374151;margin-top:8px;line-height:1.5;">{_p_desc}</div>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if _cur_closed:
+            st.caption(f"✅ {_cur_month_key} closed at {_closed[_cur_month_key]:.0f}% — locked in history.")
+        else:
+            _cm1, _cm2 = st.columns([1, 4])
+            with _cm1:
+                if st.button(f"🔒 Close month ({_cur_month_key})", key="earn_close_month", use_container_width=True):
+                    _hist = pd.concat([_hist[_hist["month"] != _cur_month_key],
+                                       pd.DataFrame([{"month": _cur_month_key, "pct": round(_live_pct, 1)}])],
+                                      ignore_index=True).sort_values("month")
+                    _hist.to_csv(EARNINGS_HISTORY_FILE, index=False)
+                    st.toast(f"Month {_cur_month_key} closed at {_live_pct:.0f}%", icon="🔒")
+                    st.rerun()
+            with _cm2:
+                st.caption("Seals the current month's compensation % into the 3-month rolling history. Do it on the last day of the month.")
 
 
-# =========================
-# BRAND FINDER
-# =========================
+    # =========================
+    # BRAND FINDER
+    # =========================
 
 def _split_category_and_stickers(category_value):
     raw = clean(category_value, "-")
