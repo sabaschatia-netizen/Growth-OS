@@ -2938,6 +2938,7 @@ def get_current_ads_metrics(brand_id):
     }
 
 
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_ads_totals():
     """
     Ads Gross Bookings / Revenue = suma directa de las columnas BOOKINGS NET y
@@ -3341,6 +3342,7 @@ def _read_md_roi_from_j290(pro=False):
         return 0
 
 
+@st.cache_data(ttl=3000, show_spinner=False)
 def get_current_md_totals(pro=False):
     df = load_current_md_data(portfolio_only=True, pro=pro)
 
@@ -5721,17 +5723,38 @@ def _scc_universe_maps():
             md_roi[bid] = roi
             port_ids.add(bid)
 
+    # ── MD PRO ── (hoja Current MD pro, independiente de MD)
+    # Penetración = col E ÷ col D de la propia hoja, agrupada por brand. Usamos
+    # load_md_brand_gmv_map porque incluye marcas INACTIVAS (los Acquire), que
+    # load_current_md_data descarta con su filtro orders>0.
+    mdp_active, mdp_pen = {}, {}
+    try:
+        _mdp_map = load_md_brand_gmv_map(pro=True)
+    except Exception:
+        _mdp_map = {}
+    for bid, ent in _mdp_map.items():
+        _g = to_number(ent.get("gmv_usd"), 0)
+        _p = to_number(ent.get("promo_usd"), 0)
+        mdp_active[bid] = _p > 0
+        mdp_pen[bid] = (_p / _g) if _g > 0 else 0
+        port_ids.add(bid)
+
     for bid in port_ids:
         a_active = ads_active.get(bid, False)
         a_roi = ads_roi.get(bid, 0)
         m_active = md_active.get(bid, False)
         m_pen = md_pen.get(bid, 0)
         m_roi = md_roi.get(bid, 0)
+        p_active = mdp_active.get(bid, False)
+        p_pen    = mdp_pen.get(bid, 0)
         result[bid] = {
             "ads_acquire": not a_active,
             "ads_upsell":  bool(a_active and a_roi > ROAS_UPSELL),
             "md_acquire":  not m_active,
             "md_upsell":   bool(m_active and (m_pen < MD_PEN_MAX or m_roi < MD_ROI_MAX)),
+            # MD Pro: mismo criterio que la Opportunity List — upsell = penetración < 10%.
+            "md_pro_acquire": not p_active,
+            "md_pro_upsell":  bool(p_active and p_pen < MD_PEN_MAX),
         }
     return result
 
@@ -5881,6 +5904,7 @@ def _scc_insights(funnels):
     labels = {
         "ads_acquire": "Ads · Adquisición", "ads_upsell": "Ads · Upselling",
         "md_acquire": "MD · Adquisición", "md_upsell": "MD · Upselling",
+        "md_pro_acquire": "MD Pro · Adquisición", "md_pro_upsell": "MD Pro · Upselling",
     }
     for key, fn in funnels.items():
         label = labels.get(key, key)
@@ -5921,6 +5945,8 @@ def page_acquisition_tracker():
         "ads_upsell":  _scc_build_funnel("ads_upsell"),
         "md_acquire":  _scc_build_funnel("md_acquire"),
         "md_upsell":   _scc_build_funnel("md_upsell"),
+        "md_pro_acquire": _scc_build_funnel("md_pro_acquire"),
+        "md_pro_upsell":  _scc_build_funnel("md_pro_upsell"),
     }
 
     def _funnel_html(title, data, accent):
@@ -5958,7 +5984,8 @@ def page_acquisition_tracker():
             f'{"".join(rows)}</div>'
         )
 
-    _tab_ads, _tab_md = st.tabs(["🎯 Ads", "🏷️ Markdown"])
+    _render_channel_tab_colors(["#F97316", "#2563EB", "#8B5CF6"])
+    _tab_ads, _tab_md, _tab_mdpro = st.tabs(["🟠 Ads", "🔵 Markdown", "🟣 MD PRO"])
     with _tab_ads:
         a1, a2 = st.columns(2)
         with a1:
@@ -5968,9 +5995,16 @@ def page_acquisition_tracker():
     with _tab_md:
         m1, m2 = st.columns(2)
         with m1:
-            st.markdown(_funnel_html("MD Acquisition Funnel", funnels["md_acquire"], "#F97316"), unsafe_allow_html=True)
+            st.markdown(_funnel_html("MD Acquisition Funnel", funnels["md_acquire"], "#2563EB"), unsafe_allow_html=True)
         with m2:
-            st.markdown(_funnel_html("MD Upselling Funnel", funnels["md_upsell"], "#FB923C"), unsafe_allow_html=True)
+            st.markdown(_funnel_html("MD Upselling Funnel", funnels["md_upsell"], "#3B82F6"), unsafe_allow_html=True)
+    with _tab_mdpro:
+        # Data propia de la hoja Current MD pro — no comparte nada con MD.
+        p1, p2 = st.columns(2)
+        with p1:
+            st.markdown(_funnel_html("MD Pro Acquisition Funnel", funnels["md_pro_acquire"], "#8B5CF6"), unsafe_allow_html=True)
+        with p2:
+            st.markdown(_funnel_html("MD Pro Upselling Funnel", funnels["md_pro_upsell"], "#A78BFA"), unsafe_allow_html=True)
 
     # ── Commercial KPIs ───────────────────────────────────────────────────────
     st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
@@ -21062,7 +21096,7 @@ def _show_loading_overlay(page_name):
         el.style.right = '0px'; el.style.bottom = '0px';
 
         clearTimeout(W.__gosLoadingKill);
-        W.__gosLoadingKill = setTimeout(function() {{ var e = D.getElementById('gos-loading'); if (e) e.remove(); }}, 12000);
+        W.__gosLoadingKill = setTimeout(function() {{ var e = D.getElementById('gos-loading'); if (e) e.remove(); }}, 6000);
       }} catch (e) {{ /* cross-origin: no se puede inyectar en el padre */ }}
     }})();
     </script>
@@ -21110,12 +21144,24 @@ _is_nav = (_last_pg is not None) and (_last_pg != page)
 
 if _is_nav:
     _show_loading_overlay(page)   # afiche con dona + barra
-    _time.sleep(0.12)             # breve pausa para que el overlay pinte antes de construir
 
-with st.spinner(f"Cargando {page}…", show_time=False):
-    _page_fn()
-
-if _is_nav:
-    _hide_loading_overlay()
+# try/finally: si la página lanza una excepción, el overlay DEBE removerse igual.
+# Antes, un error dentro de _page_fn() salteaba _hide_loading_overlay() y el afiche
+# quedaba pegado tapando la pantalla ("congelada/atravesada") hasta el kill-timer.
+# También se eliminó el time.sleep(0.12) que bloqueaba el hilo en cada navegación:
+# el overlay se pinta por JS en el documento padre y no necesita esa pausa.
+try:
+    with st.spinner(f"Cargando {page}…", show_time=False):
+        _page_fn()
+except Exception as _page_err:
+    if _is_nav:
+        _hide_loading_overlay()
+        _is_nav = False           # evita doble remoción abajo
+    st.error(f"Ocurrió un error al cargar **{page}**.")
+    with st.expander("Ver detalle técnico"):
+        st.exception(_page_err)
+finally:
+    if _is_nav:
+        _hide_loading_overlay()
 
 st.session_state["_last_rendered_page"] = page
