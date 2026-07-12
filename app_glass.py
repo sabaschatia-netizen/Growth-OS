@@ -9683,6 +9683,17 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         else:
             return _make_pill(text, "rgba(59,72,131,0.08)", "#6B7280")
 
+    # Delta pill: ▲ verde / ▼ rojo. Se usa en WoW Penetration (MD y MD PRO).
+    def _delta_pill(text):
+        t = (text or "").strip()
+        if t in ("", "—", "-"):
+            return t
+        if t.startswith("▲"):
+            return _make_pill(t, "rgba(34,197,94,0.12)", "#22C55E")
+        if t.startswith("▼"):
+            return _make_pill(t, "rgba(239,68,68,0.12)", "#EF4444")
+        return _make_pill(t, "rgba(59,72,131,0.08)", "#6B7280")
+
     # Opp pill (already existed)
     def _opp_pill(text):
         low = text.lower()
@@ -9752,6 +9763,8 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         "churn status":       _status_pill,
         "opp":                _opp_pill,
         "md strategy":        _opp_pill,
+        "md pro strategy":    _opp_pill,
+        "wow penetration":    _delta_pill,
         "opportunity":        _opp_pill,
         "ltor":               _status_pill,
         "revenue proj 80%":   _revenue_pill,
@@ -9849,12 +9862,24 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
                 f'transition:background 0.15s;" title="{html.escape(tooltip_text)}">'
                 f'{cell_inner}</td>'
             )
-        rows_html.append(
-            f'<tr style="background:{base_bg};cursor:default;'
-            f'transition:box-shadow 0.18s,transform 0.18s,background 0.15s;"'
-            f' onmouseover="{hover_in}" onmouseout="{hover_out}">'
-            f'{cells}</tr>'
+        # Fila TOTAL: se detecta por contenido (la 1ra celda dice "TOTAL") y se
+        # resalta con CSS. El HTML de las celdas va escapado por seguridad, así que
+        # la negrita NO puede venir en un <b> desde el dataframe.
+        _is_total = any(
+            str(v).strip().upper() == "TOTAL" for v in list(row)[:2]
         )
+        if _is_total:
+            rows_html.append(
+                f'<tr style="background:rgba(59,72,131,0.06);font-weight:800;'
+                f'border-top:2px solid rgba(0,0,0,0.14);">{cells}</tr>'
+            )
+        else:
+            rows_html.append(
+                f'<tr style="background:{base_bg};cursor:default;'
+                f'transition:box-shadow 0.18s,transform 0.18s,background 0.15s;"'
+                f' onmouseover="{hover_in}" onmouseout="{hover_out}">'
+                f'{cells}</tr>'
+            )
 
     body = f'<tbody>{"".join(rows_html)}</tbody>'
 
@@ -18813,13 +18838,13 @@ def page_campaign_weekly_tracker():
             _acons = (_ar / _ab * 100) if _ab > 0 else 0
             _atot = {c: "" for c in ads_view.columns}
             _atot.update({
-                "Period":          "<b>TOTAL</b>",
-                "Brand":           f"<b>{len(ads_view)} brands</b>",
-                "Bookings USD":    f"<b>{_ab:,.2f}</b>",
-                "Revenue USD":     f"<b>{_ar:,.2f}</b>",
-                "Consumo Booking": f"<b>{_acons:.0f}%</b>",
-                "CPC Recommendation": f"<b>pace {(_acons/100)/(_dias_transcurridos_mes()/_dias_del_mes()):.2f}x</b>" if _ab > 0 else "",
-                "ROI":             f"<b>{_aroi:.2f}</b>",
+                "Period":          "TOTAL",
+                "Brand":           f"{len(ads_view)} brands",
+                "Bookings USD":    f"{_ab:,.2f}",
+                "Revenue USD":     f"{_ar:,.2f}",
+                "Consumo Booking": f"{_acons:.0f}%",
+                "CPC Recommendation": f"pace {(_acons/100)/(_dias_transcurridos_mes()/_dias_del_mes()):.2f}x" if _ab > 0 else "",
+                "ROI":             f"{_aroi:.2f}",
             })
             ads_view = pd.concat([ads_view, pd.DataFrame([_atot])], ignore_index=True)
 
@@ -19058,7 +19083,10 @@ def page_campaign_weekly_tracker():
                 "Sales USD":       f"{to_number(r.get('sales_usd'), 0):,.0f}",
                 "ROI":             fmt_roi2(roi),
                 "Penetration":     pene["label"],
-                "WoW Penetration": (f'<span style="color:{"#22C55E" if change >= 0 else "#EF4444"};font-weight:700;">{fmt_signed_percent(change)}</span>' if change is not None else "—"),
+                # Texto plano: _render_html_table escapa el HTML de las celdas (por
+                # seguridad) y construye los estilos con sus propios pills. Un <span>
+                # crudo aquí se imprimía literal. La flecha ▲/▼ lleva el color vía pill.
+                "WoW Penetration": (f"▲ {fmt_signed_percent(change)}" if change >= 0 else f"▼ {fmt_signed_percent(change)}") if change is not None else "—",
                 "Gap al 10%":      fmt_usd(pene["gap_usd"]) if pene["gap_usd"] > 0 else "—",
                 "Orders":          fmt_number(to_number(r.get("orders"), 0)),
                 "Revenue at Risk": revenue_at_risk,
@@ -19086,15 +19114,15 @@ def page_campaign_weekly_tracker():
 
         total_row = {c: "" for c in md_view_out.columns}
         total_row.update({
-            "Rank":            "<b>TOTAL</b>",
-            "Brand":           f"<b>{len(md_view_out)} brands</b>",
-            "GMV USD":         f"<b>{_tot_gmv:,.0f}</b>",
-            "MARKDOWN $":      f"<b>{_tot_mk:,.0f}</b>",
-            "Sales USD":       f"<b>{_tot_sales:,.0f}</b>",
-            "ROI":             f"<b>{_tot_roi:.2f}</b>",
-            "Penetration":     f"<b>{_tot_pen:.2f}%</b>",
-            "Gap al 10%":      f"<b>{fmt_usd(_tot_gap)}</b>",
-            "Orders":          f"<b>{fmt_number(_tot_orders)}</b>",
+            "Rank":            "TOTAL",
+            "Brand":           f"{len(md_view_out)} brands",
+            "GMV USD":         f"{_tot_gmv:,.0f}",
+            "MARKDOWN $":      f"{_tot_mk:,.0f}",
+            "Sales USD":       f"{_tot_sales:,.0f}",
+            "ROI":             f"{_tot_roi:.2f}",
+            "Penetration":     f"{_tot_pen:.2f}%",
+            "Gap al 10%":      f"{fmt_usd(_tot_gap)}",
+            "Orders":          f"{fmt_number(_tot_orders)}",
         })
         md_view_out = pd.concat([md_view_out, pd.DataFrame([total_row])], ignore_index=True)
 
