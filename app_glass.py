@@ -158,7 +158,22 @@ CURRENT_ADS_SHEET = "Current ADS"
 # PACE = (revenue / booking) / avance_del_mes.  1.0x = va justo en ritmo.
 # Validado contra el Manager: Shawarma Dubai 0.98x y AL TOKE 1.16x, ambas
 # consumiendo al 100% en la plataforma. El PACE reproduce la realidad.
-ADS_ROAS_SANO   = 2.5    # mediana de cartera 2.43 · parte el portafolio ~50/50
+# ── Umbrales de ROAS: SON DOS, y miden decisiones distintas ──────────────────
+# No es el mismo riesgo ajustar una puja que llamar a un aliado a pedirle plata.
+#
+#   ADS_ROAS_CPC (2.5) · Subir/bajar CPC. Se juega con el budget que el aliado YA
+#     puso y que no se está gastando. Reversible en 2 clicks. Riesgo bajo, así
+#     que basta con que la marca rinda alrededor de la mediana de cartera (2.66).
+#
+#   ADS_ROAS_UPSELL (3.5) · Pedirle MÁS budget al aliado. Se juega la credibilidad
+#     comercial: si le sacás plata a una marca que rinde regular y después no
+#     convierte, quemás la relación. No es reversible. Exige que la marca haya
+#     DEMOSTRADO que convierte, no que esté "en el promedio".
+#
+# Umbral validado en campo por el AM (empezó en 4.5, lo bajó a 3.5).
+ADS_ROAS_CPC    = 2.5    # ~mediana de cartera · suficiente para tocar la puja
+ADS_ROAS_UPSELL = 3.5    # exigente · sólo marcas que probaron que convierten
+
 ADS_PACE_REVIEW = 0.60   # bajo esto el dato no es confiable -> REVIEW (no recomendar)
 ADS_PACE_LENTO  = 0.90   # bajo esto va lento
 ADS_PACE_RAPIDO = 1.10   # sobre esto va a agotar el budget antes de fin de mes
@@ -10488,7 +10503,10 @@ def page_opportunity_list():
 
     ads_acquire   = ~data["_ads_current_active"]
     # Upselling = activo con ROI > 3.5x (umbral comercial vigente).
-    ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > 3.5)
+    # Upselling = activo con ROAS por encima del umbral de upsell (3.5x).
+    # Usa la MISMA constante que el Campaign Weekly Tracker: si mañana se mueve
+    # el criterio, se mueve en un solo lugar y las dos páginas quedan alineadas.
+    ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > ADS_ROAS_UPSELL)
 
     ads_df = data[ads_acquire | ads_upselling].copy()
     ads_df["_opp_group"] = ads_df.apply(
@@ -18303,19 +18321,36 @@ def _ads_pace(row):
 
 
 def _ads_estado(row):
-    """Devuelve (codigo, etiqueta) del estado de la campaña."""
+    """Devuelve (codigo, etiqueta) del estado de la campaña.
+
+    Matriz PACE × ROAS. Los dos umbrales de ROAS son distintos a propósito:
+    para tocar la puja (CPC) basta con 2.5; para pedirle plata al aliado
+    (UPSELL) hace falta 3.5. Ver comentario en las constantes.
+    """
     pace = _ads_pace(row)
     if pace is None:
-        return (9, "— Sin booking")
+        return (9, "— No booking")
     roas = to_number(row.get("roi"), 0)
 
+    # Estado 0 · el dato no alcanza para recomendar nada.
     if pace < ADS_PACE_REVIEW:
         return (0, "🔶 REVIEW")
+
+    # Consume rápido: va a agotar el budget antes de fin de mes.
     if pace > ADS_PACE_RAPIDO:
-        return (1, "🟢 SUBIR BUDGET") if roas >= ADS_ROAS_SANO else (2, "🔴 BAJAR CPC")
+        if roas >= ADS_ROAS_UPSELL:
+            return (1, "🟢 UPSELL")        # probó que convierte -> pedirle más plata
+        if roas >= ADS_ROAS_CPC:
+            return (6, "🟡 MONITOR")       # consume bien pero rinde regular -> aún no
+        return (2, "🔴 LOWER CPC")         # quema sin convertir -> está pujando de más
+
+    # Consume lento: hay budget sin ejecutar.
     if pace < ADS_PACE_LENTO:
-        return (3, "🔵 SUBIR CPC") if roas >= ADS_ROAS_SANO else (4, "⚫ REDISEÑAR")
-    return (5, "⚪ EN RITMO")
+        if roas >= ADS_ROAS_CPC:
+            return (3, "🔵 RAISE CPC")     # rinde y no gasta -> plata en la mesa
+        return (4, "⚫ REBUILD")           # ni gasta ni rinde -> revisar campaña entera
+
+    return (5, "⚪ ON PACE")
 
 
 def _ads_cpc_recommendation_from_row(row):
@@ -18344,19 +18379,22 @@ def _ads_cpc_recommendation_from_row(row):
     parts = []
 
     if code == 1:
-        base = f"🟢 SUBIR BUDGET · vuela y rinde (pace {pace:.2f}x · ROAS {roas:.2f})"
-        parts.append("va a agotar el budget antes de fin de mes — proponer upsell")
+        base = f"🟢 UPSELL · vuela y rinde (pace {pace:.2f}x · ROAS {roas:.2f})"
+        parts.append("agota el budget antes de fin de mes y convierte — pedirle más presupuesto")
+    elif code == 6:
+        base = f"🟡 MONITOR · consume bien, rinde regular (pace {pace:.2f}x · ROAS {roas:.2f})"
+        parts.append(f"ROAS bajo el umbral de upsell ({ADS_ROAS_UPSELL:.1f}x) — dejar correr antes de pedirle plata")
     elif code == 2:
-        base = f"🔴 BAJAR CPC · quema sin convertir (pace {pace:.2f}x · ROAS {roas:.2f})"
+        base = f"🔴 LOWER CPC · quema sin convertir (pace {pace:.2f}x · ROAS {roas:.2f})"
         parts.append("está pujando de más: gasta rápido y no vende — bajar puja")
     elif code == 3:
-        base = f"🔵 SUBIR CPC · rinde pero no gasta (pace {pace:.2f}x · ROAS {roas:.2f})"
+        base = f"🔵 RAISE CPC · rinde pero no gasta (pace {pace:.2f}x · ROAS {roas:.2f})"
         parts.append("hay plata en la mesa: el ROAS aguanta más puja")
     elif code == 4:
-        base = f"⚫ REDISEÑAR · ni gasta ni rinde (pace {pace:.2f}x · ROAS {roas:.2f})"
+        base = f"⚫ REBUILD · ni gasta ni rinde (pace {pace:.2f}x · ROAS {roas:.2f})"
         parts.append("subir CPC acá sólo quema más rápido — revisar campaña entera")
     else:
-        base = f"⚪ EN RITMO (pace {pace:.2f}x · ROAS {roas:.2f})"
+        base = f"⚪ ON PACE (pace {pace:.2f}x · ROAS {roas:.2f})"
 
     # ── Contexto del supervisor: pistas de QUÉ revisar dentro de la marca ────
     acc        = row.get("_accionables_parsed") or {}
@@ -18887,7 +18925,9 @@ def page_campaign_weekly_tracker():
             # Orden por prioridad de acción: primero lo que hay que revisar (REVIEW),
             # después lo accionable (subir/bajar), y al final lo que va en ritmo.
             # Dentro de cada estado, mayor booking primero (más plata en juego).
-            _orden_estado = {0: 0, 2: 1, 1: 2, 3: 3, 4: 4, 5: 5, 9: 6}
+            # REVIEW primero (dato roto) · luego lo que pierde plata (LOWER CPC) ·
+            # luego lo accionable (UPSELL, RAISE CPC) · al final lo pasivo.
+            _orden_estado = {0: 0, 2: 1, 1: 2, 3: 3, 4: 4, 6: 5, 5: 6, 9: 7}
             ads_latest["_orden"] = ads_latest["_estado_code"].map(_orden_estado).fillna(9)
             ads_latest = ads_latest.sort_values(
                 by=["_orden", "bookings_usd"], ascending=[True, False]
@@ -18903,20 +18943,22 @@ def page_campaign_weekly_tracker():
         # ── Resumen del motor: cuántas marcas en cada estado ─────────────────
         if not ads_view.empty and "Acción" in ads_view.columns:
             _cnt = ads_view["Acción"].value_counts()
-            _n_review = int(_cnt.get("🔶 REVIEW", 0))
-            _n_bajar  = int(_cnt.get("🔴 BAJAR CPC", 0))
-            _n_subir  = int(_cnt.get("🔵 SUBIR CPC", 0))
-            _n_budget = int(_cnt.get("🟢 SUBIR BUDGET", 0))
-            _n_redis  = int(_cnt.get("⚫ REDISEÑAR", 0))
-            _n_ritmo  = int(_cnt.get("⚪ EN RITMO", 0))
+            _n_review  = int(_cnt.get("🔶 REVIEW", 0))
+            _n_lower   = int(_cnt.get("🔴 LOWER CPC", 0))
+            _n_raise   = int(_cnt.get("🔵 RAISE CPC", 0))
+            _n_upsell  = int(_cnt.get("🟢 UPSELL", 0))
+            _n_rebuild = int(_cnt.get("⚫ REBUILD", 0))
+            _n_monitor = int(_cnt.get("🟡 MONITOR", 0))
+            _n_onpace  = int(_cnt.get("⚪ ON PACE", 0))
 
             _chips = [
-                ("🔶", "REVIEW",       _n_review, "#F59E0B"),
-                ("🔴", "BAJAR CPC",    _n_bajar,  "#EF4444"),
-                ("🔵", "SUBIR CPC",    _n_subir,  "#2563EB"),
-                ("🟢", "SUBIR BUDGET", _n_budget, "#22C55E"),
-                ("⚫", "REDISEÑAR",    _n_redis,  "#6B7280"),
-                ("⚪", "EN RITMO",     _n_ritmo,  "#9CA3AF"),
+                ("🔶", "REVIEW",    _n_review,  "#F59E0B"),
+                ("🔴", "LOWER CPC", _n_lower,   "#EF4444"),
+                ("🟢", "UPSELL",    _n_upsell,  "#22C55E"),
+                ("🔵", "RAISE CPC", _n_raise,   "#2563EB"),
+                ("⚫", "REBUILD",   _n_rebuild, "#6B7280"),
+                ("🟡", "MONITOR",   _n_monitor, "#EAB308"),
+                ("⚪", "ON PACE",   _n_onpace,  "#9CA3AF"),
             ]
             _chips_html = "".join(
                 f'<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;'
