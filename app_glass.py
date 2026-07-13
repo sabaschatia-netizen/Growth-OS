@@ -148,6 +148,20 @@ AGENDA_SHEET = "Agenda"
 CURRENT_GMV_SHEET = "Current GMV"
 MAY_GMV_SHEET = "MAY GMV"
 CURRENT_ADS_SHEET = "Current ADS"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# UMBRALES DEL MOTOR ADS (matriz PACE × ROAS)
+# ══════════════════════════════════════════════════════════════════════════════
+# Definidos acá arriba (y no junto al motor) porque la Opportunity List los usa
+# mucho antes en el archivo — Python evalúa de arriba abajo y si no, revienta.
+#
+# PACE = (revenue / booking) / avance_del_mes.  1.0x = va justo en ritmo.
+# Validado contra el Manager: Shawarma Dubai 0.98x y AL TOKE 1.16x, ambas
+# consumiendo al 100% en la plataforma. El PACE reproduce la realidad.
+ADS_ROAS_SANO   = 2.5    # mediana de cartera 2.43 · parte el portafolio ~50/50
+ADS_PACE_REVIEW = 0.60   # bajo esto el dato no es confiable -> REVIEW (no recomendar)
+ADS_PACE_LENTO  = 0.90   # bajo esto va lento
+ADS_PACE_RAPIDO = 1.10   # sobre esto va a agotar el budget antes de fin de mes
 CURRENT_MD_SHEET = "Current MD"
 CURRENT_MD_PRO_SHEET = "Current MD pro"
 SEASONAL_EVENTS_SHEET = "Seasonal Events"
@@ -10629,7 +10643,14 @@ def page_opportunity_list():
                             if _e["b"] <= 0 or _av_m <= 0:
                                 continue
                             _pc = (_e["r"] / _e["b"]) / _av_m
-                            if _pc < 0.90:
+                            # Las marcas en REVIEW (pace < 0.60) se excluyen: su dato no
+                            # es confiable (posible subreporte de Rappi, campaña sin
+                            # arrancar o marca desconectada). Contarlas acá infla el
+                            # "dinero en la mesa" con plata que quizás sí se está
+                            # ejecutando — sólo que Rappi no la está reportando.
+                            if _pc < ADS_PACE_REVIEW:
+                                continue
+                            if _pc < ADS_PACE_LENTO:
                                 _marcas_sub += 1
                                 _top_sub.append((_e["n"], _e["b"] * (1 - min(_pc, 1.0)), _pc))
                         _top_sub.sort(key=lambda x: x[1], reverse=True)
@@ -18243,83 +18264,121 @@ def _dias_del_mes():
     return _cal.monthrange(_n.year, _n.month)[1]
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# MOTOR DE RECOMENDACIÓN ADS · matriz PACE × ROAS
+# ══════════════════════════════════════════════════════════════════════════════
+# Validado contra el Manager de Rappi (julio 2026, caso Simon Pastas / Shawarma
+# Dubai / AL TOKE). Reemplaza el motor viejo que sólo emitía "Revisar CPC" sin
+# dirección porque asumía que la dirección no era inferible sin el bid actual.
+#
+# SÍ es inferible: el ROAS da la dirección.
+#   - consume rápido + ROAS malo  -> se está pujando de más -> BAJAR CPC
+#   - consume lento  + ROAS bueno -> hay plata en la mesa   -> SUBIR CPC
+#
+# MODELO DE DATOS (confirmado con el Manager):
+#   BOOKINGS NET = presupuesto del MES COMPLETO, ya corregido por Rappi. Fijo.
+#   REVENUE NET  = consumo ACUMULADO a hoy. Crece a diario.
+#   => el ratio revenue/booking debe seguir el avance del mes.
+#      PACE = (revenue / booking) / avance_mes   ·   1.0x = va justo en ritmo.
+#
+# Validación: Shawarma Dubai pace 0.98x y AL TOKE 1.16x — ambas consumiendo al
+# 100% en el Manager. El PACE reproduce la realidad.
+#
+# ESTADO 0 (REVIEW): pace < 0.60. El dato no alcanza para recomendar. Puede ser
+# subreporte de Rappi (caso Simon Pastas: le cuenta 1 semana de revenue cuando
+# lleva 3), campaña que no arrancó, marca desconectada o churn. NO se emite
+# recomendación de CPC: se manda a verificar al Manager. La fricción es
+# deliberada — es más responsable que una recomendación falsa.
+
+def _ads_pace(row):
+    """PACE = (revenue / booking) / avance del mes. 1.0x = en ritmo."""
+    bookings = to_number(row.get("bookings_usd"), 0)
+    revenue  = to_number(row.get("revenue_usd"), 0)
+    if bookings <= 0:
+        return None
+    avance = _dias_transcurridos_mes() / _dias_del_mes()
+    if avance <= 0:
+        return None
+    return (revenue / bookings) / avance
+
+
+def _ads_estado(row):
+    """Devuelve (codigo, etiqueta) del estado de la campaña."""
+    pace = _ads_pace(row)
+    if pace is None:
+        return (9, "— Sin booking")
+    roas = to_number(row.get("roi"), 0)
+
+    if pace < ADS_PACE_REVIEW:
+        return (0, "🔶 REVIEW")
+    if pace > ADS_PACE_RAPIDO:
+        return (1, "🟢 SUBIR BUDGET") if roas >= ADS_ROAS_SANO else (2, "🔴 BAJAR CPC")
+    if pace < ADS_PACE_LENTO:
+        return (3, "🔵 SUBIR CPC") if roas >= ADS_ROAS_SANO else (4, "⚫ REDISEÑAR")
+    return (5, "⚪ EN RITMO")
+
+
 def _ads_cpc_recommendation_from_row(row):
     """
-    Señal de CPC basada en el CONSUMO DEL BOOKING (revenue ÷ bookings).
-
-    Por qué NO decimos "sube" o "baja" el CPC:
-    ni Current ADS ni la hoja CPC traen el bid actual de la campaña. Sin ese dato,
-    una recomendación direccional es una adivinanza: el motor viejo mandaba subir el
-    CPC de marcas que ya lo tenían altísimo y bajarlo en las que ya estaba muy bajo,
-    porque infería la dirección desde ROI + consumo. La dirección NO es inferible.
-
-    Lo que sí sabemos con certeza es cuánto del presupuesto reservado se ejecutó.
-    Ese es el disparador de revisión, y el AM decide al abrir la marca qué mover
-    (segmentos, momentos de consumo, tipos de usuario, o el precio de la puja).
-
-    Umbrales (mismos del semáforo "Consumo Booking"):
-        ≥ 80%          → ✅ Consumo OK        · no requiere acción
-        65% – 79%      → 🟡 Review CPC        · consumo por debajo del rango normal
-        < 65%          → 🔴 Alerta CPC        · consumo crítico, revisar ya
-
-    Los ACCIONABLES del supervisor (Oscar), el Delivery Rate y el budget gap se
-    siguen anexando como contexto: son las pistas de QUÉ revisar dentro de la marca.
+    Recomendación accionable por marca. La dirección del CPC sale del cruce
+    PACE × ROAS; el contexto del supervisor (Accionables, Delivery Rate) se
+    anexa como pistas de QUÉ revisar dentro de la marca.
     """
-    bookings    = to_number(row.get("bookings_usd"), 0)
-    revenue     = to_number(row.get("revenue_usd"), 0)
-    consumption = revenue / bookings if bookings else 0
+    pace = _ads_pace(row)
+    if pace is None:
+        return "— Sin booking"
 
-    # PACE: consumo ajustado por avance del mes (ver _pace_badge).
-    _avance = _dias_transcurridos_mes() / _dias_del_mes()
-    pace    = (consumption / _avance) if _avance > 0 else 0
+    roas   = to_number(row.get("roi"), 0)
+    code, _ = _ads_estado(row)
 
-    acc         = row.get("_accionables_parsed") or {}
-    delivery    = to_number(row.get("_delivery_rate"), None)
-    pct_budget  = to_number(row.get("_pct_budget_sales"), None)
-    pct_sug     = to_number(row.get("_pct_sug_budget_sales"), None)
-    budget_gap  = (pct_sug - pct_budget) if (pct_sug is not None and pct_budget is not None) else None
+    # ── Estado 0 · REVIEW ────────────────────────────────────────────────────
+    # No se emite recomendación: el dato no alcanza. Se manda a verificar.
+    if code == 0:
+        return (
+            f"🔶 REVIEW · consumo muy por debajo del ritmo (pace {pace:.2f}x) — "
+            f"verificá en Manager antes de tocar nada: ¿está consumiendo de verdad "
+            f"(error de reporte)? ¿la campaña arrancó? ¿la marca está conectada? "
+            f"¿se va a churn?"
+        )
 
     parts = []
 
-    # ── 1. Señal base: PACE ──────────────────────────────────────────────────
-    if bookings <= 0:
-        base = "— Sin booking"
-    elif pace >= 1.20:
-        _falta_mes = (1 - _avance) * 100
-        base = f"🔴 Revisar · se acaba antes de fin de mes (pace {pace:.2f}x)"
-        parts.append(f"queda {_falta_mes:.0f}% del mes — evaluar upselling o bajar puja")
-    elif pace >= 0.90:
-        base = f"✅ En ritmo (pace {pace:.2f}x)"
-    elif pace >= 0.70:
-        base = f"🟡 Revisar CPC (pace {pace:.2f}x)"
+    if code == 1:
+        base = f"🟢 SUBIR BUDGET · vuela y rinde (pace {pace:.2f}x · ROAS {roas:.2f})"
+        parts.append("va a agotar el budget antes de fin de mes — proponer upsell")
+    elif code == 2:
+        base = f"🔴 BAJAR CPC · quema sin convertir (pace {pace:.2f}x · ROAS {roas:.2f})"
+        parts.append("está pujando de más: gasta rápido y no vende — bajar puja")
+    elif code == 3:
+        base = f"🔵 SUBIR CPC · rinde pero no gasta (pace {pace:.2f}x · ROAS {roas:.2f})"
+        parts.append("hay plata en la mesa: el ROAS aguanta más puja")
+    elif code == 4:
+        base = f"⚫ REDISEÑAR · ni gasta ni rinde (pace {pace:.2f}x · ROAS {roas:.2f})"
+        parts.append("subir CPC acá sólo quema más rápido — revisar campaña entera")
     else:
-        _proj = min(pace, 1.0) * 100
-        _no_gasta = bookings * (1 - min(pace, 1.0))
-        base = f"🔴 Revisar CPC · sub-consumo (pace {pace:.2f}x)"
-        parts.append(f"a este ritmo cierra el mes en {_proj:.0f}% — no ejecuta {fmt_usd(_no_gasta)}")
+        base = f"⚪ EN RITMO (pace {pace:.2f}x · ROAS {roas:.2f})"
 
-    # ── 2. Contexto: Delivery Rate ───────────────────────────────────────────
-    # DR bajo = el presupuesto no se está entregando. El problema es alcance,
-    # no precio: antes de tocar la puja, revisar segmentos/momentos/usuarios.
+    # ── Contexto del supervisor: pistas de QUÉ revisar dentro de la marca ────
+    acc        = row.get("_accionables_parsed") or {}
+    delivery   = to_number(row.get("_delivery_rate"), None)
+    pct_budget = to_number(row.get("_pct_budget_sales"), None)
+    pct_sug    = to_number(row.get("_pct_sug_budget_sales"), None)
+
     if delivery is not None and delivery < 0.50:
         parts.append("DR bajo (<50%) — problema de alcance, no de precio")
-
-    # ── 3. Accionables del supervisor: QUÉ revisar dentro de la marca ────────
     if acc.get("momentos"):
         parts.append("⏰ Ampliar momentos de consumo")
     if acc.get("usuarios"):
         parts.append("👥 Agregar tipos de usuario")
     if acc.get("segmentos"):
         parts.append("🎯 Ampliar segmentos de audiencia")
-    if acc.get("budget_alto") and not (acc.get("momentos") or acc.get("usuarios") or acc.get("segmentos")):
-        parts.append("💰 Budget alto — revisar horarios o precio de puja")
 
-    # ── 4. Budget gap del supervisor ─────────────────────────────────────────
-    if budget_gap is not None and budget_gap > 0.05:
-        parts.append(f"📈 Budget sugerido +{budget_gap*100:.0f}pp vs actual")
+    if pct_sug is not None and pct_budget is not None:
+        gap = pct_sug - pct_budget
+        if gap > 0.05:
+            parts.append(f"📈 Budget sugerido +{gap*100:.0f}pp vs actual")
 
-    if parts:
-        return base + " · " + " / ".join(parts)
+    return base + " · " + " / ".join(parts) if parts else base
     return base
 
 
@@ -18652,22 +18711,29 @@ def page_campaign_weekly_tracker():
             _mes_avance = _dias_transcurridos_mes() / _dias_del_mes()
 
             def _pace_badge(v):
-                """Solo el % consumido + luz del semáforo. El diagnóstico (sub-consumo /
-                en ritmo / review) y la recomendación viven en CPC Recommendation."""
+                """PACE con semáforo. Umbrales alineados con _ads_estado().
+
+                Se muestra el PACE (no el % crudo de consumo): el % crudo engaña,
+                porque a mitad de mes una marca que consume perfecto sólo puede
+                mostrar ~42%. El PACE ya está normalizado por el avance del mes,
+                así que 1.0x = en ritmo, sin importar el día."""
                 cons = to_number(v, 0)
                 if cons <= 0 or _mes_avance <= 0:
                     return "—"
                 pace = cons / _mes_avance
-                pct = cons * 100
-                if pace >= 1.20:
-                    return f"🔴 {pct:.0f}%"
-                if pace >= 0.90:
-                    return f"✅ {pct:.0f}%"
-                if pace >= 0.70:
-                    return f"🟡 {pct:.0f}%"
-                return f"🔴 {pct:.0f}%"
+                if pace < ADS_PACE_REVIEW:
+                    return f"🔶 {pace:.2f}x"      # dato no confiable -> review
+                if pace > ADS_PACE_RAPIDO:
+                    return f"🔥 {pace:.2f}x"      # va a agotar el budget
+                if pace < ADS_PACE_LENTO:
+                    return f"🟡 {pace:.2f}x"      # va lento
+                return f"✅ {pace:.2f}x"          # en ritmo
 
             ads_latest["Consumo Booking"] = ads_latest["Consumption"].apply(_pace_badge)
+
+            # Estado del motor (matriz PACE × ROAS) — columna corta y ordenable.
+            ads_latest["_estado_code"] = ads_latest.apply(lambda r: _ads_estado(r)[0], axis=1)
+            ads_latest["Acción"]       = ads_latest.apply(lambda r: _ads_estado(r)[1], axis=1)
 
             # Budget que NO se va a ejecutar si la marca sigue a este ritmo.
             # Es revenue que tenías reservado y no vas a facturar.
@@ -18818,16 +18884,69 @@ def page_campaign_weekly_tracker():
             # Consumption / Pressure Stability / False ROI Check / Delivery Rate se siguen
             # CALCULANDO (CPC Recommendation y Accionables dependen de ellas), pero se
             # ocultan de la tabla para dejar el monitor limpio.
-            ads_view = ads_latest[["period","brand_id","Brand","bookings_usd","revenue_usd","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            # Orden por prioridad de acción: primero lo que hay que revisar (REVIEW),
+            # después lo accionable (subir/bajar), y al final lo que va en ritmo.
+            # Dentro de cada estado, mayor booking primero (más plata en juego).
+            _orden_estado = {0: 0, 2: 1, 1: 2, 3: 3, 4: 4, 5: 5, 9: 6}
+            ads_latest["_orden"] = ads_latest["_estado_code"].map(_orden_estado).fillna(9)
+            ads_latest = ads_latest.sort_values(
+                by=["_orden", "bookings_usd"], ascending=[True, False]
+            ).reset_index(drop=True)
+
+            ads_view = ads_latest[["period","brand_id","Brand","Acción","bookings_usd","revenue_usd","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
             # Period: solo Q y W, sin la fecha completa.
             ads_view["Period"] = ads_view["Period"].apply(_short_period_label)
         # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
         # de marcas en un bloque de texto que parecía error de render. La misma señal ya
         # vive por marca en la columna "ROI Alert" de la tabla de abajo.
 
-        # Sort by Bookings USD descending so highest-spend brands appear first
-        if not ads_view.empty and "Bookings USD" in ads_view.columns:
-            ads_view = ads_view.sort_values("Bookings USD", ascending=False).reset_index(drop=True)
+        # ── Resumen del motor: cuántas marcas en cada estado ─────────────────
+        if not ads_view.empty and "Acción" in ads_view.columns:
+            _cnt = ads_view["Acción"].value_counts()
+            _n_review = int(_cnt.get("🔶 REVIEW", 0))
+            _n_bajar  = int(_cnt.get("🔴 BAJAR CPC", 0))
+            _n_subir  = int(_cnt.get("🔵 SUBIR CPC", 0))
+            _n_budget = int(_cnt.get("🟢 SUBIR BUDGET", 0))
+            _n_redis  = int(_cnt.get("⚫ REDISEÑAR", 0))
+            _n_ritmo  = int(_cnt.get("⚪ EN RITMO", 0))
+
+            _chips = [
+                ("🔶", "REVIEW",       _n_review, "#F59E0B"),
+                ("🔴", "BAJAR CPC",    _n_bajar,  "#EF4444"),
+                ("🔵", "SUBIR CPC",    _n_subir,  "#2563EB"),
+                ("🟢", "SUBIR BUDGET", _n_budget, "#22C55E"),
+                ("⚫", "REDISEÑAR",    _n_redis,  "#6B7280"),
+                ("⚪", "EN RITMO",     _n_ritmo,  "#9CA3AF"),
+            ]
+            _chips_html = "".join(
+                f'<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;'
+                f'border:1px solid {_c}40;border-radius:8px;background:{_c}10;">'
+                f'<span style="font-size:14px;">{_e}</span>'
+                f'<span style="font-size:18px;font-weight:800;color:{_c};">{_n}</span>'
+                f'<span style="font-size:11px;color:{COLORS["muted"]};font-weight:600;">{_l}</span>'
+                f'</div>'
+                for _e, _l, _n, _c in _chips
+            )
+            st.markdown(
+                f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px;">{_chips_html}</div>',
+                unsafe_allow_html=True,
+            )
+            if _n_review > 0:
+                st.markdown(
+                    f'<div style="background:#F59E0B12;border-left:4px solid #F59E0B;'
+                    f'border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;'
+                    f'color:{COLORS["muted"]};">'
+                    f'<b style="color:#F59E0B;">🔶 {_n_review} marcas en REVIEW</b> — '
+                    f'consumen por debajo del 60% del ritmo esperado (pace &lt; 0.60x). '
+                    f'El dato no alcanza para recomendar CPC. Verificá en Manager: '
+                    f'¿está consumiendo de verdad (error de reporte de Rappi)? ¿la campaña arrancó? '
+                    f'¿la marca está conectada? ¿se va a churn?'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        # El orden ya viene definido por prioridad de acción (_orden + booking).
+        # No re-ordenar por Bookings acá: pisaría el orden del motor.
             ads_view.index = ads_view.index + 1  # N. starts at 1
 
         # ── Fila TOTAL del monitor de Ads ────────────────────────────────────
