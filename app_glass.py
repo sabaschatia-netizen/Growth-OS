@@ -148,6 +148,7 @@ AGENDA_SHEET = "Agenda"
 CURRENT_GMV_SHEET = "Current GMV"
 MAY_GMV_SHEET = "MAY GMV"
 CURRENT_ADS_SHEET = "Current ADS"
+EXPORT_ADS_SHEET  = "EXPORT ADS"   # fuente de verdad para Att% de booking y revenue
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UMBRALES DEL MOTOR ADS (matriz PACE × ROAS)
@@ -173,6 +174,13 @@ CURRENT_ADS_SHEET = "Current ADS"
 # Umbral validado en campo por el AM (empezó en 4.5, lo bajó a 3.5).
 ADS_ROAS_CPC    = 2.5    # ~mediana de cartera · suficiente para tocar la puja
 ADS_ROAS_UPSELL = 3.5    # exigente · sólo marcas que probaron que convierten
+
+# ── Umbral de Att. Bookings para la matriz de 4 reglas (EXPORT ADS) ──────────
+# Regla 1/2: Att.Booking >= 80%  (la marca está cumpliendo o sobre-cumpliendo su
+#            target de booking) -> el problema, si lo hay, es de CPC.
+# Regla 3/4: Att.Booking <  80%  (la marca tiene poco presupuesto activo vs su
+#            target) -> además de CPC, puede haber espacio para upsell.
+ADS_ATT_BOOKING_OK = 0.80
 
 ADS_PACE_REVIEW = 0.60   # bajo esto el dato no es confiable -> REVIEW (no recomendar)
 ADS_PACE_LENTO  = 0.90   # bajo esto va lento
@@ -2968,6 +2976,168 @@ def get_current_ads_metrics(brand_id):
 
 
 @st.cache_data(ttl=3000, show_spinner=False)
+@st.cache_data(ttl=3000, show_spinner=False)
+def load_export_ads_data():
+    """
+    Hoja EXPORT ADS · fuente de verdad para el ATTAINMENT de ADS.
+
+    Qué aporta que Current ADS NO tiene:
+      · Targets Bookings   -> target de booking POR MARCA (asignado por Rappi)
+      · Target Revenue     -> target de revenue POR MARCA
+      · % Att. Bookings    -> cumplimiento del target de booking
+      · % Att. Revenue Real-> cumplimiento del target de revenue
+
+    Current ADS sólo trae booking/revenue/ROAS crudos: sirve para medir consumo,
+    pero no puede decir si la marca va bien CONTRA SU TARGET. Por eso las
+    recomendaciones de CPC/upsell se calculan acá y no en Current ADS.
+
+    Medición oficial (acordada con el AM):
+      · Booking de la marca  = "Bookings Totales Corregidos"  (ya ajustado por Rappi
+                               por los días que la campaña no estuvo activa)
+      · Revenue de la marca  = "Revenue Real"                 (neto, post co-inversión)
+    """
+    try:
+        raw = pd.read_excel(
+            _excel_handle(EXCEL_FILE, _excel_mtime()),
+            sheet_name=EXPORT_ADS_SHEET,
+            header=0,
+        )
+    except Exception:
+        return pd.DataFrame()
+
+    if raw.empty or "BRAND" not in raw.columns:
+        return pd.DataFrame()
+
+    # Fuera la fila "Total" y la fila de "Filtros aplicados" del export.
+    mask_meta = raw["BRAND"].astype(str).str.contains("Total|Filtros", case=False, na=False)
+    df = raw[~mask_meta].copy()
+    df = df.dropna(subset=["Revenue Real"])
+    if df.empty:
+        return pd.DataFrame()
+
+    # BRAND viene como "88782 - Simon Pastas" -> separar id y nombre.
+    df["_id"]   = df["BRAND"].astype(str).str.extract(r"^\s*(\d+)")[0].apply(normalize_brand_id)
+    df["_name"] = df["BRAND"].astype(str).str.split(" - ", n=1).str[-1].str.strip()
+
+    num_cols = {
+        "_book_corregido": "Bookings Totales Corregidos",
+        "_book_target":    "Targets Bookings",
+        "_att_booking":    "% Att. Bookings",
+        "_revenue_real":   "Revenue Real",
+        "_rev_target":     "Target Revenue",
+        "_att_revenue":    "% Att. Revenue Real",
+    }
+    for dest, srccol in num_cols.items():
+        if srccol in df.columns:
+            df[dest] = pd.to_numeric(df[srccol], errors="coerce").fillna(0.0)
+        else:
+            df[dest] = 0.0
+
+    # Marcas sin target asignado por Rappi: el Att% es una división por cero, así que
+    # no entran a la matriz de reglas. Se marcan para poder listarlas aparte.
+    df["_sin_target"] = (df["_rev_target"] <= 0) & (df["_book_target"] <= 0)
+
+    df = df[df["_id"].astype(str) != ""].copy()
+    # Una marca puede repetirse (multi-tienda): se consolida sumando importes y
+    # recalculando el Att% sobre los totales, no promediando porcentajes.
+    agg = df.groupby("_id", as_index=False).agg(
+        _name=("_name", "first"),
+        _book_corregido=("_book_corregido", "sum"),
+        _book_target=("_book_target", "sum"),
+        _revenue_real=("_revenue_real", "sum"),
+        _rev_target=("_rev_target", "sum"),
+        _sin_target=("_sin_target", "all"),
+    )
+    agg["_att_booking"] = agg.apply(
+        lambda r: (r["_book_corregido"] / r["_book_target"]) if r["_book_target"] > 0 else 0.0, axis=1
+    )
+    agg["_att_revenue"] = agg.apply(
+        lambda r: (r["_revenue_real"] / r["_rev_target"]) if r["_rev_target"] > 0 else 0.0, axis=1
+    )
+    return agg
+
+
+@st.cache_data(ttl=3000, show_spinner=False)
+def get_export_ads_totals():
+    """Totales de cartera desde EXPORT ADS (booking corregido + revenue real)."""
+    df = load_export_ads_data()
+    if df.empty:
+        return {
+            "booking_usd": 0.0, "revenue_usd": 0.0,
+            "book_target_usd": 0.0, "rev_target_usd": 0.0,
+            "att_booking": 0.0, "att_revenue": 0.0,
+            "brands": 0, "sin_target": 0,
+        }
+    booking = float(df["_book_corregido"].sum())
+    revenue = float(df["_revenue_real"].sum())
+    btgt    = float(df["_book_target"].sum())
+    rtgt    = float(df["_rev_target"].sum())
+    return {
+        "booking_usd": booking,
+        "revenue_usd": revenue,
+        "book_target_usd": btgt,
+        "rev_target_usd": rtgt,
+        "att_booking": (booking / btgt) if btgt > 0 else 0.0,
+        "att_revenue": (revenue / rtgt) if rtgt > 0 else 0.0,
+        "brands": int(len(df)),
+        "sin_target": int(df["_sin_target"].sum()),
+    }
+
+
+def _ads_regla_attainment(att_booking, att_revenue, roas, sin_target=False):
+    """
+    Matriz de 4 reglas · EXPORT ADS (Att%) × Current ADS (ROAS).
+
+    El benchmark de revenue NO es un % fijo: es el AVANCE DEL MES. Una marca al
+    día 14 de 31 debería ir en ~45% de su target. Comparar contra un corte fijo
+    castigaría a todas a principio de mes y aprobaría a todas al final.
+
+      R1 · Att.Book >= 80% + Att.Rev <  avance   -> Subir CPC
+      R2 · Att.Book >= 80% + Att.Rev >= avance   -> Campaña buena (revisar ROAS/saldos)
+      R3 · Att.Book <  80% + Att.Rev <  avance   -> ROAS >= 3.5 ? Upsell : Subir CPC
+      R4 · Att.Book <  80% + Att.Rev >= avance   -> ROAS >= 3.5 ? Upsell : No tocar
+
+    Devuelve (codigo, etiqueta, detalle).
+    """
+    if sin_target:
+        return ("T", "⚪ SIN TARGET", "Rappi no asignó target a esta marca — no se puede medir attainment")
+
+    avance = _dias_transcurridos_mes() / _dias_del_mes() if _dias_del_mes() else 0
+    if avance <= 0:
+        return ("—", "—", "")
+
+    book_ok = att_booking >= ADS_ATT_BOOKING_OK
+    rev_ok  = att_revenue >= avance
+    tiene_roas = roas is not None and roas > 0
+
+    if book_ok and not rev_ok:
+        return ("1", "🔴 SUBIR CPC",
+                f"Booking cumplido ({att_booking*100:.0f}%) pero revenue atrasado "
+                f"({att_revenue*100:.0f}% vs {avance*100:.0f}% esperado) — la puja no está entregando")
+    if book_ok and rev_ok:
+        return ("2", "🟢 CAMPAÑA BUENA",
+                f"Booking {att_booking*100:.0f}% · revenue {att_revenue*100:.0f}% "
+                f"(esperado {avance*100:.0f}%) — revisar ROAS y saldos negativos")
+
+    # Att.Booking < 80% -> hay espacio de inversión. El ROAS decide qué pedir.
+    if not tiene_roas:
+        return ("3*", "⚠️ VERIFICAR ROAS",
+                f"Booking bajo ({att_booking*100:.0f}%) — sin ROAS en Current ADS, "
+                f"verificar en Manager antes de decidir CPC vs upsell")
+    if roas >= ADS_ROAS_UPSELL:
+        return ("4", "🔵 UPSELL",
+                f"Booking bajo ({att_booking*100:.0f}%) con ROAS {roas:.2f}x — "
+                f"la marca convierte, hay espacio para pedir más presupuesto")
+    if not rev_ok:
+        return ("3", "🔴 SUBIR CPC",
+                f"Booking bajo ({att_booking*100:.0f}%) y revenue atrasado "
+                f"({att_revenue*100:.0f}% vs {avance*100:.0f}%) · ROAS {roas:.2f}x "
+                f"no sostiene upsell — ajustar puja primero")
+    return ("—", "⚪ NO TOCAR",
+            f"Va en ritmo ({att_revenue*100:.0f}% vs {avance*100:.0f}%) pero ROAS "
+            f"{roas:.2f}x no sostiene pedir más presupuesto")
+
+
 def get_current_ads_totals():
     """
     Ads Gross Bookings / Revenue = suma directa de las columnas BOOKINGS NET y
@@ -9002,6 +9172,59 @@ def page_management_dashboard():
 </div>
 """, unsafe_allow_html=True)
 
+    # ── ROW 3.5: ATTAINMENT ADS (EXPORT ADS) ──────────────────────────────────
+    # Current ADS sólo dice cuánto se consumió; no sabe cuál era la meta POR MARCA.
+    # EXPORT ADS trae Targets Bookings / Target Revenue asignados por Rappi, así que
+    # el attainment real de cartera se calcula sumando esos targets, no con el target
+    # global de config (que es una constante escrita a mano y se desactualiza).
+    _exp_tot = get_export_ads_totals()
+    if _exp_tot.get("brands", 0) > 0 and _exp_tot.get("rev_target_usd", 0) > 0:
+        _att_b   = _exp_tot["att_booking"]
+        _att_r   = _exp_tot["att_revenue"]
+        _avance  = (_dias_transcurridos_mes() / _dias_del_mes()) if _dias_del_mes() else 0
+        _gap_r   = _exp_tot["rev_target_usd"] - _exp_tot["revenue_usd"]
+
+        # El revenue se juzga contra el AVANCE DEL MES, no contra el 100%: al día 14
+        # de 31 una marca sana va en ~45%, no en 100%. Comparar contra 100% a mitad
+        # de mes marcaría en rojo a toda la cartera.
+        _r_ok    = _att_r >= _avance
+        _rc      = "#22C55E" if _r_ok else "#EF4444"
+        _rs      = "▲ En ritmo" if _r_ok else f"▼ {(_avance - _att_r)*100:.0f}pp bajo el ritmo"
+        _bc      = "#22C55E" if _att_b >= ADS_ATT_BOOKING_OK else "#EF4444"
+        _bs      = "▲ Cumple target" if _att_b >= ADS_ATT_BOOKING_OK else f"▼ {(ADS_ATT_BOOKING_OK - _att_b)*100:.0f}pp bajo target"
+
+        panel_title("Attainment ADS · vs target asignado por Rappi")
+        e1, e2, e3 = st.columns(3)
+        with e1:
+            st.markdown(f"""
+<div class="stack-card mgmt-stack-card" style="padding:22px 24px;">
+  <div class="stack-label">ATT. BOOKINGS &middot; CARTERA</div>
+  <div class="stack-main" style="color:{_bc};">{_att_b*100:.1f}%</div>
+  <div class="stack-sub mgmt-conv">{fmt_usd(_exp_tot["booking_usd"])} de {fmt_usd(_exp_tot["book_target_usd"])}</div>
+  <div class="stack-foot" style="color:{_bc};font-weight:700;">{_bs}</div>
+</div>
+""", unsafe_allow_html=True)
+        with e2:
+            st.markdown(f"""
+<div class="stack-card mgmt-stack-card" style="padding:22px 24px;">
+  <div class="stack-label">ATT. REVENUE &middot; CARTERA</div>
+  <div class="stack-main" style="color:{_rc};">{_att_r*100:.1f}%</div>
+  <div class="stack-sub mgmt-conv">{fmt_usd(_exp_tot["revenue_usd"])} de {fmt_usd(_exp_tot["rev_target_usd"])}</div>
+  <div class="stack-foot" style="color:{_rc};font-weight:700;">{_rs} &middot; esperado {_avance*100:.0f}%</div>
+</div>
+""", unsafe_allow_html=True)
+        with e3:
+            _sin_tgt = _exp_tot.get("sin_target", 0)
+            _foot = f"{_sin_tgt} marcas sin target asignado" if _sin_tgt else "Todas las marcas con target"
+            st.markdown(f"""
+<div class="stack-card mgmt-stack-card" style="padding:22px 24px;">
+  <div class="stack-label">GAP DE REVENUE &middot; A CIERRE</div>
+  <div class="stack-main">{fmt_usd(max(_gap_r, 0))}</div>
+  <div class="stack-sub mgmt-conv">{_exp_tot["brands"]} marcas en EXPORT ADS</div>
+  <div class="stack-foot">{_foot}</div>
+</div>
+""", unsafe_allow_html=True)
+
     # ── ROW 4: MD + MD PRO ────────────────────────────────────────────────────
     md_roi_val    = to_number(current_md_totals.get("roi"), 0)
     mdpro_roi_val = to_number(current_md_pro_totals.get("roi"), 0)
@@ -10402,7 +10625,11 @@ def page_opportunity_list():
     # Cuánto revenue se recupera si las campañas ya activas llegaran a ejecutar
     # el 100% de su booking. Es dinero que YA tenés reservado y estás dejando ir
     # por sub-consumo — se recupera arreglando CPC/segmentación, sin vender nada nuevo.
-    _ads_pace           = to_number(ads_totals.get("pace"), 0)
+    # OJO: esta variable se llamaba `_ads_pace`, igual que la función global
+    # `_ads_pace(row)` del Campaign Weekly Tracker. Dentro de esta página el nombre
+    # local pisaba a la función (shadowing) y cualquier llamada a _ads_pace(row)
+    # acá adentro habría explotado con "float is not callable". Renombrada.
+    _ads_pace_cartera   = to_number(ads_totals.get("pace"), 0)
     _ads_budget_no_ejec = to_number(ads_totals.get("budget_sin_ejecutar_usd"), 0)
 
     # weeks_left para Rev Proj de la tabla
@@ -10501,12 +10728,33 @@ def page_opportunity_list():
         lambda x: ads_metrics.get(normalize_brand_id(x), {}).get("roi", 0)
     )
 
-    ads_acquire   = ~data["_ads_current_active"]
-    # Upselling = activo con ROI > 3.5x (umbral comercial vigente).
-    # Upselling = activo con ROAS por encima del umbral de upsell (3.5x).
-    # Usa la MISMA constante que el Campaign Weekly Tracker: si mañana se mueve
-    # el criterio, se mueve en un solo lugar y las dos páginas quedan alineadas.
-    ads_upselling = data["_ads_current_active"] & (data["_ads_current_roi"] > ADS_ROAS_UPSELL)
+    # ── Att. Booking desde EXPORT ADS ─────────────────────────────────────────
+    # La Regla 4 dice: upsell = booking BAJO (< 80% de su target) + ROAS que convierte.
+    # Antes esta página pedía upsell sólo por ROAS alto, sin mirar el booking — así
+    # mandaba a pedir más plata a marcas que YA estaban sobre-cumpliendo su target de
+    # inversión (ahí no hay espacio: el problema es de CPC, no de presupuesto).
+    _exp_opp = load_export_ads_data()
+    if not _exp_opp.empty:
+        _att_book_map = dict(zip(_exp_opp["_id"].astype(str), _exp_opp["_att_booking"]))
+        _en_export_ids = set(_exp_opp["_id"].astype(str))
+    else:
+        _att_book_map, _en_export_ids = {}, set()
+
+    data["_att_booking"] = data["_id"].apply(
+        lambda x: to_number(_att_book_map.get(str(normalize_brand_id(x)), 0), 0)
+    )
+    data["_en_export"] = data["_id"].apply(
+        lambda x: str(normalize_brand_id(x)) in _en_export_ids
+    )
+
+    ads_acquire = ~data["_ads_current_active"]
+
+    # Upselling (Regla 4) = activo + ROAS >= 3.5x + booking por debajo de su target.
+    # Si la marca no está en EXPORT ADS no hay Att. Booking con qué medir, así que
+    # se cae al criterio viejo (sólo ROAS) para no perder oportunidades por falta de dato.
+    _roas_ok = data["_ads_current_roi"] > ADS_ROAS_UPSELL
+    _hay_espacio = (~data["_en_export"]) | (data["_att_booking"] < ADS_ATT_BOOKING_OK)
+    ads_upselling = data["_ads_current_active"] & _roas_ok & _hay_espacio
 
     ads_df = data[ads_acquire | ads_upselling].copy()
     ads_df["_opp_group"] = ads_df.apply(
@@ -10634,7 +10882,7 @@ def page_opportunity_list():
             # ── Monitor: plata en la mesa que no estamos cobrando ────────────────
             # Budget YA reservado en campañas activas que no se va a ejecutar al ritmo
             # actual. No requiere vender nada nuevo: se recupera arreglando CPC.
-            if _ads_budget_no_ejec > 0 and _ads_pace > 0:
+            if _ads_budget_no_ejec > 0 and _ads_pace_cartera > 0:
                 _marcas_sub = 0
                 _top_sub = []
                 try:
@@ -10693,7 +10941,7 @@ def page_opportunity_list():
                           {fmt_usd(_ads_budget_no_ejec)}
                         </div>
                         <div style="font-size:13px;color:{COLORS['muted']};">
-                          {_marcas_sub} marcas van a pace <b>{_ads_pace:.2f}x</b> ·
+                          {_marcas_sub} marcas van a pace <b>{_ads_pace_cartera:.2f}x</b> ·
                           cubre el <b>{_cubre_pct:.0f}%</b> del gap sin vender nada nuevo
                         </div>
                       </div>
@@ -18034,6 +18282,54 @@ def render_brand_profile(row, brand_id):
         except Exception:
             pass
 
+    # ── Attainment ADS de la marca (EXPORT ADS) ───────────────────────────────
+    # Le da al AM, dentro de la ficha, la misma lectura que el Weekly Tracker:
+    # ¿esta marca está cumpliendo su target de booking? ¿y el de revenue, contra el
+    # ritmo del mes? ¿qué acción manda la matriz de 4 reglas?
+    try:
+        _bf_exp = load_export_ads_data()
+        if not _bf_exp.empty:
+            _bf_row = _bf_exp[_bf_exp["_id"].astype(str) == str(normalize_brand_id(brand_id))]
+            if not _bf_row.empty:
+                _e = _bf_row.iloc[0]
+                _bf_roas = to_number((ads_current_raw or {}).get("roi"), 0)
+                _cod, _lab, _det = _ads_regla_attainment(
+                    to_number(_e["_att_booking"], 0),
+                    to_number(_e["_att_revenue"], 0),
+                    _bf_roas,
+                    sin_target=bool(_e["_sin_target"]),
+                )
+                _av = (_dias_transcurridos_mes() / _dias_del_mes()) if _dias_del_mes() else 0
+                _ab, _ar = to_number(_e["_att_booking"], 0), to_number(_e["_att_revenue"], 0)
+                _cb = "#22C55E" if _ab >= ADS_ATT_BOOKING_OK else "#EF4444"
+                _cr = "#22C55E" if _ar >= _av else "#EF4444"
+
+                st.markdown(
+                    "<div class='form-card-static' style='margin-top:16px;'>"
+                    "<div class='wide-info-title'>Attainment ADS &middot; vs target de Rappi</div>"
+                    "<div style='display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;'>"
+                    f"<div style='flex:1;min-width:150px;'>"
+                    f"<div style='font-size:11px;color:{COLORS['muted']};font-weight:700;'>ATT. BOOKING</div>"
+                    f"<div style='font-size:26px;font-weight:900;color:{_cb};'>{_ab*100:.0f}%</div>"
+                    f"<div style='font-size:11px;color:{COLORS['muted']};'>"
+                    f"{fmt_usd(to_number(_e['_book_corregido'],0))} de {fmt_usd(to_number(_e['_book_target'],0))}</div>"
+                    f"</div>"
+                    f"<div style='flex:1;min-width:150px;'>"
+                    f"<div style='font-size:11px;color:{COLORS['muted']};font-weight:700;'>ATT. REVENUE</div>"
+                    f"<div style='font-size:26px;font-weight:900;color:{_cr};'>{_ar*100:.0f}%</div>"
+                    f"<div style='font-size:11px;color:{COLORS['muted']};'>esperado hoy: {_av*100:.0f}%</div>"
+                    f"</div>"
+                    f"<div style='flex:2;min-width:220px;'>"
+                    f"<div style='font-size:11px;color:{COLORS['muted']};font-weight:700;'>ACCIÓN</div>"
+                    f"<div style='font-size:16px;font-weight:800;color:{COLORS['text']};margin-top:4px;'>{_lab}</div>"
+                    f"<div style='font-size:11px;color:{COLORS['muted']};margin-top:2px;'>{_det}</div>"
+                    f"</div>"
+                    "</div></div>",
+                    unsafe_allow_html=True,
+                )
+    except Exception:
+        pass
+
     return name
 
 
@@ -18769,9 +19065,63 @@ def page_campaign_weekly_tracker():
 
             ads_latest["Consumo Booking"] = ads_latest["Consumption"].apply(_pace_badge)
 
-            # Estado del motor (matriz PACE × ROAS) — columna corta y ordenable.
-            ads_latest["_estado_code"] = ads_latest.apply(lambda r: _ads_estado(r)[0], axis=1)
-            ads_latest["Acción"]       = ads_latest.apply(lambda r: _ads_estado(r)[1], axis=1)
+            # ── EXPORT ADS · attainment contra el target POR MARCA ────────────────
+            # Current ADS no trae targets, así que sola no puede decir si una marca va
+            # bien CONTRA SU META — sólo cuánto consumió. EXPORT ADS sí trae
+            # Targets Bookings / Target Revenue y sus Att%, que es lo que gobierna las
+            # 4 reglas de CPC/upsell. Se cruza por brand_id.
+            _exp = load_export_ads_data()
+            if not _exp.empty:
+                _exp_map = _exp.set_index("_id")[
+                    ["_att_booking", "_att_revenue", "_book_corregido", "_revenue_real", "_sin_target"]
+                ].to_dict("index")
+            else:
+                _exp_map = {}
+
+            def _exp_get(bid, field, default=0.0):
+                rec = _exp_map.get(str(bid))
+                return rec.get(field, default) if rec else default
+
+            ads_latest["_att_booking"] = ads_latest["brand_id"].apply(lambda b: _exp_get(b, "_att_booking"))
+            ads_latest["_att_revenue"] = ads_latest["brand_id"].apply(lambda b: _exp_get(b, "_att_revenue"))
+            ads_latest["_sin_target"]  = ads_latest["brand_id"].apply(lambda b: bool(_exp_get(b, "_sin_target", False)))
+            ads_latest["_en_export"]   = ads_latest["brand_id"].apply(lambda b: str(b) in _exp_map)
+
+            _avance_mes_pct = (_dias_transcurridos_mes() / _dias_del_mes()) if _dias_del_mes() else 0
+
+            def _fmt_att(v, benchmark=None):
+                v = to_number(v, 0)
+                if v <= 0:
+                    return "—"
+                if benchmark is None:
+                    # Att. Booking: verde si cumple el umbral de sobre-booking.
+                    icon = "✅" if v >= ADS_ATT_BOOKING_OK else "🟡"
+                else:
+                    # Att. Revenue: se compara contra el avance del mes, no contra un fijo.
+                    icon = "✅" if v >= benchmark else "🔴"
+                return f"{icon} {v*100:.0f}%"
+
+            ads_latest["Att. Booking"] = ads_latest["_att_booking"].apply(_fmt_att)
+            ads_latest["Att. Revenue"] = ads_latest["_att_revenue"].apply(
+                lambda v: _fmt_att(v, benchmark=_avance_mes_pct)
+            )
+
+            # Estado del motor · matriz de 4 reglas (EXPORT ADS Att% × ROAS de Current ADS).
+            # Si la marca no está en EXPORT ADS, cae al motor viejo (PACE × ROAS), que sólo
+            # necesita Current ADS — así ninguna fila queda sin diagnóstico.
+            def _estado_row(r):
+                if not r.get("_en_export"):
+                    return _ads_estado(r)
+                cod, lab, _ = _ads_regla_attainment(
+                    to_number(r.get("_att_booking"), 0),
+                    to_number(r.get("_att_revenue"), 0),
+                    to_number(r.get("roi"), 0),
+                    sin_target=bool(r.get("_sin_target")),
+                )
+                return (cod, lab)
+
+            ads_latest["_estado_code"] = ads_latest.apply(lambda r: _estado_row(r)[0], axis=1)
+            ads_latest["Acción"]       = ads_latest.apply(lambda r: _estado_row(r)[1], axis=1)
 
             # Budget que NO se va a ejecutar si la marca sigue a este ritmo.
             # Es revenue que tenías reservado y no vas a facturar.
@@ -18854,7 +19204,34 @@ def page_campaign_weekly_tracker():
                             "_accionables_raw", "_accionables_parsed", "_bidding_method", "_revenue_supervisor"]:
                     ads_latest[col] = None
 
-            ads_latest["CPC Recommendation"] = ads_latest.apply(_ads_cpc_recommendation_from_row, axis=1)
+            def _cpc_reco_row(r):
+                # Con EXPORT ADS: matriz de 4 reglas (attainment vs target por marca).
+                # Sin EXPORT ADS: motor viejo (PACE × ROAS) — sólo requiere Current ADS.
+                if not r.get("_en_export"):
+                    return _ads_cpc_recommendation_from_row(r)
+                _, lab, detalle = _ads_regla_attainment(
+                    to_number(r.get("_att_booking"), 0),
+                    to_number(r.get("_att_revenue"), 0),
+                    to_number(r.get("roi"), 0),
+                    sin_target=bool(r.get("_sin_target")),
+                )
+                base = f"{lab} · {detalle}" if detalle else lab
+
+                # Pistas de QUÉ revisar dentro de la marca (contexto del supervisor).
+                parts = []
+                acc      = r.get("_accionables_parsed") or {}
+                delivery = to_number(r.get("_delivery_rate"), None)
+                if delivery is not None and delivery < 0.50:
+                    parts.append("DR bajo (<50%) — problema de alcance, no de precio")
+                if acc.get("momentos"):
+                    parts.append("⏰ Ampliar momentos de consumo")
+                if acc.get("usuarios"):
+                    parts.append("👥 Agregar tipos de usuario")
+                if acc.get("segmentos"):
+                    parts.append("🎯 Ampliar segmentos de audiencia")
+                return base + " · " + " / ".join(parts) if parts else base
+
+            ads_latest["CPC Recommendation"] = ads_latest.apply(_cpc_reco_row, axis=1)
             ads_latest["Delivery Rate"] = ads_latest["_delivery_rate"].apply(
                 lambda v: f"{v*100:.0f}%" if pd.notna(v) else "—"
             )
@@ -18925,15 +19302,27 @@ def page_campaign_weekly_tracker():
             # Orden por prioridad de acción: primero lo que hay que revisar (REVIEW),
             # después lo accionable (subir/bajar), y al final lo que va en ritmo.
             # Dentro de cada estado, mayor booking primero (más plata en juego).
-            # REVIEW primero (dato roto) · luego lo que pierde plata (LOWER CPC) ·
-            # luego lo accionable (UPSELL, RAISE CPC) · al final lo pasivo.
-            _orden_estado = {0: 0, 2: 1, 1: 2, 3: 3, 4: 4, 6: 5, 5: 6, 9: 7}
+            # Prioridad de lectura. Los códigos de la matriz de 4 reglas son strings
+            # ("1","2","3","3*","4","—","T"); los del motor viejo (fallback sin EXPORT
+            # ADS) son ints. Se mapean ambos para que la tabla ordene igual siempre.
+            _orden_estado = {
+                # matriz de 4 reglas (EXPORT ADS)
+                "1": 0,    # Subir CPC — booking cumplido, revenue atrasado
+                "3": 1,    # Subir CPC — booking bajo, ROAS no sostiene upsell
+                "4": 2,    # Upsell — booking bajo con ROAS que convierte
+                "3*": 3,   # Verificar ROAS en Manager
+                "2": 4,    # Campaña buena
+                "—": 5,    # No tocar
+                "T": 6,    # Sin target asignado
+                # fallback motor viejo (PACE × ROAS)
+                0: 0, 2: 1, 1: 2, 3: 3, 4: 4, 6: 5, 5: 6, 9: 7,
+            }
             ads_latest["_orden"] = ads_latest["_estado_code"].map(_orden_estado).fillna(9)
             ads_latest = ads_latest.sort_values(
                 by=["_orden", "bookings_usd"], ascending=[True, False]
             ).reset_index(drop=True)
 
-            ads_view = ads_latest[["period","brand_id","Brand","Acción","bookings_usd","revenue_usd","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            ads_view = ads_latest[["period","brand_id","Brand","Acción","bookings_usd","revenue_usd","Att. Booking","Att. Revenue","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
             # Period: solo Q y W, sin la fecha completa.
             ads_view["Period"] = ads_view["Period"].apply(_short_period_label)
         # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
@@ -18943,22 +19332,23 @@ def page_campaign_weekly_tracker():
         # ── Resumen del motor: cuántas marcas en cada estado ─────────────────
         if not ads_view.empty and "Acción" in ads_view.columns:
             _cnt = ads_view["Acción"].value_counts()
-            _n_review  = int(_cnt.get("🔶 REVIEW", 0))
-            _n_lower   = int(_cnt.get("🔴 LOWER CPC", 0))
-            _n_raise   = int(_cnt.get("🔵 RAISE CPC", 0))
-            _n_upsell  = int(_cnt.get("🟢 UPSELL", 0))
-            _n_rebuild = int(_cnt.get("⚫ REBUILD", 0))
-            _n_monitor = int(_cnt.get("🟡 MONITOR", 0))
-            _n_onpace  = int(_cnt.get("⚪ ON PACE", 0))
+            # Estados de la matriz de 4 reglas (EXPORT ADS). Los estados del motor
+            # viejo (fallback) se suman a la categoría equivalente para no partir el
+            # conteo en dos vocabularios distintos.
+            _n_cpc     = int(_cnt.get("🔴 SUBIR CPC", 0)) + int(_cnt.get("🔴 LOWER CPC", 0)) + int(_cnt.get("🔵 RAISE CPC", 0))
+            _n_upsell  = int(_cnt.get("🔵 UPSELL", 0)) + int(_cnt.get("🟢 UPSELL", 0))
+            _n_buena   = int(_cnt.get("🟢 CAMPAÑA BUENA", 0)) + int(_cnt.get("⚪ ON PACE", 0))
+            _n_verif   = int(_cnt.get("⚠️ VERIFICAR ROAS", 0)) + int(_cnt.get("🔶 REVIEW", 0))
+            _n_notocar = int(_cnt.get("⚪ NO TOCAR", 0)) + int(_cnt.get("🟡 MONITOR", 0)) + int(_cnt.get("⚫ REBUILD", 0))
+            _n_sintgt  = int(_cnt.get("⚪ SIN TARGET", 0))
 
             _chips = [
-                ("🔶", "REVIEW",    _n_review,  "#F59E0B"),
-                ("🔴", "LOWER CPC", _n_lower,   "#EF4444"),
-                ("🟢", "UPSELL",    _n_upsell,  "#22C55E"),
-                ("🔵", "RAISE CPC", _n_raise,   "#2563EB"),
-                ("⚫", "REBUILD",   _n_rebuild, "#6B7280"),
-                ("🟡", "MONITOR",   _n_monitor, "#EAB308"),
-                ("⚪", "ON PACE",   _n_onpace,  "#9CA3AF"),
+                ("🔴", "SUBIR CPC",      _n_cpc,     "#EF4444"),
+                ("🔵", "UPSELL",         _n_upsell,  "#2563EB"),
+                ("🟢", "CAMPAÑA BUENA",  _n_buena,   "#22C55E"),
+                ("⚠️", "VERIFICAR ROAS", _n_verif,   "#F59E0B"),
+                ("⚪", "NO TOCAR",       _n_notocar, "#9CA3AF"),
+                ("⚪", "SIN TARGET",     _n_sintgt,  "#6B7280"),
             ]
             _chips_html = "".join(
                 f'<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;'
@@ -18973,23 +19363,34 @@ def page_campaign_weekly_tracker():
                 f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px;">{_chips_html}</div>',
                 unsafe_allow_html=True,
             )
-            if _n_review > 0:
+            _avance_txt = f"{_avance_mes_pct*100:.0f}%"
+            st.markdown(
+                f'<div style="background:{COLORS["surface"]};border-left:4px solid #2563EB;'
+                f'border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;'
+                f'color:{COLORS["muted"]};">'
+                f'<b style="color:{COLORS["text"]};">Benchmark de hoy: {_avance_txt}</b> — '
+                f'una marca en ritmo debería ir en ~{_avance_txt} de su target de revenue '
+                f'(día {_dias_transcurridos_mes()} de {_dias_del_mes()}). '
+                f'Att. Booking ≥ {ADS_ATT_BOOKING_OK*100:.0f}% = cumple su target de inversión.'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if _n_verif > 0:
                 st.markdown(
                     f'<div style="background:#F59E0B12;border-left:4px solid #F59E0B;'
                     f'border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;'
                     f'color:{COLORS["muted"]};">'
-                    f'<b style="color:#F59E0B;">🔶 {_n_review} marcas en REVIEW</b> — '
-                    f'consumen por debajo del 60% del ritmo esperado (pace &lt; 0.60x). '
-                    f'El dato no alcanza para recomendar CPC. Verificá en Manager: '
-                    f'¿está consumiendo de verdad (error de reporte de Rappi)? ¿la campaña arrancó? '
-                    f'¿la marca está conectada? ¿se va a churn?'
+                    f'<b style="color:#F59E0B;">⚠️ {_n_verif} marcas sin ROAS confiable</b> — '
+                    f'tienen booking bajo (&lt; {ADS_ATT_BOOKING_OK*100:.0f}% del target) pero no hay ROAS '
+                    f'en Current ADS para decidir entre subir CPC o pedir upsell. '
+                    f'Verificá el ROAS en Manager antes de tocar la campaña.'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
 
         # El orden ya viene definido por prioridad de acción (_orden + booking).
         # No re-ordenar por Bookings acá: pisaría el orden del motor.
-            ads_view.index = ads_view.index + 1  # N. starts at 1
+        ads_view.index = ads_view.index + 1  # N. starts at 1
 
         # ── Fila TOTAL del monitor de Ads ────────────────────────────────────
         if not ads_view.empty:
