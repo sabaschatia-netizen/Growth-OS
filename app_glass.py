@@ -9004,12 +9004,23 @@ def page_management_dashboard():
         st.markdown(portfolio_html, unsafe_allow_html=True)
 
     # ── ROW 3: ADS BOOKINGS + ADS REVENUE (DONUT) ─────────────────────────────
-    rev_pct      = max(0, safe_ratio(ads_revenue["usd"], ADS_REVENUE_TARGET_USD) or 0)
+    # Metas y montos MTD desde EXPORT ADS (misma fuente que las cards de abajo, para
+    # que el donut y la barra no muestren un % distinto al de la card).
+    _exp_row3    = get_export_ads_totals()
+    _r_goal_row3 = to_number(_exp_row3.get("rev_target_usd"), 0) or ADS_REVENUE_TARGET_USD
+    _r_mtd_row3  = to_number(_exp_row3.get("revenue_usd"), 0) or ads_revenue["usd"]
+    _b_goal_row3 = to_number(_exp_row3.get("book_target_usd"), 0)
+    _b_mtd_row3  = to_number(_exp_row3.get("booking_usd"), 0) or ads_bookings["usd"]
+
+    rev_pct      = max(0, safe_ratio(_r_mtd_row3, _r_goal_row3) or 0)
     rev_done_pct = round(min(rev_pct, 1) * 100)
     rev_over_pct = round((rev_pct - 1) * 100) if rev_pct > 1 else 0
     donut_color  = "#22C55E" if rev_pct >= 1 else ("#F97316" if rev_pct >= 0.5 else "#2563EB")
 
-    book_pct   = max(0, safe_ratio(ads_bookings["ars"], baseline_vals.get("gross_bookings_ars", 1)) or 0)
+    if _b_goal_row3 > 0:
+        book_pct = max(0, safe_ratio(_b_mtd_row3, _b_goal_row3) or 0)
+    else:
+        book_pct = max(0, safe_ratio(ads_bookings["ars"], baseline_vals.get("gross_bookings_ars", 1)) or 0)
     book_bar   = round(min(book_pct, 1) * 100)
     book_over  = round((book_pct - 1) * 100) if book_pct > 1 else 0
     book_color = "#22C55E" if book_pct >= 1 else ("#F97316" if book_pct >= 0.7 else "#EF4444")
@@ -9103,20 +9114,51 @@ def page_management_dashboard():
         '</div>'
     )
 
-    _b_usd  = fmt_usd(ads_bookings["usd"])
-    _b_ars  = fmt_ars(ads_bookings["ars"])
-    _b_cop  = fmt_cop(ads_bookings["cop"])
-    _b_goal_ars = baseline_vals.get("gross_bookings_ars", 0)
-    _b_goal_usd = baseline_vals.get("gross_bookings_usd", _b_goal_ars / ARS_PER_USD if _b_goal_ars else 0)
+    # ── METAS DE ADS · fuente: EXPORT ADS (targets asignados por marca) ────────
+    # Antes:
+    #   · meta de bookings  = celda AU10 del Excel (número suelto, se desactualiza)
+    #   · meta de revenue   = ADS_REVENUE_TARGET_USD (constante hardcodeada = 17574)
+    # Ninguno de los dos es el target real. EXPORT ADS trae "Targets Bookings" y
+    # "Target Revenue" asignados MARCA POR MARCA; la meta de cartera es su suma.
+    # Si una marca entra o sale del portafolio, la meta se mueve sola.
+    _exp_goals = get_export_ads_totals()
+    _b_goal_usd = to_number(_exp_goals.get("book_target_usd"), 0)
+    _r_goal_usd = to_number(_exp_goals.get("rev_target_usd"), 0)
+
+    # Fallback: si EXPORT ADS no está disponible, se cae a las fuentes viejas para
+    # no dejar la card en cero.
+    if _b_goal_usd <= 0:
+        _b_goal_ars_fb = baseline_vals.get("gross_bookings_ars", 0)
+        _b_goal_usd = baseline_vals.get(
+            "gross_bookings_usd",
+            _b_goal_ars_fb / ARS_PER_USD if _b_goal_ars_fb else 0,
+        )
+    if _r_goal_usd <= 0:
+        _r_goal_usd = ADS_REVENUE_TARGET_USD
+
+    # Los importes MTD también salen de EXPORT ADS para que numerador y denominador
+    # vengan de la MISMA fuente. Mezclar Current ADS (booking/revenue) con EXPORT ADS
+    # (targets) daría un % de ejecución cruzado entre dos cortes distintos.
+    _b_mtd_usd = to_number(_exp_goals.get("booking_usd"), 0)
+    _r_mtd_usd = to_number(_exp_goals.get("revenue_usd"), 0)
+    if _b_mtd_usd <= 0:
+        _b_mtd_usd = ads_bookings["usd"]
+    if _r_mtd_usd <= 0:
+        _r_mtd_usd = ads_revenue["usd"]
+
+    _b_money = money_from_usd(_b_mtd_usd)
+    _b_usd  = fmt_usd(_b_money["usd"])
+    _b_ars  = fmt_ars(_b_money["ars"])
+    _b_cop  = fmt_cop(_b_money["cop"])
     _b_goal = fmt_usd(_b_goal_usd)
 
-    _r_usd  = ads_revenue["usd"]
+    _r_usd  = _r_mtd_usd
     _r_fmt  = fmt_usd(_r_usd)
-    _r_rem  = fmt_usd(max(ADS_REVENUE_TARGET_USD - _r_usd, 0))
-    _r_goal = fmt_usd(ADS_REVENUE_TARGET_USD)
+    _r_rem  = fmt_usd(max(_r_goal_usd - _r_usd, 0))
+    _r_goal = fmt_usd(_r_goal_usd)
 
-    _book_num = ads_bookings["usd"]
-    _rev_num  = ads_revenue["usd"]
+    _book_num = _b_mtd_usd
+    _rev_num  = _r_mtd_usd
 
     book_bar_svg = _thin_bar_right_svg(
         current_val=_book_num,
@@ -9193,7 +9235,7 @@ def page_management_dashboard():
         _bc      = "#22C55E" if _att_b >= ADS_ATT_BOOKING_OK else "#EF4444"
         _bs      = "▲ Cumple target" if _att_b >= ADS_ATT_BOOKING_OK else f"▼ {(ADS_ATT_BOOKING_OK - _att_b)*100:.0f}pp bajo target"
 
-        panel_title("Attainment ADS · vs target asignado por Rappi")
+        panel_title("Attainment ADS · vs target asignado")
         e1, e2, e3 = st.columns(3)
         with e1:
             st.markdown(f"""
@@ -9201,7 +9243,7 @@ def page_management_dashboard():
   <div class="stack-label">ATT. BOOKINGS &middot; CARTERA</div>
   <div class="stack-main" style="color:{_bc};">{_att_b*100:.1f}%</div>
   <div class="stack-sub mgmt-conv">{fmt_usd(_exp_tot["booking_usd"])} de {fmt_usd(_exp_tot["book_target_usd"])}</div>
-  <div class="stack-foot" style="color:{_bc};font-weight:700;">{_bs}</div>
+  <div class="stack-foot" style="font-weight:700;"><span style="color:{_bc};font-size:14px;">{_bs}</span></div>
 </div>
 """, unsafe_allow_html=True)
         with e2:
@@ -9210,7 +9252,7 @@ def page_management_dashboard():
   <div class="stack-label">ATT. REVENUE &middot; CARTERA</div>
   <div class="stack-main" style="color:{_rc};">{_att_r*100:.1f}%</div>
   <div class="stack-sub mgmt-conv">{fmt_usd(_exp_tot["revenue_usd"])} de {fmt_usd(_exp_tot["rev_target_usd"])}</div>
-  <div class="stack-foot" style="color:{_rc};font-weight:700;">{_rs} &middot; esperado {_avance*100:.0f}%</div>
+  <div class="stack-foot" style="font-weight:700;"><span style="color:{_rc};font-size:14px;">{_rs}</span> <span style="color:{COLORS['muted']};font-weight:600;">&middot; esperado {_avance*100:.0f}%</span></div>
 </div>
 """, unsafe_allow_html=True)
         with e3:
@@ -18282,54 +18324,6 @@ def render_brand_profile(row, brand_id):
         except Exception:
             pass
 
-    # ── Attainment ADS de la marca (EXPORT ADS) ───────────────────────────────
-    # Le da al AM, dentro de la ficha, la misma lectura que el Weekly Tracker:
-    # ¿esta marca está cumpliendo su target de booking? ¿y el de revenue, contra el
-    # ritmo del mes? ¿qué acción manda la matriz de 4 reglas?
-    try:
-        _bf_exp = load_export_ads_data()
-        if not _bf_exp.empty:
-            _bf_row = _bf_exp[_bf_exp["_id"].astype(str) == str(normalize_brand_id(brand_id))]
-            if not _bf_row.empty:
-                _e = _bf_row.iloc[0]
-                _bf_roas = to_number((ads_current_raw or {}).get("roi"), 0)
-                _cod, _lab, _det = _ads_regla_attainment(
-                    to_number(_e["_att_booking"], 0),
-                    to_number(_e["_att_revenue"], 0),
-                    _bf_roas,
-                    sin_target=bool(_e["_sin_target"]),
-                )
-                _av = (_dias_transcurridos_mes() / _dias_del_mes()) if _dias_del_mes() else 0
-                _ab, _ar = to_number(_e["_att_booking"], 0), to_number(_e["_att_revenue"], 0)
-                _cb = "#22C55E" if _ab >= ADS_ATT_BOOKING_OK else "#EF4444"
-                _cr = "#22C55E" if _ar >= _av else "#EF4444"
-
-                st.markdown(
-                    "<div class='form-card-static' style='margin-top:16px;'>"
-                    "<div class='wide-info-title'>Attainment ADS &middot; vs target de Rappi</div>"
-                    "<div style='display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;'>"
-                    f"<div style='flex:1;min-width:150px;'>"
-                    f"<div style='font-size:11px;color:{COLORS['muted']};font-weight:700;'>ATT. BOOKING</div>"
-                    f"<div style='font-size:26px;font-weight:900;color:{_cb};'>{_ab*100:.0f}%</div>"
-                    f"<div style='font-size:11px;color:{COLORS['muted']};'>"
-                    f"{fmt_usd(to_number(_e['_book_corregido'],0))} de {fmt_usd(to_number(_e['_book_target'],0))}</div>"
-                    f"</div>"
-                    f"<div style='flex:1;min-width:150px;'>"
-                    f"<div style='font-size:11px;color:{COLORS['muted']};font-weight:700;'>ATT. REVENUE</div>"
-                    f"<div style='font-size:26px;font-weight:900;color:{_cr};'>{_ar*100:.0f}%</div>"
-                    f"<div style='font-size:11px;color:{COLORS['muted']};'>esperado hoy: {_av*100:.0f}%</div>"
-                    f"</div>"
-                    f"<div style='flex:2;min-width:220px;'>"
-                    f"<div style='font-size:11px;color:{COLORS['muted']};font-weight:700;'>ACCIÓN</div>"
-                    f"<div style='font-size:16px;font-weight:800;color:{COLORS['text']};margin-top:4px;'>{_lab}</div>"
-                    f"<div style='font-size:11px;color:{COLORS['muted']};margin-top:2px;'>{_det}</div>"
-                    f"</div>"
-                    "</div></div>",
-                    unsafe_allow_html=True,
-                )
-    except Exception:
-        pass
-
     return name
 
 
@@ -19365,7 +19359,7 @@ def page_campaign_weekly_tracker():
             )
             _avance_txt = f"{_avance_mes_pct*100:.0f}%"
             st.markdown(
-                f'<div style="background:{COLORS["surface"]};border-left:4px solid #2563EB;'
+                f'<div style="background:{COLORS["card"]};border-left:4px solid #2563EB;'
                 f'border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;'
                 f'color:{COLORS["muted"]};">'
                 f'<b style="color:{COLORS["text"]};">Benchmark de hoy: {_avance_txt}</b> — '
