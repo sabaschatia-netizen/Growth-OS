@@ -8839,12 +8839,12 @@ def page_management_dashboard():
     gmv_arrow_ch  = "&#9650;" if gmv_change >= 0 else "&#9660;"
     gmv_color_ch  = "#22C55E" if gmv_change >= 0 else "#EF4444"
 
-    # D) Ritmo (pace) de GMV vs mes anterior — calculado a la fecha de hoy.
-    #    En vez de "-15% vs mes anterior" se muestra "vamos a ritmo de 85%".
+    # D) % del mes pasado = GMV actual ÷ GMV mes anterior (comparación directa,
+    #    sin proyección). En vez de "-20% vs mes anterior" → "80% del mes pasado".
     _gmv_pace     = _gmv_pace_ratio(vals["gmv_usd"], baseline_vals.get("gmv_usd", 0))
     _gmv_pace_pct = round(_gmv_pace * 100)
     _pace_ok      = _gmv_pace >= 1.0
-    _pace_color   = "#22C55E" if _pace_ok else ("#F97316" if _gmv_pace >= 0.85 else "#EF4444")
+    _pace_color   = "#22C55E" if _pace_ok else ("#F97316" if _gmv_pace >= 0.80 else "#EF4444")
     _pace_arrow   = "&#9650;" if _pace_ok else "&#9660;"
 
     c1, c2 = st.columns(2)
@@ -8859,8 +8859,8 @@ def page_management_dashboard():
   <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
     <div style="font-size:38px;font-weight:900;color:{_pace_color};line-height:1;">{_pace_arrow}</div>
     <div>
-      <div style="font-size:28px;font-weight:900;color:{_pace_color};">Ritmo {_gmv_pace_pct}%</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs mes anterior &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
+      <div style="font-size:28px;font-weight:900;color:{_pace_color};">{_gmv_pace_pct}% del mes pasado</div>
+      <div style="font-size:12px;color:#6B7280;font-weight:700;">Mes anterior &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -17292,17 +17292,16 @@ def render_brand_profile(row, brand_id):
             _change_sign  = "+" if (change_pct or 0) >= 0 else ""
             _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
 
-            # A2) GMV: en vez de "-15% vs mes anterior" mostramos el RITMO calculado
-            #     a la fecha de hoy: si al día de hoy vamos proporcionalmente al 85%
-            #     de lo que rindió el mes anterior completo, el ritmo es 85%.
+            # A2) GMV: en vez de "-20% vs mes anterior" mostramos cuánto llevamos
+            #     del mes pasado en términos absolutos: "80% del mes pasado".
             if show_pace:
                 _prev_full = points_raw[-2][1] if len(points_raw) >= 2 else 0
                 _pace = _gmv_pace_ratio(val_current or 0, _prev_full)
                 _pace_pct = round(_pace * 100)
-                _pace_color = "#22C55E" if _pace >= 1.0 else ("#F97316" if _pace >= 0.85 else "#EF4444")
+                _pace_color = "#22C55E" if _pace >= 1.0 else ("#F97316" if _pace >= 0.80 else "#EF4444")
                 _footer_html = (
                     f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_pace_color};">'
-                    f'Ritmo {_pace_pct}% vs mes anterior</div>'
+                    f'{_pace_pct}% del mes pasado</div>'
                 )
             else:
                 _footer_html = (
@@ -18732,26 +18731,14 @@ def _dias_del_mes():
 
 
 def _gmv_pace_ratio(current_mtd, baseline_total):
-    """Ritmo (pace) de GMV del mes en curso vs el total del mes anterior.
+    """% del mes pasado = GMV actual ÷ GMV del mes anterior.
 
-    En lugar de mostrar "-15% vs mes anterior", se muestra el RITMO: si al día de
-    hoy llevamos proporcionalmente el 85% de lo que rendía el mes anterior a esta
-    misma altura del mes, el ritmo es 85%.
-
-    pace = (current_mtd / baseline_total) / (día_de_hoy / días_del_mes)
-
-    Se calcula SIEMPRE a la fecha de hoy según el calendario del dashboard (TZ_APP).
-    Devuelve un float (1.0 = 100% = mismo ritmo que el mes anterior).
+    Lectura textual pedida por Sabas: en vez de "-20% vs mes anterior" se muestra
+    "80% del mes pasado". Es una comparación directa, SIN proyección ni división
+    por el avance del mes. 1.0 = 100% = igualamos lo del mes anterior.
     """
-    try:
-        _today = datetime.now(TZ_APP).date()
-    except Exception:
-        _today = datetime.now().date()
-    import calendar as _cal
-    _dim = _cal.monthrange(_today.year, _today.month)[1]
-    _elapsed = _today.day / _dim if _dim else 0
-    if baseline_total and baseline_total > 0 and _elapsed > 0:
-        return (current_mtd / baseline_total) / _elapsed
+    if baseline_total and baseline_total > 0:
+        return current_mtd / baseline_total
     return 0.0
 
 
