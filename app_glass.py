@@ -8859,8 +8859,11 @@ def page_management_dashboard():
   <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
     <div style="font-size:38px;font-weight:900;color:{_pace_color};line-height:1;">{_pace_arrow}</div>
     <div>
-      <div style="font-size:28px;font-weight:900;color:{_pace_color};">{_gmv_pace_pct}% del mes pasado</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:700;">Mes anterior &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
+      <div style="display:flex;align-items:baseline;gap:8px;">
+        <span style="font-size:28px;font-weight:900;color:{_pace_color};">{_gmv_pace_pct}%</span>
+        <span style="font-size:12px;font-weight:500;color:#9CA3AF;">vs Last Month</span>
+      </div>
+      <div style="font-size:12px;color:#6B7280;font-weight:700;margin-top:2px;">Mes anterior &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -17300,8 +17303,10 @@ def render_brand_profile(row, brand_id):
                 _pace_pct = round(_pace * 100)
                 _pace_color = "#22C55E" if _pace >= 1.0 else ("#F97316" if _pace >= 0.80 else "#EF4444")
                 _footer_html = (
-                    f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_pace_color};">'
-                    f'{_pace_pct}% del mes pasado</div>'
+                    f'<div style="margin-top:8px;display:flex;align-items:baseline;gap:6px;">'
+                    f'<span style="font-size:11px;font-weight:800;color:{_pace_color};">{_pace_pct}%</span>'
+                    f'<span style="font-size:11px;font-weight:500;color:#9CA3AF;">vs Last Month</span>'
+                    f'</div>'
                 )
             else:
                 _footer_html = (
