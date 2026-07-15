@@ -8839,6 +8839,14 @@ def page_management_dashboard():
     gmv_arrow_ch  = "&#9650;" if gmv_change >= 0 else "&#9660;"
     gmv_color_ch  = "#22C55E" if gmv_change >= 0 else "#EF4444"
 
+    # D) Ritmo (pace) de GMV vs mes anterior — calculado a la fecha de hoy.
+    #    En vez de "-15% vs mes anterior" se muestra "vamos a ritmo de 85%".
+    _gmv_pace     = _gmv_pace_ratio(vals["gmv_usd"], baseline_vals.get("gmv_usd", 0))
+    _gmv_pace_pct = round(_gmv_pace * 100)
+    _pace_ok      = _gmv_pace >= 1.0
+    _pace_color   = "#22C55E" if _pace_ok else ("#F97316" if _gmv_pace >= 0.85 else "#EF4444")
+    _pace_arrow   = "&#9650;" if _pace_ok else "&#9660;"
+
     c1, c2 = st.columns(2)
     with c1:
         st.markdown(f"""
@@ -8849,10 +8857,10 @@ def page_management_dashboard():
     <div style="font-size:13px;font-weight:500;color:#6B7280;margin-top:6px;">{_v_gmv_ars} &middot; {_v_gmv_cop}</div>
   </div>
   <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
-    <div style="font-size:38px;font-weight:900;color:{gmv_color_ch};line-height:1;">{gmv_arrow_ch}</div>
+    <div style="font-size:38px;font-weight:900;color:{_pace_color};line-height:1;">{_pace_arrow}</div>
     <div>
-      <div style="font-size:28px;font-weight:900;color:{gmv_color_ch};">{gmv_sign_ch}{fmt_percent0(gmv_change)}</div>
-      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs last month &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
+      <div style="font-size:28px;font-weight:900;color:{_pace_color};">Ritmo {_gmv_pace_pct}%</div>
+      <div style="font-size:12px;color:#6B7280;font-weight:700;">vs mes anterior &middot; {fmt_usd(baseline_vals.get("gmv_usd", 0))}</div>
     </div>
   </div>
 </div>
@@ -9909,11 +9917,14 @@ def _prepare_growth_scored_data():
     return data
 
 
-def _render_html_table(df, max_rows=200, visible_rows=10):
+def _render_html_table(df, max_rows=200, visible_rows=10, show_index=True):
     """
     SaaS-style scrollable table — 10 visible rows, sticky header, hover lift effect.
     Pills/stickers on Name, Status, Brand, Restaurant, brand_name, Revenue Proj 80%,
     commercial_action, movement, pipeline_stage, opportunity_status columns.
+
+    show_index=False oculta la columna auto-numerada "N." de la izquierda
+    (se usa cuando la tabla ya trae su propia columna RANK).
     """
     if df is None or df.empty:
         st.info("No data to display.")
@@ -10047,6 +10058,24 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
             return _make_pill(text, "rgba(255,255,255,0.92)", "#6B7280")
         return _make_pill(text, "rgba(59,72,131,0.08)", "#6B7280")
 
+    # E) Penetración numérica en el Campaign Weekly (MD y MD PRO):
+    #    pill verde si ≥10%, roja si <10%. Se parsea el número del texto.
+    def _pene_num_pill(text):
+        t = (text or "").strip()
+        if t in ("", "—", "-"):
+            return '<span style="font-size:12px;color:rgba(26,26,46,0.30);">—</span>'
+        import re as _re_pn
+        _m = _re_pn.search(r"-?\d+(?:[.,]\d+)?", t)
+        if not _m:
+            return _make_pill(t, "rgba(59,72,131,0.08)", "#6B7280")
+        try:
+            _val = float(_m.group(0).replace(",", "."))
+        except Exception:
+            return _make_pill(t, "rgba(59,72,131,0.08)", "#6B7280")
+        if _val >= 10:
+            return _make_pill(t, "rgba(34,197,94,0.14)", "#16A34A")
+        return _make_pill(t, "rgba(239,68,68,0.14)", "#DC2626")
+
     COL_PILL_MAP = {
         "name":               _name_pill,
         "restaurant":         _name_pill,
@@ -10076,6 +10105,7 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         "renegotiation":      _status_pill,
         "penetración md":     _pene_pill,
         "penetracion md":     _pene_pill,
+        "penetration":        _pene_num_pill,
         "cierre":             _status_pill,
         "días":               lambda t: t,   # raw HTML badge — no escaping
         "próximo contacto":   lambda t: t,   # raw HTML badge — no escaping
@@ -10092,12 +10122,15 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
         'background:rgba(255,255,255,0.92);border-bottom:2px solid #E5ECFA;'
         'white-space:nowrap;box-shadow:0 1px 0 rgba(0,0,0,0.06);'
     )
-    header_cells = (
-        f'<th style="position:sticky;top:0;z-index:2;padding:10px 8px 10px 20px;width:36px;'
-        f'text-align:center;font-size:11px;font-weight:700;letter-spacing:0.05em;'
-        f'text-transform:uppercase;color:rgba(107,114,128,0.60);background:rgba(255,255,255,0.92);'
-        f'border-bottom:2px solid #E5ECFA;box-shadow:0 1px 0 rgba(0,0,0,0.06);">N.</th>'
-    )
+    if show_index:
+        header_cells = (
+            f'<th style="position:sticky;top:0;z-index:2;padding:10px 8px 10px 20px;width:36px;'
+            f'text-align:center;font-size:11px;font-weight:700;letter-spacing:0.05em;'
+            f'text-transform:uppercase;color:rgba(107,114,128,0.60);background:rgba(255,255,255,0.92);'
+            f'border-bottom:2px solid #E5ECFA;box-shadow:0 1px 0 rgba(0,0,0,0.06);">N.</th>'
+        )
+    else:
+        header_cells = ""
     for col in display_df.columns:
         header_cells += f'<th style="{th_base}">{html.escape(str(col))}</th>'
     header = f'<thead><tr style="background:rgba(255,255,255,0.92);">{header_cells}</tr></thead>'
@@ -10119,11 +10152,14 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
             "this.style.transform='none';"
             "this.style.zIndex='0';"
         )
-        row_num = (
-            f'<td style="padding:12px 8px 12px 20px;text-align:center;'
-            f'font-size:12px;font-weight:600;color:rgba(26,26,46,0.30);'
-            f'border-bottom:1px solid rgba(0,0,0,0.06);">{i+1}</td>'
-        )
+        if show_index:
+            row_num = (
+                f'<td style="padding:12px 8px 12px 20px;text-align:center;'
+                f'font-size:12px;font-weight:600;color:rgba(26,26,46,0.30);'
+                f'border-bottom:1px solid rgba(0,0,0,0.06);">{i+1}</td>'
+            )
+        else:
+            row_num = ""
         cells = row_num
         for col, val in zip(display_df.columns, row):
             try:
@@ -10134,7 +10170,10 @@ def _render_html_table(df, max_rows=200, visible_rows=10):
             col_key = str(col).lower().strip()
 
             pill_fn = COL_PILL_MAP.get(col_key)
-            if pill_fn and text not in ("-", "", "—"):
+            # C/E) Columna RANK en negrita (reemplaza visualmente a la vieja "N.")
+            if col_key == "rank" and text not in ("-", "", "—"):
+                cell_inner = f'<span style="font-size:13px;font-weight:800;color:#111827;">{html.escape(text)}</span>'
+            elif pill_fn and text not in ("-", "", "—"):
                 cell_inner = pill_fn(text)
             elif text in ("-", "", "—"):
                 cell_inner = '<span style="font-size:12px;color:rgba(26,26,46,0.30);">—</span>'
@@ -10286,7 +10325,8 @@ def get_brand_monthly_gmv_ars(row=None, brand_id="", legacy_keys=("last gmv ars"
 
 
 def _render_light_table(df, height=420):
-    _render_html_table(df)
+    # C) Opportunity List: se oculta la columna auto "N." — la tabla ya trae RANK.
+    _render_html_table(df, show_index=False)
 
 
 def _render_target_progress_bar(label, active_usd, pipeline_usd, target_usd, color_active="#22C55E", color_pipeline="#F97316", projected_usd=0, show_projected=True):
@@ -11037,7 +11077,7 @@ def page_opportunity_list():
             "% Target acum":      [
                 _ads_target_pct(ads_df.loc[i, "_revenue_proj_monthly_usd"]) for i in ads_df.index
             ],
-            "Cierre":             [_ads_closes_at(i) for i in ads_df.index],
+            # C) Columna "Cierre" ocultada en el monitor de Ads.
         })
         _render_light_table(ads_view, height=380)
 
@@ -11266,7 +11306,7 @@ def page_opportunity_list():
             "Gap al 10%":      md_df["_pene_gap_usd"].apply(
                 lambda x: fmt_usd(x) if x > 0 else "—"
             ),
-            "Próximo Paso":    md_df["Próximo Paso"],
+            # C) Columna "Próximo Paso" ocultada en el monitor de Markdown.
         })
         _render_light_table(md_view, height=380)
 
@@ -12205,26 +12245,12 @@ def page_follow_up_list():
     _week_label  = f"{_week_start.strftime('%d %b')} – {_week_end.strftime('%d %b')}"
     _month_label = _today.strftime("%B %Y")
 
-    # ── Filtro por zona de temperatura ────────────────────────────────────────
-    _temp_filter = st.selectbox(
-        "🌡️ Filtrar por zona de temperatura",
-        ["Todas", "🟢 Activo (0–10d)", "🟡 Cadencia (11–15d)", "🟠 Alerta (16–21d)", "🔴 Fría / Sin contacto (>21d)"],
-        index=0,
-        key="followup_temp_filter",
-    )
-
+    # ── B) Filtro por zona de temperatura eliminado — se muestra el portafolio completo ─
+    _temp_filter = "Todas"
     follow_df_filtered = follow_df.copy()
-    if _temp_filter == "🟢 Activo (0–10d)":
-        follow_df_filtered = follow_df_filtered[follow_df_filtered["_days_since"].between(0, 10, inclusive="both")]
-    elif _temp_filter == "🟡 Cadencia (11–15d)":
-        follow_df_filtered = follow_df_filtered[follow_df_filtered["_days_since"].between(11, 15, inclusive="both")]
-    elif _temp_filter == "🟠 Alerta (16–21d)":
-        follow_df_filtered = follow_df_filtered[follow_df_filtered["_days_since"].between(16, 21, inclusive="both")]
-    elif _temp_filter == "🔴 Fría / Sin contacto (>21d)":
-        follow_df_filtered = follow_df_filtered[
-            follow_df_filtered["_days_since"].isna() | (follow_df_filtered["_days_since"] > 21)
-        ]
 
+    # B) Columnas Palancas y Churn ocultas del view (se siguen calculando arriba
+    # por si otras métricas las usan, pero no se muestran en la tabla).
     follow_view = pd.DataFrame({
         "Rank":             follow_df_filtered["Rank"].apply(_format_rank),
         "Status":           follow_df_filtered["Status"],
@@ -12233,8 +12259,6 @@ def page_follow_up_list():
         "Last Update":      follow_df_filtered["Last Update"],
         "ID":               follow_df_filtered["_id"].apply(_format_id),
         "Restaurant":       follow_df_filtered["_name"],
-        "Palancas":         follow_df_filtered["Palancas"],
-        "Churn":            follow_df_filtered["Churn"],
         "Last Notes":       follow_df_filtered["Last Notes"],
     })
     _hm_track_color = "#23262D" if DARK_MODE else "#FFFFFF"
@@ -13156,6 +13180,59 @@ def page_productivity_heatmap():
                 unsafe_allow_html=True,
             )
 
+    # ── G) Cards de conversión — Ads y Markdown (lógica hoja Productivity) ─────
+    # Se ubican DEBAJO de la super card de "Semana de mayor uso por palanca".
+    def _col_series(colname):
+        if colname in df.columns:
+            return df[colname].fillna("").astype(str).str.strip()
+        return pd.Series([""] * len(df))
+
+    # ADS: de las gestiones donde hubo oferta real de Ads (Upselling = venta lograda,
+    # Never Ads = ofrecido y no activó), ¿cuántas convirtieron? conv = Upselling.
+    _tipo_ads = _col_series("Tipo Ads")
+    _ads_upsell   = int((_tipo_ads.str.lower() == "upselling").sum())
+    _ads_neverads = int((_tipo_ads.str.lower() == "never ads").sum())
+    _ads_offered  = _ads_upsell + _ads_neverads
+    _ads_conv_pct = round(_ads_upsell / _ads_offered * 100) if _ads_offered else 0
+
+    # MD: de las campañas ofrecidas, ¿cuántas fueron aceptadas?
+    _md_offered_s = _col_series("Campaña Ofrecida")
+    _md_accept_s  = _col_series("¿Se aceptó lo ofrecido?")
+    _md_offered   = int((_md_offered_s != "").sum())
+    _md_accepted  = int(_md_accept_s.str.lower().str.startswith("s").sum())  # "Sí"
+    _md_conv_pct  = round(_md_accepted / _md_offered * 100) if _md_offered else 0
+
+    def _conv_card(title, icon, pct, num, den, accent, accent_soft):
+        _bar = min(pct, 100)
+        return (
+            f'<div style="flex:1;background:rgba(255,255,255,0.92);border:1px solid {accent};'
+            f'border-radius:12px;padding:16px 18px;">'
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+            f'<span style="font-size:15px;">{icon}</span>'
+            f'<span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{accent};">{title}</span>'
+            f'</div>'
+            f'<div style="display:flex;align-items:baseline;gap:8px;">'
+            f'<span style="font-size:30px;font-weight:800;color:{accent};line-height:1;">{pct}%</span>'
+            f'<span style="font-size:12px;color:#6B7280;">{num}/{den} convertidas</span>'
+            f'</div>'
+            f'<div style="margin-top:10px;background:rgba(0,0,0,0.05);border-radius:6px;height:8px;overflow:hidden;">'
+            f'<div style="height:100%;width:{_bar}%;background:{accent};border-radius:6px;"></div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    _ads_card = _conv_card("Conversión Ads", "📈", _ads_conv_pct, _ads_upsell, _ads_offered,
+                           PALETTE["tangerine_dark"], "rgba(249,115,22,0.10)")
+    _md_card  = _conv_card("Conversión Markdown", "🏷️", _md_conv_pct, _md_accepted, _md_offered,
+                           PALETTE["slate_indigo"], "rgba(59,72,131,0.12)")
+
+    st.markdown(
+        f'<div style="margin-top:1.2rem;display:flex;gap:14px;flex-wrap:wrap;">'
+        f'{_ads_card}{_md_card}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
     # #18 · Cuadro verde (benchmark) AL FINAL: orden heatmap → progreso → verde
     if _benchmark_html:
         st.markdown(f'<div style="margin-top:1.4rem;">{_benchmark_html}</div>', unsafe_allow_html=True)
@@ -13572,15 +13649,26 @@ def page_earnings_calculator():
         _live_pct = float(variable_percent) * 100 if abs(float(variable_percent)) <= 2 else float(variable_percent)
         _cur_month_key = date.today().strftime("%Y-%m")
 
-        # Histórico (seed Mayo 2026 = 66%)
+        # Histórico (seed Mayo 2026 = 66% · Junio 2026 = 105% — meses ya cerrados).
+        # Antes solo se sembraba Mayo, por eso el rolling se saltaba Junio y solo
+        # mostraba May + el mes live. Ahora ambos meses cerrados quedan en el seed.
+        _EARN_SEED = [{"month": "2026-05", "pct": 66.0}, {"month": "2026-06", "pct": 105.0}]
         if not os.path.exists(EARNINGS_HISTORY_FILE):
-            pd.DataFrame([{"month": "2026-05", "pct": 66.0}]).to_csv(EARNINGS_HISTORY_FILE, index=False)
+            pd.DataFrame(_EARN_SEED).to_csv(EARNINGS_HISTORY_FILE, index=False)
         try:
             _hist = pd.read_csv(EARNINGS_HISTORY_FILE, dtype={"month": str})
             _hist["pct"] = pd.to_numeric(_hist["pct"], errors="coerce")
             _hist = _hist.dropna(subset=["pct"])
+            # Auto-reparación: si el CSV viejo no tiene los meses cerrados semilla,
+            # se insertan (sin pisar valores ya presentes).
+            _existing_months = set(_hist["month"])
+            _missing_seed = [s for s in _EARN_SEED if s["month"] not in _existing_months]
+            if _missing_seed:
+                _hist = pd.concat([_hist, pd.DataFrame(_missing_seed)], ignore_index=True)
+                _hist = _hist.sort_values("month")
+                _hist.to_csv(EARNINGS_HISTORY_FILE, index=False)
         except Exception:
-            _hist = pd.DataFrame(columns=["month", "pct"])
+            _hist = pd.DataFrame(_EARN_SEED)
 
         _closed = dict(zip(_hist["month"], _hist["pct"]))
         _cur_closed = _cur_month_key in _closed
@@ -16144,7 +16232,7 @@ def _business_card(label, value, copy="", lever_class="", chip=""):
     )
 
 
-def render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw=0, conversion_raw=0, commission_raw=0, cvr_weekly=None, cvr_source='Sin datos', cvr_bench=None):
+def render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw=0, conversion_raw=0, commission_raw=0, cvr_weekly=None, cvr_source='Sin datos', cvr_bench=None, brand_id=None):
     import math as _math
 
     def _waffle_icons(filled_count, total=10, filled_color="#22C55E", empty_color="rgba(26,26,46,0.15)"):
@@ -16256,15 +16344,62 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
         ]
         return f'<div style="position:absolute;top:8px;right:8px;opacity:0.95;">{"".join(svg_parts)}</div>'
 
-    def _card_with_roi(label, value, copy, lever_class, roi_value, benchmark=3.2):
+    def _card_with_roi(label, value, copy, lever_class, roi_value, benchmark=3.2, subvalue_html=""):
         roi_html = _needle_gauge_svg_bf(to_number(roi_value, 0), bmark=benchmark)
+        # A) subvalue_html: texto pequeño debajo del ROI (esquina sup. der.):
+        #    %Att Revenue Real (Ads) o penetración de campaña (MD / MD PRO).
+        sub_html = (
+            f'<div style="position:absolute;top:44px;right:8px;text-align:right;'
+            f'font-size:10px;font-weight:700;line-height:1.2;">{subvalue_html}</div>'
+            if subvalue_html else ""
+        )
         return (
             f"<div class='business-mini-card {html.escape(clean(lever_class, ''))}' style='position:relative;overflow:hidden;'>"
             f"<div class='card-label'>{html.escape(clean(label, '-'))}</div>"
             f"<div class='card-value'>{value}</div>"
             f"<div class='card-copy'>{html.escape(clean(copy, ''))}</div>"
-            f"{roi_html}</div>"
+            f"{roi_html}{sub_html}</div>"
         )
+
+    # ── A) Cálculo de subvalores para Ads / MD / MD PRO ───────────────────────
+    def _sub_pill(text, color):
+        return f'<span style="color:{color};">{html.escape(text)}</span>'
+
+    # Ads → %Att Revenue Real (solo si Ads activo)
+    _ads_sub = ""
+    if ads_current.get("active", False) and brand_id:
+        try:
+            _exp = load_export_ads_data()
+            _bid_norm = normalize_brand_id(brand_id)
+            _att_rev = 0.0
+            if not _exp.empty:
+                _m = _exp[_exp["_id"].astype(str).apply(normalize_brand_id) == _bid_norm]
+                if not _m.empty:
+                    _att_rev = to_number(_m.iloc[0].get("_att_revenue"), 0)
+            if _att_rev > 0:
+                _ac = "#22C55E" if _att_rev >= 0.9 else ("#F97316" if _att_rev >= 0.6 else "#EF4444")
+                _ads_sub = _sub_pill(f"Att Rev {_att_rev*100:.0f}%", _ac)
+        except Exception:
+            _ads_sub = ""
+
+    # MD / MD PRO → penetración de la campaña (MD GMV ÷ GMV total del brand)
+    def _pene_sub(md_metrics):
+        if not md_metrics.get("active", False) or not brand_id:
+            return ""
+        try:
+            _md_gmv_usd = to_number(md_metrics.get("gmv_usd"), 0)
+            _brand_gmv_ars = get_brand_monthly_gmv_ars(brand_id=brand_id)
+            _brand_gmv_usd = _brand_gmv_ars / ARS_PER_USD if _brand_gmv_ars else 0
+            if _brand_gmv_usd > 0 and _md_gmv_usd > 0:
+                _pen = _md_gmv_usd / _brand_gmv_usd
+                _pc = "#22C55E" if _pen >= 0.10 else "#EF4444"
+                return _sub_pill(f"Penet {_pen*100:.1f}%", _pc)
+        except Exception:
+            pass
+        return ""
+
+    _md_sub    = _pene_sub(md_current)
+    _mdpro_sub = _pene_sub(md_pro_current)
 
     # PRO Users card with waffle
     pro_pct = round(pro_users_raw * 100) if pro_users_raw <= 1 else round(pro_users_raw)
@@ -16323,9 +16458,9 @@ def render_business_cards_html(ads_current, md_current, md_pro_current, campaign
     )
 
     cards = []
-    cards.append(_card_with_roi("Ads", html.escape(status_from_active(ads_current.get('active', False))), f"Booking {clean(ads_booking_display, '—')} · Revenue {fmt_ars(to_number(ads_current.get('revenue_usd'),0) * ARS_PER_USD)}", "lever-ads", ads_current.get('roi'), benchmark=4.5))
-    cards.append(_card_with_roi("Markdown", html.escape(status_from_active(md_current.get('active', False))), f"Campaign {clean(campaign_names.get('md'), '-')}", "lever-md", md_current.get('roi'), benchmark=3.2))
-    cards.append(_card_with_roi("Markdown PRO", html.escape(status_from_active(md_pro_current.get('active', False))), f"Campaign {clean(campaign_names.get('md_pro'), '-')}", "lever-pro", md_pro_current.get('roi'), benchmark=3.2))
+    cards.append(_card_with_roi("Ads", html.escape(status_from_active(ads_current.get('active', False))), f"Booking {clean(ads_booking_display, '—')} · Revenue {fmt_ars(to_number(ads_current.get('revenue_usd'),0) * ARS_PER_USD)}", "lever-ads", ads_current.get('roi'), benchmark=4.5, subvalue_html=_ads_sub))
+    cards.append(_card_with_roi("Markdown", html.escape(status_from_active(md_current.get('active', False))), f"Campaign {clean(campaign_names.get('md'), '-')}", "lever-md", md_current.get('roi'), benchmark=3.2, subvalue_html=_md_sub))
+    cards.append(_card_with_roi("Markdown PRO", html.escape(status_from_active(md_pro_current.get('active', False))), f"Campaign {clean(campaign_names.get('md_pro'), '-')}", "lever-pro", md_pro_current.get('roi'), benchmark=3.2, subvalue_html=_mdpro_sub))
     cards.append(pro_card)
     cards.append(cr_card)
     cards.append(comm_card)
@@ -17067,7 +17202,7 @@ def render_brand_profile(row, brand_id):
         _m2_lbl = _MESES_ES[_m2_idx]
         _m1_lbl = _MESES_ES[_m1_idx]
 
-        def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None):
+        def _dot_line_chart_card(label, val_current, val_may, val_abril, fmt_fn, sub_current, orders_inline=None, show_pace=False):
             """
             Gráfico de línea de 3 puntos con labels de mes dinámicos:
               val_abril (Growth OS) → mes -2  ·  val_may (MAY GMV) → mes -1  ·  val_current (Current) → Actual
@@ -17157,17 +17292,40 @@ def render_brand_profile(row, brand_id):
             _change_sign  = "+" if (change_pct or 0) >= 0 else ""
             _change_text  = f"{_change_sign}{fmt_percent0(change_pct)}" if change_pct is not None else "-"
 
-            _orders_inline_html = (
-                f'<span style="color:rgba(107,114,128,0.65);font-weight:600;margin-left:6px;">📦 {int(orders_inline):,}</span>'.replace(",", ".")
+            # A2) GMV: en vez de "-15% vs mes anterior" mostramos el RITMO calculado
+            #     a la fecha de hoy: si al día de hoy vamos proporcionalmente al 85%
+            #     de lo que rindió el mes anterior completo, el ritmo es 85%.
+            if show_pace:
+                _prev_full = points_raw[-2][1] if len(points_raw) >= 2 else 0
+                _pace = _gmv_pace_ratio(val_current or 0, _prev_full)
+                _pace_pct = round(_pace * 100)
+                _pace_color = "#22C55E" if _pace >= 1.0 else ("#F97316" if _pace >= 0.85 else "#EF4444")
+                _footer_html = (
+                    f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_pace_color};">'
+                    f'Ritmo {_pace_pct}% vs mes anterior</div>'
+                )
+            else:
+                _footer_html = (
+                    f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_change_color};">'
+                    f'{_change_text} vs mes anterior</div>'
+                )
+
+            # A3) Órdenes: se sacan de la línea de subtítulo y van a una cajita en la
+            #     esquina superior derecha de la card (mismo lugar que el ROI en Ads/MD).
+            _orders_corner_html = (
+                f'<div style="position:absolute;top:16px;right:16px;background:rgba(59,72,131,0.08);'
+                f'border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800;color:#3B4883;">'
+                f'📦 {int(orders_inline):,}</div>'.replace(",", ".")
                 if orders_inline is not None else ""
             )
 
             return (
                 '<div class="stack-card" style="position:relative;overflow:hidden;min-height:140px;padding:22px 24px 18px;">'
                 f'<div class="stack-label" style="margin-bottom:6px;">{label}</div>'
+                f'{_orders_corner_html}'
                 f'<div style="font-size:30px;font-weight:900;color:#111827;letter-spacing:-0.02em;line-height:1.1;">{fmt_fn(val_current)}</div>'
-                f'<div style="font-size:12px;font-weight:600;color:#6B7280;margin-top:5px;">{sub_current}{_orders_inline_html}</div>'
-                f'<div style="margin-top:8px;font-size:11px;font-weight:800;color:{_change_color};">{_change_text} vs mes anterior</div>'
+                f'<div style="font-size:12px;font-weight:600;color:#6B7280;margin-top:5px;">{sub_current}</div>'
+                f'{_footer_html}'
                 f'<div style="position:absolute;bottom:12px;right:12px;opacity:0.95">{svg}</div>'
                 '</div>'
             )
@@ -17189,6 +17347,7 @@ def render_brand_profile(row, brand_id):
                 current_gmv_ars, may_gmv_ars, abril_gmv_ars, fmt_ars,
                 f"{fmt_usd(current_gmv_usd)} · {fmt_cop(current_gmv_usd * COP_PER_USD)}",
                 orders_inline=_orders_from_caba,
+                show_pace=True,
             )
             st.markdown(_gmv_card, unsafe_allow_html=True)
         with aov_col:
@@ -17587,7 +17746,7 @@ def render_brand_profile(row, brand_id):
 
         _cvr_weekly_val, _cvr_source = get_cvr_for_brand(name, cr_fallback=conversion_raw)
         _cvr_bench = get_cvr_category_benchmark(category)
-        st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench), unsafe_allow_html=True)
+        st.markdown(render_business_cards_html(ads_current, md_current, md_pro_current, campaign_names, ads_booking_display, pro_users_display, conversion_display, commission_display, pro_users_raw, conversion_raw, commission_raw, cvr_weekly=_cvr_weekly_val, cvr_source=_cvr_source, cvr_bench=_cvr_bench, brand_id=brand_id), unsafe_allow_html=True)
 
     with _bf_tab_360:
         actions_html = "".join([_merged_action_card(a) for a in actions])
@@ -18572,6 +18731,30 @@ def _dias_del_mes():
     return _cal.monthrange(_n.year, _n.month)[1]
 
 
+def _gmv_pace_ratio(current_mtd, baseline_total):
+    """Ritmo (pace) de GMV del mes en curso vs el total del mes anterior.
+
+    En lugar de mostrar "-15% vs mes anterior", se muestra el RITMO: si al día de
+    hoy llevamos proporcionalmente el 85% de lo que rendía el mes anterior a esta
+    misma altura del mes, el ritmo es 85%.
+
+    pace = (current_mtd / baseline_total) / (día_de_hoy / días_del_mes)
+
+    Se calcula SIEMPRE a la fecha de hoy según el calendario del dashboard (TZ_APP).
+    Devuelve un float (1.0 = 100% = mismo ritmo que el mes anterior).
+    """
+    try:
+        _today = datetime.now(TZ_APP).date()
+    except Exception:
+        _today = datetime.now().date()
+    import calendar as _cal
+    _dim = _cal.monthrange(_today.year, _today.month)[1]
+    _elapsed = _today.day / _dim if _dim else 0
+    if baseline_total and baseline_total > 0 and _elapsed > 0:
+        return (current_mtd / baseline_total) / _elapsed
+    return 0.0
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MOTOR DE RECOMENDACIÓN ADS · matriz PACE × ROAS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -19015,7 +19198,7 @@ def page_campaign_weekly_tracker():
     with _tk_tab_ads:
         st.markdown("### Ads CPC Monitor")
         if ads_latest.empty:
-            ads_view = pd.DataFrame(columns=["Period","Brand ID","Brand","Bookings USD","Revenue USD","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"])
+            ads_view = pd.DataFrame(columns=["Rank","Period","Brand ID","Brand Name","Action","Bookings USD","Att% Bookings","Revenue USD","Att% Revenue","PACE","ROI","Budget sin ejecutar","Penetración Ads","Recommendation"])
         else:
             ads_latest["Brand"] = ads_latest["brand_id"].apply(lambda x: names.get(normalize_brand_id(x), "-"))
             ads_latest["Consumption"] = ads_latest.apply(lambda r: (to_number(r.get("revenue_usd"),0) / to_number(r.get("bookings_usd"),0)) if to_number(r.get("bookings_usd"),0) else 0, axis=1)
@@ -19316,7 +19499,32 @@ def page_campaign_weekly_tracker():
                 by=["_orden", "bookings_usd"], ascending=[True, False]
             ).reset_index(drop=True)
 
-            ads_view = ads_latest[["period","brand_id","Brand","Acción","bookings_usd","revenue_usd","Att. Booking","Att. Revenue","Consumo Booking","Budget sin ejecutar","Penetración ADS","ROI","ROI Alert","ROI Trend","CPC Recommendation","Accionables"]].rename(columns={"period":"Period","brand_id":"Brand ID","bookings_usd":"Bookings USD","revenue_usd":"Revenue USD"})
+            # E) Orden de columnas pedido y RANK reemplazando a "N.":
+            #    RANK · PERIOD · BRAND ID · BRAND NAME · ACTION · BOOKINGS USD ·
+            #    ATT% BOOKINGS · REVENUE USD · ATT% REVENUE · PACE · ROI ·
+            #    BUDGET SIN EJECUTAR · PENETRACIÓN ADS · RECOMMENDATION.
+            #    Se ocultan ROI Trend, ROI Alert y Accionable (ya no aplican con data diaria).
+            ads_latest = ads_latest.reset_index(drop=True)
+            ads_latest["Rank"] = ads_latest.index + 1
+            ads_view = ads_latest[[
+                "Rank", "period", "brand_id", "Brand", "Acción",
+                "bookings_usd", "Att. Booking", "revenue_usd", "Att. Revenue",
+                "Consumo Booking", "ROI", "Budget sin ejecutar", "Penetración ADS",
+                "CPC Recommendation",
+            ]].rename(columns={
+                "period": "Period",
+                "brand_id": "Brand ID",
+                "Brand": "Brand Name",
+                "Acción": "Action",
+                "bookings_usd": "Bookings USD",
+                "Att. Booking": "Att% Bookings",
+                "revenue_usd": "Revenue USD",
+                "Att. Revenue": "Att% Revenue",
+                "Consumo Booking": "PACE",
+                "Budget sin ejecutar": "Budget sin ejecutar",
+                "Penetración ADS": "Penetración Ads",
+                "CPC Recommendation": "Recommendation",
+            })
             # Period: solo Q y W, sin la fecha completa.
             ads_view["Period"] = ads_view["Period"].apply(_short_period_label)
         # Los banners de "Caída de ROI crítica/moderada" se removieron: amontonaban decenas
@@ -19324,8 +19532,8 @@ def page_campaign_weekly_tracker():
         # vive por marca en la columna "ROI Alert" de la tabla de abajo.
 
         # ── Resumen del motor: cuántas marcas en cada estado ─────────────────
-        if not ads_view.empty and "Acción" in ads_view.columns:
-            _cnt = ads_view["Acción"].value_counts()
+        if not ads_view.empty and "Action" in ads_view.columns:
+            _cnt = ads_view["Action"].value_counts()
             # Estados de la matriz de 4 reglas (EXPORT ADS). Los estados del motor
             # viejo (fallback) se suman a la categoría equivalente para no partir el
             # conteo en dos vocabularios distintos.
@@ -19383,8 +19591,7 @@ def page_campaign_weekly_tracker():
                 )
 
         # El orden ya viene definido por prioridad de acción (_orden + booking).
-        # No re-ordenar por Bookings acá: pisaría el orden del motor.
-        ads_view.index = ads_view.index + 1  # N. starts at 1
+        # La numeración vive ahora en la columna RANK; no se usa la "N." auto.
 
         # ── Fila TOTAL del monitor de Ads ────────────────────────────────────
         if not ads_view.empty:
@@ -19394,17 +19601,17 @@ def page_campaign_weekly_tracker():
             _acons = (_ar / _ab * 100) if _ab > 0 else 0
             _atot = {c: "" for c in ads_view.columns}
             _atot.update({
-                "Period":          "TOTAL",
-                "Brand":           f"{len(ads_view)} brands",
-                "Bookings USD":    f"{_ab:,.2f}",
-                "Revenue USD":     f"{_ar:,.2f}",
-                "Consumo Booking": f"{_acons:.0f}%",
-                "CPC Recommendation": f"pace {(_acons/100)/(_dias_transcurridos_mes()/_dias_del_mes()):.2f}x" if _ab > 0 else "",
-                "ROI":             f"{_aroi:.2f}",
+                "Period":         "TOTAL",
+                "Brand Name":     f"{len(ads_view)} brands",
+                "Bookings USD":   f"{_ab:,.2f}",
+                "Revenue USD":    f"{_ar:,.2f}",
+                "PACE":           f"{_acons:.0f}%",
+                "Recommendation": f"pace {(_acons/100)/(_dias_transcurridos_mes()/_dias_del_mes()):.2f}x" if _ab > 0 else "",
+                "ROI":            f"{_aroi:.2f}",
             })
             ads_view = pd.concat([ads_view, pd.DataFrame([_atot])], ignore_index=True)
 
-        _render_html_table(ads_view)
+        _render_html_table(ads_view, show_index=False)
 
     # Separate MD Normal and MD PRO sections
     md_normal_latest = latest[latest["channel"] == "Markdown"].copy()
@@ -19626,6 +19833,7 @@ def page_campaign_weekly_tracker():
             # Promo Intelligence (se mantiene como contexto adicional)
             pi = _md_weekly_intelligence(change, roi)
 
+            _pene_actual = to_number(pene.get("actual_pct"), 0)
             rows.append({
                 "_gmv_num":        gmv,
                 "_mk_num":         markdown_usd,
@@ -19636,13 +19844,11 @@ def page_campaign_weekly_tracker():
                 "Brand":           names.get(bid, "-"),
                 "GMV USD":         f"{gmv:,.0f}",
                 "MARKDOWN $":      f"{markdown_usd:,.0f}",
-                "Sales USD":       f"{to_number(r.get('sales_usd'), 0):,.0f}",
                 "ROI":             fmt_roi2(roi),
-                "Penetration":     pene["label"],
-                # Texto plano: _render_html_table escapa el HTML de las celdas (por
-                # seguridad) y construye los estilos con sus propios pills. Un <span>
-                # crudo aquí se imprimía literal. La flecha ▲/▼ lleva el color vía pill.
-                "WoW Penetration": (f"▲ {fmt_signed_percent(change)}" if change >= 0 else f"▼ {fmt_signed_percent(change)}") if change is not None else "—",
+                # E) Penetration intercambiada de lugar con Sales USD: primero la
+                #    penetración (con pill verde/roja según ≥10%), luego Sales USD.
+                "Penetration":     (f"{_pene_actual*100:.1f}%" if _pene_actual and _pene_actual <= 1 else (f"{_pene_actual:.1f}%" if _pene_actual else "—")),
+                "Sales USD":       f"{to_number(r.get('sales_usd'), 0):,.0f}",
                 "Gap al 10%":      fmt_usd(pene["gap_usd"]) if pene["gap_usd"] > 0 else "—",
                 "Orders":          fmt_number(to_number(r.get("orders"), 0)),
                 "Revenue at Risk": revenue_at_risk,
@@ -19683,7 +19889,7 @@ def page_campaign_weekly_tracker():
         md_view_out = pd.concat([md_view_out, pd.DataFrame([total_row])], ignore_index=True)
 
         md_view_out = md_view_out.drop(columns=["_gmv_num", "_mk_num", "_sales_num", "_orders_num", "_gap_num"])
-        _render_html_table(md_view_out)
+        _render_html_table(md_view_out, show_index=False)
 
     with _tk_tab_md:
         _build_md_monitor_view(md_normal_latest, "Markdown Normal Monitor", is_pro=False)
@@ -20595,18 +20801,12 @@ def page_weekly_calendar():
     days = [week_start + timedelta(days=i) for i in range(7)]
 
     # ── Task colors ───────────────────────────────────────────────────────────
-    TASK_COLORS = {
-        "campaign follow up":   {"bg": "rgba(59,72,131,0.85)",  "border": "#2563EB", "text": "#FFFFFF"},
-        "campaign negotiation": {"bg": "rgba(249,115,22,0.85)", "border": "#F97316", "text": "#FFFFFF"},
-        "contractual changes":  {"bg": "rgba(29,158,117,0.85)", "border": "#1D9E75", "text": "#FFFFFF"},
-    }
+    # H) Ya no usamos los nombres viejos (campaign follow up / negotiation /
+    #    contractual changes). El color de cada tarea sale de su prioridad.
+    TASK_COLORS = {}
     PRIORITY_COLORS = {"high": "#EF4444", "mid": "#F97316", "low": "#2563EB"}
 
     def _task_color(task_str, priority_str):
-        tl = task_str.lower()
-        for key, val in TASK_COLORS.items():
-            if key in tl:
-                return val
         p = priority_str.lower()
         c = PRIORITY_COLORS.get(p, "#2563EB")
         return {"bg": c, "border": c, "text": "#FFFFFF"}
@@ -20659,39 +20859,8 @@ def page_weekly_calendar():
         unsafe_allow_html=True,
     )
 
-    # ── Leyenda ───────────────────────────────────────────────────────────────
-    st.markdown(f"""
-    <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B7280;">TASK TYPES</span>
-        <span style="font-size:12px;color:#2563EB;">● Campaign Follow Up</span>
-        <span style="font-size:12px;color:#F97316;">● Campaign Negotiation</span>
-        <span style="font-size:12px;color:#1D9E75;">● Contractual Changes</span>
-        <span style="font-size:12px;color:#EF4444;margin-left:12px;">● Overdue</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Cabecera de días ──────────────────────────────────────────────────────
-    header_html = '<div style="display:grid;grid-template-columns:52px repeat(7,1fr);gap:0;margin-bottom:0;">'
-    header_html += '<div></div>'  # spacer para columna de horas
-    for d in days:
-        ddate = d if isinstance(d, date) else d.date()
-        is_today = ddate == today
-        day_count = int((active_agenda["_parsed_date"] == ddate).sum()) if not active_agenda.empty else 0
-        bg = "rgba(37,99,235,0.12)" if is_today else "rgba(37,99,235,0.03)"
-        border_b = "2px solid #2563EB" if is_today else "1px solid rgba(255,255,255,0.95)"
-        num_color = "#FFFFFF" if is_today else "#111827"
-        num_bg = "#2563EB" if is_today else "transparent"
-        count_color = "#22C55E" if day_count > 0 else "#6B7280"
-        header_html += f'''
-        <div style="background:{bg};border-bottom:{border_b};padding:8px 4px 8px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.92);">
-            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:#6B7280;">{d.strftime("%a").upper()}</div>
-            <div style="display:inline-block;background:{num_bg};border-radius:50%;width:28px;height:28px;line-height:28px;font-size:16px;font-weight:700;color:{num_color};margin:2px 0;">{d.strftime("%d")}</div>
-            <div style="font-size:10px;color:{count_color};font-weight:600;">{day_count} task{"s" if day_count != 1 else ""}</div>
-        </div>'''
-    header_html += '</div>'
-    st.markdown(header_html, unsafe_allow_html=True)
-
-    # ── Malla horaria tipo Google Calendar ───────────────────────────────────
+    # ── H) Se reemplazó la malla horaria tipo Google (7am–9pm × 7 días) y la
+    #    leyenda de task types por 3 cards (Hoy · Mañana · Próximos días).
     _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_COLORS)
 
 
@@ -20699,9 +20868,24 @@ def page_weekly_calendar():
 def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_COLORS):
     done_rows = st.session_state.setdefault("_wc_done_rows", set())
 
-    # ── Parsear hora numérica de cada evento ──────────────────────────────────
+    # ── H) Nuevo layout: 3 cards con hover, una al lado de la otra ────────────
+    #    Card 1 = HOY · Card 2 = MAÑANA · Card 3 = PASADO MAÑANA + día 4.
+    #    Cada card: encabezado con fecha y color, cuerpo blanco con marca,
+    #    tarea y horario. Se actualiza solo (siempre relativo a hoy).
+
+    def _events_for_dates(dates):
+        """Lista de eventos (dict) cuyo _parsed_date está en `dates`, ordenados por hora."""
+        if active_agenda is None or active_agenda.empty:
+            return []
+        mask = active_agenda["_parsed_date"].isin(dates)
+        rows = active_agenda[mask].to_dict("records")
+        def _sortkey(r):
+            hv = r.get("_hour")
+            return hv if hv is not None else 99
+        return sorted(rows, key=_sortkey)
+
+    # _hour para ordenar dentro de la card
     def _parse_hour(time_val):
-        """Devuelve float (ej: 9.5 para 9:30). None si no se puede parsear."""
         if isinstance(time_val, (time, datetime)):
             t = time_val if isinstance(time_val, time) else time_val.time()
             return t.hour + t.minute / 60
@@ -20713,225 +20897,193 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
         except Exception:
             pass
         s = str(time_val).strip()
-        # "9:00 AM", "09:00", "9:30 PM"
         for fmt in ("%I:%M %p", "%H:%M", "%I %p"):
             try:
                 t = datetime.strptime(s, fmt)
                 return t.hour + t.minute / 60
             except Exception:
                 pass
-        # fallback: primer número
         m = re.search(r"(\d+)", s)
         if m:
             return float(m.group(1))
         return None
 
-    if not active_agenda.empty:
+    if active_agenda is not None and not active_agenda.empty:
         active_agenda = active_agenda.copy()
         active_agenda["_hour"] = get_col(active_agenda, ["time"]).apply(_parse_hour)
 
-    # ── Configuración de la malla horaria ─────────────────────────────────────
-    HOUR_START = 7     # 7 AM
-    HOUR_END   = 22    # 10 PM
-    SLOT_HEIGHT = 48   # px por hora
+    # Definición de las 3 cards
+    _d1 = today
+    _d2 = today + timedelta(days=1)
+    _d3 = today + timedelta(days=2)
+    _d4 = today + timedelta(days=3)
 
-    # Construir index de eventos por (día, hora_slot)
-    # Un slot es la hora entera (7, 8, …, 21)
-    def _events_for_day(ddate):
-        if active_agenda.empty:
-            return []
-        mask = active_agenda["_parsed_date"] == ddate
-        return active_agenda[mask].to_dict("records")
+    CARD_DEFS = [
+        {"title": "HOY",            "dates": [_d1],       "accent": "#EF4444", "soft": "rgba(239,68,68,0.10)"},
+        {"title": "MAÑANA",         "dates": [_d2],       "accent": "#F97316", "soft": "rgba(249,115,22,0.10)"},
+        {"title": "PRÓXIMOS DÍAS",  "dates": [_d3, _d4],  "accent": "#2563EB", "soft": "rgba(37,99,235,0.10)"},
+    ]
 
-    # ── HTML de la malla completa ─────────────────────────────────────────────
-    # Estructura: columna de horas + 7 columnas de días, filas = horas
-    # Usamos position:relative en cada celda para superponer tarjetas.
+    def _fmt_hour(hv):
+        if hv is None:
+            return "—"
+        h = int(hv)
+        m = int(round((hv - h) * 60))
+        ampm = "AM" if h < 12 else "PM"
+        hh = h % 12
+        if hh == 0:
+            hh = 12
+        return f"{hh}:{m:02d} {ampm}"
 
-    hour_labels_html = ""
-    for h in range(HOUR_START, HOUR_END):
-        top = (h - HOUR_START) * SLOT_HEIGHT
-        if h == 0:
-            label = "12:00 AM"
-        elif h < 12:
-            label = f"{h}:00 AM"
-        elif h == 12:
-            label = "12:00 PM"
+    _month_es = {1:"ene",2:"feb",3:"mar",4:"abr",5:"may",6:"jun",7:"jul",8:"ago",9:"sep",10:"oct",11:"nov",12:"dic"}
+    _day_es   = {0:"Lun",1:"Mar",2:"Mié",3:"Jue",4:"Vie",5:"Sáb",6:"Dom"}
+
+    def _date_label(d):
+        return f"{_day_es.get(d.weekday(),'')} {d.day} {_month_es.get(d.month,'')}"
+
+    cards_html = []
+    for cdef in CARD_DEFS:
+        evs = _events_for_dates(cdef["dates"])
+        evs = [e for e in evs if e.get("_excel_row") not in done_rows]
+
+        # Etiqueta de fechas del encabezado
+        if len(cdef["dates"]) == 1:
+            _date_txt = _date_label(cdef["dates"][0])
         else:
-            label = f"{h-12}:00 PM"
-        hour_labels_html += f'<div style="position:absolute;top:{top}px;left:0;width:48px;font-size:10px;color:#6B7280;font-weight:600;text-align:right;padding-right:6px;line-height:1;">{label}</div>'
+            _date_txt = " · ".join(_date_label(d) for d in cdef["dates"])
 
-    total_height = (HOUR_END - HOUR_START) * SLOT_HEIGHT
+        # Cuerpo: filas de eventos (marca, tarea, horario)
+        if evs:
+            body_rows = ""
+            _cur_date = None
+            for e in evs:
+                _task    = clean(get_from_row(e, ["task"], "Task"))
+                _name_ev = clean(get_from_row(e, ["name"], "—"))
+                _hour    = e.get("_hour")
+                _hour_txt = _fmt_hour(_hour)
+                _pri     = clean(get_from_row(e, ["priority"], "Mid"))
+                _pc      = PRIORITY_COLORS.get(_pri.lower(), "#2563EB")
 
-    # ── Líneas horizontales ───────────────────────────────────────────────────
-    grid_lines_html = ""
-    for h in range(HOUR_START, HOUR_END + 1):
-        top = (h - HOUR_START) * SLOT_HEIGHT
-        color = "rgba(0,0,0,0.07)" if h % 2 == 0 else "rgba(37,99,235,0.03)"
-        grid_lines_html += f'<div class="grid-line" style="top:{top}px;background:{color};"></div>'
+                # Sub-separador de día cuando la card cubre 2 fechas
+                if len(cdef["dates"]) > 1:
+                    _edate = e.get("_parsed_date")
+                    if _edate != _cur_date:
+                        _cur_date = _edate
+                        body_rows += (
+                            f'<div style="font-size:10px;font-weight:700;letter-spacing:.05em;'
+                            f'color:#9CA3AF;text-transform:uppercase;margin:10px 0 4px;">'
+                            f'{_date_label(_edate) if _edate else "Sin fecha"}</div>'
+                        )
 
-    # ── Línea de "ahora" ──────────────────────────────────────────────────────
-    now_line_html = ""
-    if today in [d if isinstance(d, date) else d.date() for d in days]:
-        now_h = datetime.now().hour + datetime.now().minute / 60
-        if HOUR_START <= now_h < HOUR_END:
-            now_top = int((now_h - HOUR_START) * SLOT_HEIGHT)
-            now_line_html = f"""<div class="now-line" style="top:{now_top}px;">
-                <div class="now-line-bar"></div>
-                <div class="now-dot"></div>
-            </div>"""
+                body_rows += (
+                    f'<div class="wc3-evt" style="border-left:3px solid {_pc};">'
+                    f'<div class="wc3-evt-top">'
+                    f'<span class="wc3-brand">{html.escape(_name_ev)}</span>'
+                    f'<span class="wc3-time">{html.escape(_hour_txt)}</span>'
+                    f'</div>'
+                    f'<div class="wc3-task">{html.escape(_task)}</div>'
+                    f'</div>'
+                )
+        else:
+            body_rows = '<div class="wc3-empty">Sin tareas</div>'
 
-    # ── Columnas de días ──────────────────────────────────────────────────────
-    day_cols_html = ""
-    done_buttons = []
+        _count = len(evs)
+        cards_html.append(
+            f'<div class="wc3-card">'
+            f'<div class="wc3-head" style="background:{cdef["accent"]};">'
+            f'<div class="wc3-head-title">{cdef["title"]}</div>'
+            f'<div class="wc3-head-date">{_date_txt}</div>'
+            f'<div class="wc3-head-count">{_count} tarea{"s" if _count != 1 else ""}</div>'
+            f'</div>'
+            f'<div class="wc3-body">{body_rows}</div>'
+            f'</div>'
+        )
 
-    for d in days:
-        ddate = d if isinstance(d, date) else d.date()
-        is_today = ddate == today
-        bg = "rgba(59,72,131,0.08)" if is_today else "transparent"
-
-        events = _events_for_day(ddate)
-        cards_html = ""
-
-        for row in events:
-            excel_row = row.get("_excel_row")
-            if excel_row in done_rows:
-                continue
-
-            task     = clean(get_from_row(row, ["task"], "Task"))
-            name_ev  = clean(get_from_row(row, ["name"], "—"))
-            channel  = clean(get_from_row(row, ["channel"], ""))
-            priority = clean(get_from_row(row, ["priority"], "Mid"))
-            hour_val = row.get("_hour")
-            is_overdue = ddate < today
-
-            colors = _task_color(task, priority)
-            time_raw = get_from_row(row, ["time"], "")
-            time_str = parse_agenda_time(time_raw)
-
-            short_name = (name_ev[:18] + "…") if len(name_ev) > 18 else name_ev
-            short_task = (task[:22] + "…") if len(task) > 22 else task
-
-            if hour_val is not None and HOUR_START <= hour_val < HOUR_END:
-                top = int((hour_val - HOUR_START) * SLOT_HEIGHT)
-                h_px = max(SLOT_HEIGHT - 4, 36)
-                pos = f"top:{top}px;height:{h_px}px;"
-            else:
-                pos = "top:0px;height:44px;"
-
-            overdue_border = "border-top:2px solid #EF4444;" if is_overdue else ""
-            overdue_badge = "<span style='font-size:9px;font-weight:700;color:#EF4444;'>⚠ OVERDUE</span>" if is_overdue else ""
-            ch_str = f" · {html.escape(channel)}" if channel else ""
-
-            cards_html += f"""<div class="evt" style="{pos}background:{colors['bg']};border-left:3px solid {colors['border']};{overdue_border}"
-                title="{html.escape(name_ev)} · {html.escape(task)}">
-                <div class="evt-task" style="color:{colors['text']};">{html.escape(short_task)}</div>
-                <div class="evt-name">{html.escape(short_name)}</div>
-                <div class="evt-time">{html.escape(time_str)}{ch_str} {overdue_badge}</div>
-            </div>"""
-
-            done_buttons.append((excel_row, excel_row, name_ev, task))
-
-        col_now = now_line_html if is_today else ""
-
-        day_cols_html += f"""<div class="day-col" style="background:{bg};">
-            {grid_lines_html}
-            {col_now}
-            {cards_html}
-        </div>"""
-
-    st_components.html(f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8">
+    st.markdown(f"""
     <style>
-      * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-      body {{ background: transparent; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
-      .cal-grid {{
+      .wc3-wrap {{
         display: grid;
-        grid-template-columns: 52px repeat(7, 1fr);
-        border: 1px solid rgba(255,255,255,0.95);
-        border-radius: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 4px;
+      }}
+      @media (max-width: 900px) {{
+        .wc3-wrap {{ grid-template-columns: 1fr; }}
+      }}
+      .wc3-card {{
+        border-radius: 14px;
         overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.07);
+        background: #FFFFFF;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        transition: transform .18s ease, box-shadow .18s ease;
       }}
-      .hour-col {{
-        position: relative;
-        height: {total_height}px;
-        background: rgba(37,99,235,0.02);
-        border-right: 1px solid rgba(255,255,255,0.95);
+      .wc3-card:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.12);
       }}
-      .hour-label {{
-        position: absolute;
-        left: 0; width: 48px;
-        font-size: 10px;
-        color: #6B7280;
-        font-weight: 600;
-        text-align: right;
-        padding-right: 6px;
-        line-height: 1;
-        transform: translateY(-6px);
+      .wc3-head {{
+        padding: 14px 16px;
+        color: #FFFFFF;
       }}
-      .day-col {{
-        position: relative;
-        height: {total_height}px;
-        border-right: 1px solid rgba(255,255,255,0.92);
-        min-width: 0;
+      .wc3-head-title {{
+        font-size: 12px; font-weight: 800; letter-spacing: .08em;
       }}
-      .grid-line {{
-        position: absolute;
-        left: 0; right: 0;
-        height: 1px;
+      .wc3-head-date {{
+        font-size: 13px; font-weight: 600; opacity: .92; margin-top: 2px;
       }}
-      .now-line {{
-        position: absolute;
-        left: 0; right: 0;
-        z-index: 10;
-        pointer-events: none;
+      .wc3-head-count {{
+        font-size: 11px; font-weight: 700; opacity: .85; margin-top: 4px;
       }}
-      .now-line-bar {{ height: 2px; background: #EF4444; opacity: .85; }}
-      .now-dot {{
-        position: absolute;
-        top: -4px; left: -4px;
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        background: #EF4444;
+      .wc3-body {{
+        padding: 12px 14px;
+        background: #FFFFFF;
+        min-height: 90px;
       }}
-      .evt {{
-        position: absolute;
-        left: 2px; right: 2px;
-        border-radius: 0 6px 6px 0;
-        padding: 4px 6px;
-        overflow: hidden;
-        cursor: default;
-        z-index: 5;
+      .wc3-evt {{
+        background: rgba(37,99,235,0.03);
+        border-radius: 0 8px 8px 0;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        transition: background .15s ease;
       }}
-      .evt-task {{
-        font-size: 10px; font-weight: 700;
+      .wc3-evt:hover {{ background: rgba(37,99,235,0.08); }}
+      .wc3-evt-top {{
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      }}
+      .wc3-brand {{
+        font-size: 13px; font-weight: 800; color: #111827;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }}
-      .evt-name {{
-        font-size: 10px; color: rgba(255,255,255,.85);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      .wc3-time {{
+        font-size: 11px; font-weight: 700; color: #6B7280; flex-shrink: 0;
       }}
-      .evt-time {{
-        font-size: 9px; color: rgba(255,255,255,.5);
+      .wc3-task {{
+        font-size: 12px; color: #6B7280; margin-top: 2px;
+      }}
+      .wc3-empty {{
+        font-size: 12px; color: #9CA3AF; font-style: italic; padding: 8px 0;
       }}
     </style>
-    </head>
-    <body>
-    <div class="cal-grid">
-      <div class="hour-col">
-        {hour_labels_html}
-      </div>
-      {day_cols_html}
-    </div>
-    </body>
-    </html>
-    """, height=total_height + 24, scrolling=False)
+    <div class="wc3-wrap">{"".join(cards_html)}</div>
+    """, unsafe_allow_html=True)
 
-    # ── Botones Done (Streamlit nativo, fuera del HTML) ───────────────────────
+    # ── Botones Done (Streamlit nativo) para las tareas de las 3 cards ────────
+    _all_dates = [_d1, _d2, _d3, _d4]
+    done_buttons = []
+    if active_agenda is not None and not active_agenda.empty:
+        _visible = active_agenda[active_agenda["_parsed_date"].isin(_all_dates)]
+        for _idx, _row in _visible.iterrows():
+            _er = _row.get("_excel_row")
+            if _er in done_rows:
+                continue
+            _nm = clean(get_from_row(_row, ["name"], "—"))
+            _tk = clean(get_from_row(_row, ["task"], "Task"))
+            done_buttons.append((_er, _idx, _nm, _tk))
+
     if done_buttons:
         st.markdown(
-            "<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B7280;margin:8px 0 6px 0;'>MARK AS DONE</div>",
+            "<div style='font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B7280;margin:14px 0 6px 0;'>MARK AS DONE</div>",
             unsafe_allow_html=True
         )
         btn_cols = st.columns(min(len(done_buttons), 4))
@@ -20947,7 +21099,7 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
                         st.error(msg)
 
     # ── Eventos sin fecha asignada ────────────────────────────────────────────
-    if not active_agenda.empty:
+    if active_agenda is not None and not active_agenda.empty:
         undated = active_agenda[active_agenda["_parsed_date"].isna()]
         if not undated.empty:
             st.markdown("---")
@@ -20959,11 +21111,11 @@ def _render_calendar_events(active_agenda, today, days, _task_color, PRIORITY_CO
                 task  = clean(get_from_row(row, ["task"], "Task"))
                 name_ev = clean(get_from_row(row, ["name"], "—"))
                 priority = clean(get_from_row(row, ["priority"], "Mid"))
-                colors = _task_color(task, priority)
+                _pc = PRIORITY_COLORS.get(priority.lower(), "#2563EB")
                 st.markdown(f"""
-                <div style="background:{colors['bg']};border-left:3px solid {colors['border']};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px;">
-                    <div style="font-size:11px;font-weight:700;color:{colors['text']};">{task}</div>
-                    <div style="font-size:12px;color:#111827;">{name_ev}</div>
+                <div style="background:rgba(37,99,235,0.03);border-left:3px solid {_pc};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px;">
+                    <div style="font-size:11px;font-weight:700;color:#111827;">{html.escape(name_ev)}</div>
+                    <div style="font-size:12px;color:#6B7280;">{html.escape(task)}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("✓ Done", key=f"done_nd_{excel_row}_{idx}", use_container_width=True):
