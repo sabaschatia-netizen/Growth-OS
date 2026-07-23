@@ -21798,16 +21798,12 @@ def _install_nav_loading_overlay():
       #gos-loading {{ position: fixed; z-index: 2147483200; display: flex; align-items: center; justify-content: center;
         background: {bg}; font-family: 'DM Sans', -apple-system, sans-serif; animation: gos-fade-in .12s ease-out; }}
       #gos-loading .gos-box {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
-      #gos-loading .gos-donut-wrap {{ position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center; }}
-      #gos-loading .gos-donut {{ position: absolute; top: 0; left: 0; width: 68px; height: 68px; border-radius: 50%;
-        border: 5px solid {track}; border-top-color: #F97316; animation: gos-spin .8s linear infinite; box-sizing: border-box; }}
-      #gos-loading .gos-logo {{ width: 38px; height: 38px; border-radius: 9px; object-fit: contain;
+      #gos-loading .gos-logo {{ width: 52px; height: 52px; border-radius: 12px; object-fit: contain;
         animation: gos-pulse 1.6s ease-in-out infinite; }}
       #gos-loading .gos-txt {{ font-size: 15px; font-weight: 700; color: {txt}; letter-spacing: .2px; }}
       #gos-loading .gos-bar {{ width: 230px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
       #gos-loading .gos-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
         background: linear-gradient(90deg, #2563EB, #F97316); animation: gos-slide 1.1s ease-in-out infinite; }}
-      @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
       @keyframes gos-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
       @keyframes gos-pulse {{ 0%,100% {{ transform: scale(1); opacity: .92; }} 50% {{ transform: scale(1.06); opacity: 1; }} }}
@@ -21846,10 +21842,9 @@ def _install_nav_loading_overlay():
         if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
         var safe = String(label == null ? '' : label)
           .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        el.innerHTML = '<div class="gos-box"><div class="gos-donut-wrap">' +
-          '<div class="gos-donut"></div>' +
+        el.innerHTML = '<div class="gos-box">' +
           '<img class="gos-logo" src="' + LOGO + '" alt="GrowthOS"/>' +
-          '</div><div class="gos-txt">Cargando ' + safe + '…</div>' +
+          '<div class="gos-txt">Cargando ' + safe + '…</div>' +
           '<div class="gos-bar"><div class="gos-bar-fill"></div></div></div>';
         el.style.display = 'flex';
 
@@ -21948,24 +21943,19 @@ def _show_loading_overlay(page_name):
       #gos-loading {{ position: fixed; z-index: 2147483200; display: flex; align-items: center; justify-content: center;
         background: {bg}; font-family: 'DM Sans', -apple-system, sans-serif; animation: gos-fade-in .12s ease-out; }}
       #gos-loading .gos-box {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
-      #gos-loading .gos-donut-wrap {{ position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center; }}
-      #gos-loading .gos-donut {{ position: absolute; top: 0; left: 0; width: 68px; height: 68px; border-radius: 50%;
-        border: 5px solid {track}; border-top-color: #F97316; animation: gos-spin .8s linear infinite; box-sizing: border-box; }}
-      #gos-loading .gos-logo {{ width: 38px; height: 38px; border-radius: 9px; object-fit: contain;
+      #gos-loading .gos-logo {{ width: 52px; height: 52px; border-radius: 12px; object-fit: contain;
         animation: gos-pulse 1.6s ease-in-out infinite; }}
       #gos-loading .gos-txt {{ font-size: 15px; font-weight: 700; color: {txt}; letter-spacing: .2px; }}
       #gos-loading .gos-bar {{ width: 230px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
       #gos-loading .gos-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
         background: linear-gradient(90deg, #2563EB, #F97316); animation: gos-slide 1.1s ease-in-out infinite; }}
-      @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
       @keyframes gos-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
       @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
       @keyframes gos-pulse {{ 0%,100% {{ transform: scale(1); opacity: .92; }} 50% {{ transform: scale(1.06); opacity: 1; }} }}
     """
-    inner = ('<div class="gos-box"><div class="gos-donut-wrap">'
-             '<div class="gos-donut"></div>'
+    inner = ('<div class="gos-box">'
              f'<img class="gos-logo" src="{LOGO_DATA_URI}" alt="GrowthOS"/>'
-             '</div><div class="gos-txt">'
+             '<div class="gos-txt">'
              + html.escape("Cargando " + str(page_name) + "…")
              + '</div><div class="gos-bar"><div class="gos-bar-fill"></div></div></div>')
     css_js = json.dumps(css)
