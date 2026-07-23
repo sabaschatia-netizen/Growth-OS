@@ -21781,6 +21781,163 @@ import time as _time
 # QUITA. Posicionamiento a prueba de fallos: si no puede medir el sidebar/header,
 # usa defaults seguros (nunca queda invisible ni de tamaño cero).
 
+def _install_nav_loading_overlay():
+    """Instala (una sola vez por sesión de navegador) el telón de navegación.
+
+    A diferencia del enfoque anterior, esto NO depende de que Python inyecte el
+    overlay durante el render: el telón se pinta en el mismo instante del click,
+    desde el navegador, y se retira solo cuando Streamlit termina de correr.
+    """
+    dark = st.session_state.get("dark_mode", False)
+    if dark:
+        bg, track, txt = "#191C21", "#343A45", "#A1A1AA"
+    else:
+        bg, track, txt = "#EEF2F8", "#DCE3EE", "#6B7280"
+
+    css = f"""
+      #gos-loading {{ position: fixed; z-index: 2147483200; display: flex; align-items: center; justify-content: center;
+        background: {bg}; font-family: 'DM Sans', -apple-system, sans-serif; animation: gos-fade-in .12s ease-out; }}
+      #gos-loading .gos-box {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
+      #gos-loading .gos-donut-wrap {{ position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center; }}
+      #gos-loading .gos-donut {{ position: absolute; top: 0; left: 0; width: 68px; height: 68px; border-radius: 50%;
+        border: 5px solid {track}; border-top-color: #F97316; animation: gos-spin .8s linear infinite; box-sizing: border-box; }}
+      #gos-loading .gos-logo {{ width: 38px; height: 38px; border-radius: 9px; object-fit: contain;
+        animation: gos-pulse 1.6s ease-in-out infinite; }}
+      #gos-loading .gos-txt {{ font-size: 15px; font-weight: 700; color: {txt}; letter-spacing: .2px; }}
+      #gos-loading .gos-bar {{ width: 230px; height: 6px; border-radius: 999px; background: {track}; overflow: hidden; }}
+      #gos-loading .gos-bar-fill {{ height: 100%; width: 38%; border-radius: 999px;
+        background: linear-gradient(90deg, #2563EB, #F97316); animation: gos-slide 1.1s ease-in-out infinite; }}
+      @keyframes gos-spin {{ to {{ transform: rotate(360deg); }} }}
+      @keyframes gos-slide {{ 0% {{ transform: translateX(-130%); }} 100% {{ transform: translateX(360%); }} }}
+      @keyframes gos-fade-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+      @keyframes gos-pulse {{ 0%,100% {{ transform: scale(1); opacity: .92; }} 50% {{ transform: scale(1.06); opacity: 1; }} }}
+    """
+
+    css_js  = json.dumps(css)
+    logo_js = json.dumps(LOGO_DATA_URI)
+    # Páginas conocidas: sirve para sacar el nombre del botón clickeado.
+    pages_js = json.dumps([p for p, _ in [
+        (n, i) for _, items in NAV_GROUPS for n, i in items
+    ]] + ["Brand Update"])
+
+    st_components.html(f"""
+    <script>
+    (function() {{
+      var W, D;
+      try {{ W = window.parent; D = W.document; }} catch (e) {{ return; }}
+      if (!D) return;
+
+      // Estilos (se refrescan siempre para respetar dark mode)
+      try {{
+        var s = D.getElementById('gos-loading-style');
+        if (!s) {{ s = D.createElement('style'); s.id = 'gos-loading-style'; D.head.appendChild(s); }}
+        s.textContent = {css_js};
+      }} catch (e) {{}}
+
+      // El listener se instala UNA sola vez por pestaña del navegador.
+      if (W.__gosNavOverlayInstalled) return;
+      W.__gosNavOverlayInstalled = true;
+
+      var LOGO = {logo_js};
+      var PAGES = {pages_js};
+
+      function buildOverlay(label) {{
+        var el = D.getElementById('gos-loading');
+        if (!el) {{ el = D.createElement('div'); el.id = 'gos-loading'; D.body.appendChild(el); }}
+        var safe = String(label == null ? '' : label)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        el.innerHTML = '<div class="gos-box"><div class="gos-donut-wrap">' +
+          '<div class="gos-donut"></div>' +
+          '<img class="gos-logo" src="' + LOGO + '" alt="GrowthOS"/>' +
+          '</div><div class="gos-txt">Cargando ' + safe + '…</div>' +
+          '<div class="gos-bar"><div class="gos-bar-fill"></div></div></div>';
+        el.style.display = 'flex';
+
+        // Cubrir el área principal, dejando el sidebar visible si se puede medir.
+        var left = 0;
+        try {{
+          var sb = D.querySelector('section[data-testid="stSidebar"]');
+          if (sb) {{
+            var r = sb.getBoundingClientRect();
+            if (r.width > 2 && r.right > 2 && r.right < 600) left = r.right;
+          }}
+        }} catch (e) {{}}
+        el.style.left = left + 'px';
+        el.style.top = '0px';
+        el.style.right = '0px';
+        el.style.bottom = '0px';
+
+        // Failsafe: nunca dejar el telón pegado.
+        clearTimeout(W.__gosLoadingKill);
+        W.__gosLoadingKill = setTimeout(removeOverlay, 15000);
+      }}
+
+      function removeOverlay() {{
+        var el = D.getElementById('gos-loading');
+        if (el) el.remove();
+        clearTimeout(W.__gosLoadingKill);
+        W.__gosPendingNav = false;
+      }}
+
+      // ── 1. Pintar el telón EN EL CLICK, antes del rerun ──────────────
+      D.addEventListener('click', function(ev) {{
+        try {{
+          var btn = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+          if (!btn) return;
+          var sidebar = D.querySelector('section[data-testid="stSidebar"]');
+          if (!sidebar || !sidebar.contains(btn)) return;
+
+          // innerText puede venir vacío según cómo Streamlit arme el botón
+          // (spans internos, nodos ocultos); textContent es el respaldo fiable.
+          var label = ((btn.innerText || btn.textContent) || '').trim();
+          if (!label) return;
+
+          // Solo para botones que son navegación real.
+          var page = null;
+          for (var i = 0; i < PAGES.length; i++) {{
+            if (label.indexOf(PAGES[i]) !== -1) {{ page = PAGES[i]; break; }}
+          }}
+          if (!page) return;
+
+          // Si ya estamos en esa página, no hay transición que cubrir.
+          if (btn.getAttribute('kind') === 'primary') return;
+
+          W.__gosPendingNav = true;
+          buildOverlay(page);
+        }} catch (e) {{}}
+      }}, true);  // capture: corre antes que el handler de Streamlit
+
+      // ── 2. Retirar el telón cuando Streamlit termina de renderizar ───
+      function streamlitBusy() {{
+        try {{
+          if (D.querySelector('[data-testid="stStatusWidget"]')) return true;
+          if (D.querySelector('.stApp[data-test-script-state="running"]')) return true;
+          if (D.querySelector('[data-test-script-state="running"]')) return true;
+        }} catch (e) {{}}
+        return false;
+      }}
+
+      var idleTicks = 0;
+      setInterval(function() {{
+        if (!W.__gosPendingNav) return;
+        if (streamlitBusy()) {{ idleTicks = 0; return; }}
+        // Pedimos varios ticks seguidos en reposo para no cortar el telón
+        // durante micro-pausas entre fragmentos del render.
+        idleTicks++;
+        if (idleTicks >= 3) {{
+          idleTicks = 0;
+          // Un frame extra para que el navegador pinte la página nueva
+          // ANTES de levantar el telón (evita ver la pantalla vieja).
+          W.requestAnimationFrame(function() {{
+            W.requestAnimationFrame(function() {{ setTimeout(removeOverlay, 60); }});
+          }});
+        }}
+      }}, 100);
+    }})();
+    </script>
+    """, height=0)
+
+
 def _show_loading_overlay(page_name):
     dark = st.session_state.get("dark_mode", False)
     if dark:
@@ -21856,7 +22013,11 @@ def _hide_loading_overlay():
       var _gosNonce = "{nonce}";
       try {{
         var W = window.parent, D = W.document;
-        function go() {{ var el = D.getElementById('gos-loading'); if (el) el.remove(); clearTimeout(W.__gosLoadingKill); }}
+        function go() {{
+          var el = D.getElementById('gos-loading'); if (el) el.remove();
+          clearTimeout(W.__gosLoadingKill);
+          W.__gosPendingNav = false;   // corta el watcher del telón
+        }}
         if (W.requestAnimationFrame) {{ W.requestAnimationFrame(function() {{ setTimeout(go, 40); }}); }}
         else {{ setTimeout(go, 60); }}
       }} catch (e) {{}}
@@ -21881,30 +22042,28 @@ _PAGE_FN = {
 }
 _page_fn = _PAGE_FN.get(page, page_management_dashboard)
 
-# ¿Cambio de página? (no en la primera carga ni en reruns dentro de la misma)
+# El telón de navegación ya no se pinta desde acá. Se instala una vez y se
+# dispara en el click, ANTES del rerun — que es la única forma de tapar la
+# pantalla vieja, porque cualquier cosa inyectada durante el render llega
+# recién cuando la página nueva ya terminó de construirse.
+_install_nav_loading_overlay()
+
+# El spinner nativo se omite en navegación: el telón ya comunica el estado y
+# los dos juntos se pisaban visualmente.
 _last_pg = st.session_state.get("_last_rendered_page")
 _is_nav = (_last_pg is not None) and (_last_pg != page)
 
-if _is_nav:
-    _show_loading_overlay(page)   # afiche con dona + barra
-
-# try/finally: si la página lanza una excepción, el overlay DEBE removerse igual.
-# Antes, un error dentro de _page_fn() salteaba _hide_loading_overlay() y el afiche
-# quedaba pegado tapando la pantalla ("congelada/atravesada") hasta el kill-timer.
-# También se eliminó el time.sleep(0.12) que bloqueaba el hilo en cada navegación:
-# el overlay se pinta por JS en el documento padre y no necesita esa pausa.
 try:
-    with st.spinner(f"Cargando {page}…", show_time=False):
-        _page_fn()
-except Exception as _page_err:
     if _is_nav:
-        _hide_loading_overlay()
-        _is_nav = False           # evita doble remoción abajo
+        _page_fn()
+    else:
+        with st.spinner(f"Cargando {page}…", show_time=False):
+            _page_fn()
+except Exception as _page_err:
+    # Si la página revienta, el telón debe irse igual o la pantalla queda tapada.
+    _hide_loading_overlay()
     st.error(f"Ocurrió un error al cargar **{page}**.")
     with st.expander("Ver detalle técnico"):
         st.exception(_page_err)
-finally:
-    if _is_nav:
-        _hide_loading_overlay()
 
 st.session_state["_last_rendered_page"] = page
