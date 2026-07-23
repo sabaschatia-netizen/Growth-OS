@@ -16690,19 +16690,19 @@ def render_brand_profile(row, brand_id):
         with st.form(f"inline_brand_edit_{brand_id}"):
             ie1, ie2 = st.columns(2)
             with ie1:
-                _new_category   = st.text_input("Categoría / Stickers", value=_edit_category_current, help="Formato: 'Categoría Principal | Sticker1 | Sticker2'")
-                _new_manager    = st.text_input("Manager", value=_edit_manager_current)
-                _new_assistant  = st.text_input("Assistant", value=_edit_assistant_current)
+                _new_category   = st.text_input("Categoría / Stickers", value=_edit_category_current, help="Formato: 'Categoría Principal | Sticker1 | Sticker2'", key=f"ie_cat_{brand_id}")
+                _new_manager    = st.text_input("Manager", value=_edit_manager_current, key=f"ie_mgr_{brand_id}")
+                _new_assistant  = st.text_input("Assistant", value=_edit_assistant_current, key=f"ie_asst_{brand_id}")
             with ie2:
-                _new_email      = st.text_input("Email", value=_edit_email_current)
-                _new_phone      = st.text_input("Teléfono / Contact Number", value=_edit_phone_current)
+                _new_email      = st.text_input("Email", value=_edit_email_current, key=f"ie_mail_{brand_id}")
+                _new_phone      = st.text_input("Teléfono / Contact Number", value=_edit_phone_current, key=f"ie_phone_{brand_id}")
                 _ie_c1, _ie_c2  = st.columns(2)
                 with _ie_c1:
-                    _new_commission_pct = st.number_input("Comisión %", value=float(_edit_commission_pct), min_value=0.0, max_value=100.0, step=0.5)
+                    _new_commission_pct = st.number_input("Comisión %", value=float(_edit_commission_pct), min_value=0.0, max_value=100.0, step=0.5, key=f"ie_comm_{brand_id}")
                 with _ie_c2:
-                    _new_pro_pct = st.number_input("Usuarios PRO %", value=float(_edit_pro_pct), min_value=0.0, max_value=100.0, step=0.5)
+                    _new_pro_pct = st.number_input("Usuarios PRO %", value=float(_edit_pro_pct), min_value=0.0, max_value=100.0, step=0.5, key=f"ie_pro_{brand_id}")
 
-            _inline_submitted = st.form_submit_button("💾 Guardar ahora")
+            _inline_submitted = st.form_submit_button("💾 Guardar ahora", key=f"ie_submit_{brand_id}")
 
         if _inline_submitted:
             _inline_updates = {
@@ -19101,7 +19101,7 @@ def page_campaign_weekly_tracker():
             f"capturarlo para ver datos frescos."
         )
     with _capture_col:
-        if st.button("📸 Capture current week snapshot"):
+        if st.button("📸 Capture current week snapshot", key="btn_capture_week_snapshot"):
             # Wipe CSV completely before saving so old periods don't persist
             if os.path.exists(CAMPAIGN_WEEKLY_TRACKER_FILE):
                 os.remove(CAMPAIGN_WEEKLY_TRACKER_FILE)
@@ -19180,6 +19180,19 @@ def page_campaign_weekly_tracker():
     for c in ["bookings_usd","revenue_usd","sales_usd","roi","gmv_usd","orders","campaigns"]:
         if c in work.columns:
             work[c] = pd.to_numeric(work[c], errors="coerce").fillna(0)
+
+    # PERF: normalizar el brand_id una sola vez y construir un índice
+    # (channel, period, brand_id) -> primera fila. Antes, cada sparkline
+    # (ROI Trend, ROI Alert, GMV Trend) reaplicaba normalize_brand_id sobre
+    # todo el DataFrame por cada marca y cada periodo: ~1.000 barridos con
+    # regex por render en un portafolio de ~260 marcas. Ahora es lookup O(1).
+    work["_bid_norm"] = work["brand_id"].apply(normalize_brand_id)
+    work["_period_str"] = work["period"].astype(str)
+    _tk_row_index = {}
+    for _tk_rec in work.to_dict("records"):
+        _tk_key = (_tk_rec.get("channel"), _tk_rec.get("_period_str"), _tk_rec.get("_bid_norm"))
+        if _tk_key not in _tk_row_index:
+            _tk_row_index[_tk_key] = _tk_rec
     latest_period = periods[-1] if periods else "-"
     latest = work[work["period"].astype(str) == latest_period].copy()
     ads_latest = latest[latest["channel"] == "Ads"].copy()
@@ -19416,9 +19429,9 @@ def page_campaign_weekly_tracker():
                 bid = normalize_brand_id(brand_id_val)
                 roi_vals = []
                 for p in periods:
-                    subset = work[(work["period"].astype(str) == p) & (work["channel"] == "Ads") & (work["brand_id"].apply(normalize_brand_id) == bid)]
-                    if not subset.empty:
-                        roi_vals.append(to_number(subset.iloc[0].get("roi", 0), 0))
+                    _rec = _tk_row_index.get(("Ads", str(p), bid))
+                    if _rec is not None:
+                        roi_vals.append(to_number(_rec.get("roi", 0), 0))
                 if not roi_vals:
                     return "-"
                 # Build mini SVG sparkline 90x22
@@ -19452,9 +19465,9 @@ def page_campaign_weekly_tracker():
                 bid = normalize_brand_id(brand_id_val)
                 roi_series = []
                 for p in periods:
-                    subset = work[(work["period"].astype(str) == p) & (work["channel"] == "Ads") & (work["brand_id"].apply(normalize_brand_id) == bid)]
-                    if not subset.empty:
-                        roi_series.append(to_number(subset.iloc[0].get("roi", 0), 0))
+                    _rec = _tk_row_index.get(("Ads", str(p), bid))
+                    if _rec is not None:
+                        roi_series.append(to_number(_rec.get("roi", 0), 0))
                 if len(roi_series) >= 2:
                     drop = roi_series[-2] - roi_series[-1]   # prev - latest
                     if drop >= 1.0:
@@ -19757,9 +19770,9 @@ def page_campaign_weekly_tracker():
             bid = normalize_brand_id(brand_id_val)
             gmv_vals = []
             for p in periods:
-                subset = work[(work["period"].astype(str) == p) & (work["channel"] == channel_val) & (work["brand_id"].apply(normalize_brand_id) == bid)]
-                if not subset.empty:
-                    gmv_vals.append(to_number(subset.iloc[0].get("gmv_usd", 0), 0))
+                _rec = _tk_row_index.get((channel_val, str(p), bid))
+                if _rec is not None:
+                    gmv_vals.append(to_number(_rec.get("gmv_usd", 0), 0))
             if not gmv_vals:
                 return "-"
             if len(gmv_vals) == 1:
@@ -19929,7 +19942,13 @@ def page_brand_finder():
         st.caption("Detected columns: " + ", ".join([str(c) for c in df.columns[:25]]))
         return
 
-    result = df[df[id_col].apply(normalize_brand_id) == brand_id]
+    # PERF: comparación vectorizada. apply(normalize_brand_id) recorría todo
+    # Growth OS con regex en cada rerun del buscador; el prefiltro por dígitos
+    # descarta la mayoría de filas antes de normalizar.
+    _id_raw = df[id_col].astype(str)
+    _id_digits = _id_raw.str.extract(r"(\d+)", expand=False).str.lstrip("0")
+    _cand = df[_id_digits == str(brand_id).lstrip("0")]
+    result = _cand if not _cand.empty else df[_id_raw.apply(normalize_brand_id) == brand_id]
 
     if result.empty:
         # Fallback: buscar en Asignacion Junio → construir fila sintética enriquecida
@@ -19984,7 +20003,13 @@ def page_brand_finder():
                         _gos_id_c = get_id_column_name(_gos_df) if not _gos_df.empty else None
                         _gos_gmv_c = next((c for c in (_gos_df.columns if not _gos_df.empty else []) if c in ["last gmv ars", "gmv ars"]), None)
                         if _gos_id_c and _gos_gmv_c:
-                            _higher = sum(1 for _, _r in _gos_df.iterrows() if to_number(_r.get(_gos_gmv_c, 0), 0) > _gmv_syn)
+                            # Vectorizado: iterrows() creaba una Series por
+                            # fila del portafolio entero solo para contar.
+                            _gos_gmv_num = pd.to_numeric(
+                                _gos_df[_gos_gmv_c].astype(str).str.replace(r"[^\d.\-]", "", regex=True),
+                                errors="coerce",
+                            ).fillna(0.0)
+                            _higher = int((_gos_gmv_num > _gmv_syn).sum())
                             ranking_syn = f"#{_higher + 1}"
             except Exception:
                 pass
@@ -20413,7 +20438,7 @@ def _render_followup_form(row, brand_id, name):
     # armado por Claude con las palancas identificadas — no hace falta
     # re-detectarlas aquí con keywords. ─────────────────────────────────────────
 
-    if st.button("Save Follow-up"):
+    if st.button("Save Follow-up", key="btn_save_followup"):
         # Build final comment: se guarda tal cual el contenido del campo de
         # transcripción (el resumen ya armado por Claude) — no se regenera nada.
         if _is_no_answer or _is_separator:
@@ -21132,7 +21157,7 @@ def page_brand_update():
         st.error("Growth OS sheet not found.")
         return
 
-    brand_id_input = st.text_input("Search by Brand ID")
+    brand_id_input = st.text_input("Search by Brand ID", key="bu_search_brand_id")
     brand_id = normalize_brand_id(brand_id_input)
 
     if not brand_id_input:
@@ -21145,7 +21170,13 @@ def page_brand_update():
         st.caption("Detected columns: " + ", ".join([str(c) for c in df.columns[:25]]))
         return
 
-    result = df[df[id_col].apply(normalize_brand_id) == brand_id]
+    # PERF: comparación vectorizada. apply(normalize_brand_id) recorría todo
+    # Growth OS con regex en cada rerun del buscador; el prefiltro por dígitos
+    # descarta la mayoría de filas antes de normalizar.
+    _id_raw = df[id_col].astype(str)
+    _id_digits = _id_raw.str.extract(r"(\d+)", expand=False).str.lstrip("0")
+    _cand = df[_id_digits == str(brand_id).lstrip("0")]
+    result = _cand if not _cand.empty else df[_id_raw.apply(normalize_brand_id) == brand_id]
 
     if result.empty:
         st.error("Brand not found.")
@@ -21198,22 +21229,22 @@ def page_brand_update():
 
     st.markdown("### Editable Fields")
 
-    with st.form("brand_update_form"):
+    with st.form(f"brand_update_form_{brand_id}"):
         sec1, sec2 = st.columns(2)
 
         with sec1:
             st.markdown('<div class="update-card"><div class="update-title">Brand Identity</div>', unsafe_allow_html=True)
-            name_new = st.text_input("Brand Name", value=name_current)
+            name_new = st.text_input("Brand Name", value=name_current, key=f"bu_name_{brand_id}")
             ltor_options = ["Prioritized 🔥", "Non Prioritized ❄️"]
-            ltor_new = st.selectbox("LTOR Tier", ltor_options, index=option_index(ltor_options, ltor_current))
+            ltor_new = st.selectbox("LTOR Tier", ltor_options, index=option_index(ltor_options, ltor_current), key=f"bu_ltor_{brand_id}")
             churn_options = ["✅On", "⚠️W1", "🚨W2", "🆘W3", "😴Off", "☠️Off"]
-            churn_new = st.selectbox("Churn Status", churn_options, index=option_index(churn_options, churn_current))
+            churn_new = st.selectbox("Churn Status", churn_options, index=option_index(churn_options, churn_current), key=f"bu_churn_{brand_id}")
             st.markdown("</div>", unsafe_allow_html=True)
 
         with sec2:
             st.markdown('<div class="update-card"><div class="update-title">Commercial Performance</div>', unsafe_allow_html=True)
-            gmv_ars_new = st.number_input("Last GMV ARS", value=float(gmv_ars_current), step=1000.0)
-            aov_ars_new = st.number_input("AOV ARS", value=float(aov_ars_current), step=100.0)
+            gmv_ars_new = st.number_input("Last GMV ARS", value=float(gmv_ars_current), step=1000.0, key=f"bu_gmv_{brand_id}")
+            aov_ars_new = st.number_input("AOV ARS", value=float(aov_ars_current), step=100.0, key=f"bu_aov_{brand_id}")
             st.caption("USD fields are protected because they are calculated by formula.")
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -21223,13 +21254,13 @@ def page_brand_update():
             st.markdown('<div class="update-card"><div class="update-title">ADS</div>', unsafe_allow_html=True)
             ads_current = clean(get_from_row(row, ["ads"], "Inactive 💤"))
             ads_options = ["Active 🚀", "Inactive 💤", "OFF 😴"]
-            ads_new = st.selectbox("Ads Status", ads_options, index=option_index(ads_options, ads_current))
+            ads_new = st.selectbox("Ads Status", ads_options, index=option_index(ads_options, ads_current), key=f"bu_ads_{brand_id}")
 
             ads_bookings_current = to_number(get_from_row(row, ["ads bookings", "ad bookings"], 0))
-            ads_bookings_new = st.number_input("Ads Bookings ARS", value=float(ads_bookings_current), step=1000.0)
+            ads_bookings_new = st.number_input("Ads Bookings ARS", value=float(ads_bookings_current), step=1000.0, key=f"bu_adsbk_{brand_id}")
 
             ads_roi_current = clean(get_from_row(row, ["ads roi", "ad roi"], ""))
-            ads_roi_new = st.text_input("Ads ROI", value=ads_roi_current)
+            ads_roi_new = st.text_input("Ads ROI", value=ads_roi_current, key=f"bu_adsroi_{brand_id}")
             st.caption("Ads USD is protected because it is calculated automatically.")
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -21237,33 +21268,33 @@ def page_brand_update():
             st.markdown('<div class="update-card"><div class="update-title">Merchant Development (MD)</div>', unsafe_allow_html=True)
             md_current = clean(get_from_row(row, ["md", "md status"], "Inactive 💤"))
             md_options = ["Active 🚀", "Inactive 💤", "OFF 😴"]
-            md_new = st.selectbox("MD Status", md_options, index=option_index(md_options, md_current))
+            md_new = st.selectbox("MD Status", md_options, index=option_index(md_options, md_current), key=f"bu_md_{brand_id}")
 
             md_discount_current = normalize_markdown_discount(get_from_row(row, ["md discount", "md promo", "markdown discount", "markdown promo", "md bookings", "md bookings ars", "md booking"], ""))
-            md_bookings_new = st.text_input("MD Discount / Promo", value=md_discount_current, placeholder="Ej: 15%, 20%, 2x1")
+            md_bookings_new = st.text_input("MD Discount / Promo", value=md_discount_current, placeholder="Ej: 15%, 20%, 2x1", key=f"bu_mddisc_{brand_id}")
 
             md_roi_current = clean(get_from_row(row, ["md roi"], ""))
-            md_roi_new = st.text_input("MD ROI", value=md_roi_current)
+            md_roi_new = st.text_input("MD ROI", value=md_roi_current, key=f"bu_mdroi_{brand_id}")
             st.caption("MD USD is protected because it is calculated automatically.")
             st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="update-card"><div class="update-title">Account & Ownership</div>', unsafe_allow_html=True)
         acc1, acc2, acc3 = st.columns(3)
         with acc1:
-            manager_new = st.text_input("Manager / Editor", value=clean(get_from_row(row, ["manager", "restaurant manager", "account manager"], "")))
+            manager_new = st.text_input("Manager / Editor", value=clean(get_from_row(row, ["manager", "restaurant manager", "account manager"], "")), key=f"bu_mgr_{brand_id}")
         with acc2:
-            assistant_new = st.text_input("Assistant", value=clean(get_from_row(row, ["assistant"], "")))
+            assistant_new = st.text_input("Assistant", value=clean(get_from_row(row, ["assistant"], "")), key=f"bu_asst_{brand_id}")
         with acc3:
-            email_new = st.text_input("Mail", value=clean(get_from_row(row, ["email", "mail"], "")))
+            email_new = st.text_input("Mail", value=clean(get_from_row(row, ["email", "mail"], "")), key=f"bu_mail_{brand_id}")
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="update-card"><div class="update-title">Comments / Notes</div>', unsafe_allow_html=True)
         notes_current = clean(get_from_row(row, ["comments", "comment"], ""))
-        notes_new = st.text_area("Notes", value="" if notes_current == "-" else notes_current, height=120)
+        notes_new = st.text_area("Notes", value="" if notes_current == "-" else notes_current, height=120, key=f"bu_notes_{brand_id}")
         st.caption("Notes are saved in the brand record and mirrored to Weekly Calendar when the Brand ID exists in Agenda.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        submitted = st.form_submit_button("Save Changes")
+        submitted = st.form_submit_button("Save Changes", key=f"bu_submit_{brand_id}")
 
     # ── Badge: último guardado exitoso ────────────────────────────────────────
     _last_saved_key = f"brand_update_last_saved_{brand_id}"
@@ -21527,16 +21558,16 @@ def page_role_play_trainer():
 
         with st.form("add_objection_form"):
             objection_text = st.text_area("Texto exacto de la objeción", height=100,
-                placeholder="Ej: No me interesa Ads, ya probé y no me funcionó...")
+                placeholder="Ej: No me interesa Ads, ya probé y no me funcionó...", key="obj_text")
             col1, col2 = st.columns(2)
             with col1:
-                lever = st.selectbox("Palanca", LEVERS)
+                lever = st.selectbox("Palanca", LEVERS, key="obj_lever")
             with col2:
-                category = st.selectbox("Categoría", categories)
+                category = st.selectbox("Categoría", categories, key="obj_category")
             ideal_response = st.text_area("Tu respuesta ideal", height=120,
-                placeholder="Escribí la respuesta que darías cuando estás en tu mejor versión...")
-            tags = st.text_input("Tags (opcional, separados por coma)", placeholder="Ej: precio, repartidores, experiencia previa")
-            submitted = st.form_submit_button("💾 Guardar en banco de objeciones")
+                placeholder="Escribí la respuesta que darías cuando estás en tu mejor versión...", key="obj_ideal")
+            tags = st.text_input("Tags (opcional, separados por coma)", placeholder="Ej: precio, repartidores, experiencia previa", key="obj_tags")
+            submitted = st.form_submit_button("💾 Guardar en banco de objeciones", key="obj_submit")
 
         if submitted:
             if not objection_text.strip() or not ideal_response.strip():
@@ -21580,7 +21611,7 @@ def page_role_play_trainer():
                         st.rerun()
 
                 del_id = st.text_input("ID de objeción a eliminar (pega el objection_id)", key="del_obj_id")
-                if st.button("🗑️ Eliminar objeción") and del_id.strip():
+                if st.button("🗑️ Eliminar objeción", key="btn_del_objection") and del_id.strip():
                     _delete_objection(del_id.strip())
                     st.success("Objeción eliminada.")
                     st.rerun()
@@ -21608,7 +21639,7 @@ def page_role_play_trainer():
         if filter_cat != "Todas":
             filtered = filtered[filtered["category"] == filter_cat]
 
-        if st.button("🎲 Cargar objeción aleatoria") and not filtered.empty:
+        if st.button("🎲 Cargar objeción aleatoria", key="btn_random_objection") and not filtered.empty:
             chosen = filtered.sample(1).iloc[0].to_dict()
             st.session_state["rp_current_obj"] = chosen
 
@@ -21624,7 +21655,7 @@ def page_role_play_trainer():
 
             user_response = st.text_area("Tu respuesta", height=140, placeholder="Escribí tu respuesta a esta objeción...", key="rp_user_resp")
 
-            if st.button("🤖 Evaluar respuesta"):
+            if st.button("🤖 Evaluar respuesta", key="btn_eval_response"):
                 if not user_response.strip():
                     st.warning("Escribí una respuesta antes de evaluar.")
                 else:
@@ -21688,7 +21719,7 @@ def page_role_play_trainer():
                 </div>
                 """, unsafe_allow_html=True)
 
-                if st.button("💾 Guardar intento"):
+                if st.button("💾 Guardar intento", key="btn_save_attempt"):
                     _save_history({
                         "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "objection_id": current_obj.get("objection_id", ""),
