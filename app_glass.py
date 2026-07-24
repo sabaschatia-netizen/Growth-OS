@@ -7021,20 +7021,6 @@ with st.sidebar:
 
     # Nav groups
     current_page = st.session_state["active_page"]
-    _NAV_HELP = {
-        "Management Dashboard": "Para ver el pulso general del portafolio: cobertura, performance y salud de datos.",
-        "Opportunity List": "Para detectar oportunidades comerciales y cerrar el gap de revenue del mes.",
-        "Follow-Up List": "Para gestionar los seguimientos pendientes de cada marca.",
-        "Brand Finder": "Para buscar una marca y revisar toda su ficha comercial en detalle.",
-        "Sales Control Center": "Diagnóstico de tu proceso comercial: funnels de adquisición y upselling.",
-        "Campaign Weekly Tracker": "Para monitorear el desempeño semanal de las campañas.",
-        "Weekly Calendar": "Para ver la agenda de contactos y actividades de la semana.",
-        "Brand Update": "Para actualizar datos y notas de una marca.",
-        "Earnings Calculator": "Para calcular tu variable y salario según metas y resultados.",
-        "Productivity HeatMap": "Para ver tu intensidad de uso de palancas y tus récords.",
-        "Call Quality Trainer": "Para evaluar y mejorar la calidad de tus llamadas.",
-        "Role Play Trainer": "Para practicar el manejo de objeciones reales.",
-    }
     for group_label, items in NAV_GROUPS:
         if not collapsed:
             st.markdown(f'<div class="nav-section-label">{group_label}</div>', unsafe_allow_html=True)
@@ -7053,7 +7039,6 @@ with st.sidebar:
                 on_click=_nav_set_page,
                 args=(page_name,),
                 type="primary" if is_active else "secondary",
-                help=_NAV_HELP.get(page_name),
             )
 
     if not collapsed:
@@ -8355,26 +8340,6 @@ def render_header(title="Growth OS", subtitle="Commercial Management System · R
         )
     except Exception:
         _h_stamp = ""
-
-    # Chip de marca activa: si hay una marca en contexto global y no estamos en el
-    # Brand Finder (donde ya se ve), se muestra un recordatorio sutil de "en qué marca
-    # estás trabajando", para no perder el hilo al navegar entre pantallas.
-    _active_brand_html = ""
-    try:
-        _sb_id = st.session_state.get("selected_brand_id", "")
-        _sb_nm = st.session_state.get("selected_brand_name", "")
-        if _sb_id and title != "Brand Finder":
-            _sb_label = f"{_sb_nm} · {_sb_id}" if _sb_nm else str(_sb_id)
-            _active_brand_html = (
-                f'<div style="display:inline-flex;align-items:center;gap:7px;margin-top:8px;'
-                f'background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);'
-                f'border-radius:999px;padding:4px 13px;font-size:12px;font-weight:700;color:#FFFFFF;">'
-                f'🎯 Marca activa: {html.escape(_sb_label)}</div>'
-            )
-    except Exception:
-        _active_brand_html = ""
-
-    subtitle_html = subtitle_html + _active_brand_html
 
     st.markdown(f"""
     <div class="app-header">
