@@ -795,10 +795,11 @@ def _render_profile_chip(dark):
 
     css = f"""
       #gos-profile-chip {{
-        position: fixed; top: 10px; left: 14px; z-index: 2147483000;
+        position: relative; z-index: 50;
         display: flex; align-items: center; gap: 10px;
         padding: 6px 10px 6px 14px;
-        max-width: 250px;
+        margin: 10px 12px 4px;
+        width: calc(100% - 24px);
         background: {bg};
         -webkit-backdrop-filter: blur(16px) saturate(140%);
         backdrop-filter: blur(16px) saturate(140%);
@@ -814,11 +815,11 @@ def _render_profile_chip(dark):
       #gos-profile-chip .pc-initials {{
         display: flex; align-items: center; justify-content: center;
         background: linear-gradient(135deg, #F97316, #FB923C);
-        color: #fff; font-weight: 800; font-size: 13px;
+        color: #fff !important; font-weight: 800; font-size: 13px;
       }}
-      #gos-profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm}; }}
-      #gos-profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl}; margin-top: 1px; }}
-      #gos-profile-chip .pc-caret {{ color: {ic}; font-size: 11px; transition: transform .15s; }}
+      #gos-profile-chip .pc-name {{ font-size: 13px; font-weight: 700; color: {nm} !important; }}
+      #gos-profile-chip .pc-role {{ font-size: 11px; font-weight: 600; color: {rl} !important; margin-top: 1px; }}
+      #gos-profile-chip .pc-caret {{ color: {ic} !important; font-size: 11px; transition: transform .15s; }}
       #gos-profile-chip.pc-open .pc-caret {{ transform: rotate(180deg); }}
       #gos-profile-chip .pc-menu {{
         display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 190px;
@@ -828,7 +829,7 @@ def _render_profile_chip(dark):
       #gos-profile-chip .pc-mi {{
         display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
         background: transparent; border: none; border-radius: 8px; padding: 10px 12px;
-        font-family: inherit; font-size: 13px; font-weight: 600; color: {nm}; cursor: pointer;
+        font-family: inherit; font-size: 13px; font-weight: 600; color: {nm} !important; cursor: pointer;
       }}
       #gos-profile-chip .pc-mi:hover {{ background: {menu_hover}; }}
       @media (max-width: 900px) {{
@@ -863,41 +864,32 @@ def _render_profile_chip(dark):
         if (!el) {{ el = D.createElement('div'); el.id = 'gos-profile-chip'; D.body.appendChild(el); }}
         el.innerHTML = {inner_js};
 
-        // Posición: DENTRO del sidebar (esquina superior izquierda), no sobre el
-        // contenido — así el header de cada página no necesita reservar espacio
-        // para no chocar con el chip, y puede quedar pegado arriba del todo.
-        function _placeChip() {{
+        // El chip vive DENTRO del contenido scrolleable del sidebar, como un
+        // elemento más del flujo: scrollea con el sidebar, viaja con la
+        // animación de colapso y desaparece con él. Cero cálculo de posición.
+        function _mountChip() {{
           try {{
-            var el2 = D.getElementById('gos-profile-chip'); if (!el2) return;
+            // Usamos la referencia del closure (el), no getElementById: si un
+            // rerun de Streamlit arrancó el nodo del DOM, el id ya no existe
+            // pero la referencia sigue viva y podemos re-insertar EL MISMO
+            // nodo, con sus listeners intactos.
             var sb = D.querySelector('section[data-testid="stSidebar"]');
-            if (sb) {{
-              var r = sb.getBoundingClientRect();
-              if (r.width > 2) {{
-                el2.style.left = (r.left + 12) + 'px';
-                el2.style.maxWidth = Math.max(r.width - 24, 120) + 'px';
-                el2.style.display = 'flex';
-              }} else {{
-                el2.style.display = 'none';  // sidebar colapsado: ocultar el chip
-              }}
-            }} else {{
-              el2.style.left = '12px';
+            if (!sb) {{ el.style.display = 'none'; return; }}
+            var host = sb.querySelector('[data-testid="stSidebarContent"]') ||
+                       sb.querySelector('[data-testid="stSidebarUserContent"]') ||
+                       sb.firstElementChild || sb;
+            if (!el.isConnected || el.parentNode !== host || host.firstElementChild !== el) {{
+              host.insertBefore(el, host.firstChild);
             }}
-            el2.style.top = '10px';
+            el.style.display = 'flex';
           }} catch (e) {{}}
         }}
-        _placeChip();
-        // #10 · Reposicionar cuando el sidebar cambia de ancho (estirar/colapsar)
+        _mountChip();
+        // Guardián: Streamlit reconstruye el DOM del sidebar en cada rerun y
+        // puede desmontar el chip; esto lo re-engancha si quedó suelto.
         try {{
-          if (W.__gosChipRO) W.__gosChipRO.disconnect();
-          var sbo = D.querySelector('section[data-testid="stSidebar"]');
-          if (sbo && W.ResizeObserver) {{
-            W.__gosChipRO = new W.ResizeObserver(function() {{ _placeChip(); }});
-            W.__gosChipRO.observe(sbo);
-          }}
-          if (!W.__gosChipWin) {{ W.__gosChipWin = true; W.addEventListener('resize', function() {{
-            var f = W.__gosPlaceChipFn; if (f) f();
-          }}); }}
-          W.__gosPlaceChipFn = _placeChip;
+          if (W.__gosChipKeep) clearInterval(W.__gosChipKeep);
+          W.__gosChipKeep = setInterval(_mountChip, 600);
         }} catch (e) {{}}
 
         var menu = el.querySelector('.pc-menu');
@@ -21864,7 +21856,7 @@ def _install_nav_loading_overlay():
 
         // Failsafe: nunca dejar el telón pegado.
         clearTimeout(W.__gosLoadingKill);
-        W.__gosLoadingKill = setTimeout(removeOverlay, 15000);
+        W.__gosLoadingKill = setTimeout(removeOverlay, 25000);
       }}
 
       function removeOverlay() {{
@@ -21872,6 +21864,20 @@ def _install_nav_loading_overlay():
         if (el) el.remove();
         clearTimeout(W.__gosLoadingKill);
         W.__gosPendingNav = false;
+        navSawBusy = false;
+      }}
+
+      // Estado de la navegación en curso.
+      var navSawBusy = false;   // ¿vimos a Streamlit ocupado desde el click?
+      var navShownAt = 0;       // cuándo se pintó el telón
+      var navLastAct = 0;       // última señal de actividad (script o DOM)
+
+      function startNav(label) {{
+        W.__gosPendingNav = true;
+        navSawBusy = false;
+        navShownAt = Date.now();
+        navLastAct = navShownAt;
+        buildOverlay(label);
       }}
 
       // ── 1. Pintar el telón EN EL CLICK, antes del rerun ──────────────
@@ -21897,36 +21903,84 @@ def _install_nav_loading_overlay():
           // Si ya estamos en esa página, no hay transición que cubrir.
           if (btn.getAttribute('kind') === 'primary') return;
 
-          W.__gosPendingNav = true;
-          buildOverlay(page);
+          startNav(page);
         }} catch (e) {{}}
       }}, true);  // capture: corre antes que el handler de Streamlit
 
-      // ── 2. Retirar el telón cuando Streamlit termina de renderizar ───
+      // ── 2. Loader del Brand Finder: se pinta al buscar una marca ─────
+      // Cubre Enter y también el commit por blur (click afuera con valor
+      // nuevo). Muestra el código que se está buscando.
+      function isBrandSearchInput(t) {{
+        if (!t || t.tagName !== 'INPUT') return false;
+        var lbl = (t.getAttribute('aria-label') || '') + ' ' + (t.getAttribute('placeholder') || '');
+        return /brand id/i.test(lbl);
+      }}
+      D.addEventListener('keydown', function(ev) {{
+        try {{
+          if (ev.key !== 'Enter') return;
+          if (!isBrandSearchInput(ev.target)) return;
+          var v = (ev.target.value || '').trim();
+          if (!v) return;
+          // Mismo código otra vez: Streamlit no rerenderiza, no hay carga que tapar.
+          if (ev.target.__gosLastSearched === v) return;
+          ev.target.__gosLastSearched = v;
+          startNav('marca ' + v);
+        }} catch (e) {{}}
+      }}, true);
+      D.addEventListener('focusin', function(ev) {{
+        try {{ if (isBrandSearchInput(ev.target)) ev.target.__gosV0 = ev.target.value; }} catch (e) {{}}
+      }}, true);
+      D.addEventListener('focusout', function(ev) {{
+        try {{
+          var t = ev.target;
+          if (!isBrandSearchInput(t)) return;
+          var v = (t.value || '').trim();
+          if (!v || t.__gosV0 === t.value) return;   // sin cambios: no hay rerun
+          if (t.__gosLastSearched === v) return;
+          t.__gosLastSearched = v;
+          startNav('marca ' + v);
+        }} catch (e) {{}}
+      }}, true);
+
+      // ── 3. Retirar el telón cuando Streamlit termina DE VERDAD ───────
       function streamlitBusy() {{
         try {{
           if (D.querySelector('[data-testid="stStatusWidget"]')) return true;
           if (D.querySelector('.stApp[data-test-script-state="running"]')) return true;
           if (D.querySelector('[data-test-script-state="running"]')) return true;
+          if (D.querySelector('.stSpinner')) return true;
+          if (D.querySelector('[data-testid="stSkeleton"]')) return true;
         }} catch (e) {{}}
         return false;
       }}
 
-      var idleTicks = 0;
+      // El pintado del frontend también es actividad: en páginas grandes el
+      // DOM sigue mutando un rato después de que el script Python terminó.
+      try {{
+        var _navMO = new W.MutationObserver(function() {{
+          if (W.__gosPendingNav) navLastAct = Date.now();
+        }});
+        var _navRoot = D.querySelector('[data-testid="stAppViewContainer"]') ||
+                       D.querySelector('.stApp') || D.body;
+        _navMO.observe(_navRoot, {{ childList: true, subtree: true }});
+      }} catch (e) {{}}
+
       setInterval(function() {{
         if (!W.__gosPendingNav) return;
-        if (streamlitBusy()) {{ idleTicks = 0; return; }}
-        // Pedimos varios ticks seguidos en reposo para no cortar el telón
-        // durante micro-pausas entre fragmentos del render.
-        idleTicks++;
-        if (idleTicks >= 3) {{
-          idleTicks = 0;
-          // Un frame extra para que el navegador pinte la página nueva
-          // ANTES de levantar el telón (evita ver la pantalla vieja).
-          W.requestAnimationFrame(function() {{
-            W.requestAnimationFrame(function() {{ setTimeout(removeOverlay, 60); }});
-          }});
-        }}
+        var now = Date.now();
+        if (streamlitBusy()) {{ navSawBusy = true; navLastAct = now; return; }}
+        if (now - navShownAt < 450) return;              // mínimo en pantalla
+        if (now - navLastAct < 650) return;              // DOM aún pintando
+        // Si nunca vimos a Streamlit "corriendo" (viaje websocket lento, o los
+        // selectores de estado cambiaron en esta versión), damos 5s de gracia
+        // apoyados en la actividad del DOM antes de rendirnos.
+        if (!navSawBusy && now - navShownAt < 5000) return;
+        // Reposo real: un frame extra para que el navegador pinte la página
+        // nueva ANTES de levantar el telón.
+        W.__gosPendingNav = false;   // evita doble disparo mientras esperan los rAF
+        W.requestAnimationFrame(function() {{
+          W.requestAnimationFrame(function() {{ setTimeout(removeOverlay, 60); }});
+        }});
       }}, 100);
     }})();
     </script>
