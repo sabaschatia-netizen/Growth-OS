@@ -888,8 +888,11 @@ def _render_profile_chip(dark):
         // Guardián: Streamlit reconstruye el DOM del sidebar en cada rerun y
         // puede desmontar el chip; esto lo re-engancha si quedó suelto.
         try {{
-          if (W.__gosChipKeep) clearInterval(W.__gosChipKeep);
-          W.__gosChipKeep = setInterval(_mountChip, 600);
+          // W.setInterval: el reloj del PADRE. Un setInterval a secas sería
+          // del iframe, y Streamlit destruye los iframes en cada rerun —
+          // el guardián moriría al primer cambio de página.
+          if (W.__gosChipKeep) W.clearInterval(W.__gosChipKeep);
+          W.__gosChipKeep = W.setInterval(_mountChip, 600);
         }} catch (e) {{}}
 
         var menu = el.querySelector('.pc-menu');
@@ -21774,11 +21777,18 @@ import time as _time
 # usa defaults seguros (nunca queda invisible ni de tamaño cero).
 
 def _install_nav_loading_overlay():
-    """Instala (una sola vez por sesión de navegador) el telón de navegación.
+    """Telón de navegación — arquitectura a prueba del ciclo de vida de iframes.
 
-    A diferencia del enfoque anterior, esto NO depende de que Python inyecte el
-    overlay durante el render: el telón se pinta en el mismo instante del click,
-    desde el navegador, y se retira solo cuando Streamlit termina de correr.
+    st_components.html() corre dentro de un IFRAME que Streamlit destruye y
+    recrea en cada rerun. Dos consecuencias que mataban al telón:
+      1) Los timers (setInterval/setTimeout) del iframe viejo mueren con él.
+      2) Los listeners del documento padre quedan apuntando a funciones de un
+         "realm" muerto, que el navegador puede neutralizar → clicks sin efecto.
+    Por eso aquí NO hay guard de "instalar una sola vez": cada ejecución retira
+    los listeners del run anterior y engancha frescos, el estado vive en la
+    ventana PADRE (una navegación puede empezar en un render y terminar de
+    detectarse en el siguiente), y todos los relojes usan W.setInterval /
+    W.setTimeout — el reloj del padre, que sobrevive a los iframes.
     """
     dark = st.session_state.get("dark_mode", False)
     if dark:
@@ -21803,7 +21813,6 @@ def _install_nav_loading_overlay():
 
     css_js  = json.dumps(css)
     logo_js = json.dumps(LOGO_DATA_URI)
-    # Páginas conocidas: sirve para sacar el nombre del botón clickeado.
     pages_js = json.dumps([p for p, _ in [
         (n, i) for _, items in NAV_GROUPS for n, i in items
     ]] + ["Brand Update"])
@@ -21813,21 +21822,20 @@ def _install_nav_loading_overlay():
     (function() {{
       var W, D;
       try {{ W = window.parent; D = W.document; }} catch (e) {{ return; }}
-      if (!D) return;
+      if (!D || !D.body) return;
 
-      // Estilos (se refrescan siempre para respetar dark mode)
+      // Estilos (se refrescan siempre; respetan dark mode)
       try {{
         var s = D.getElementById('gos-loading-style');
         if (!s) {{ s = D.createElement('style'); s.id = 'gos-loading-style'; D.head.appendChild(s); }}
         s.textContent = {css_js};
       }} catch (e) {{}}
 
-      // El listener se instala UNA sola vez por pestaña del navegador.
-      if (W.__gosNavOverlayInstalled) return;
-      W.__gosNavOverlayInstalled = true;
-
       var LOGO = {logo_js};
       var PAGES = {pages_js};
+
+      // Estado en la ventana PADRE: sobrevive a la destrucción de iframes.
+      var S = W.__gosNavState = W.__gosNavState || {{ sawBusy: false, shownAt: 0, lastAct: 0 }};
 
       function buildOverlay(label) {{
         var el = D.getElementById('gos-loading');
@@ -21854,83 +21862,67 @@ def _install_nav_loading_overlay():
         el.style.right = '0px';
         el.style.bottom = '0px';
 
-        // Failsafe: nunca dejar el telón pegado.
-        clearTimeout(W.__gosLoadingKill);
-        W.__gosLoadingKill = setTimeout(removeOverlay, 25000);
+        // Failsafe duro en el reloj del PADRE: nunca dejar el telón pegado.
+        try {{ W.clearTimeout(W.__gosLoadingKill); }} catch (e) {{}}
+        W.__gosLoadingKill = W.setTimeout(removeOverlay, 25000);
       }}
 
       function removeOverlay() {{
         var el = D.getElementById('gos-loading');
         if (el) el.remove();
-        clearTimeout(W.__gosLoadingKill);
+        try {{ W.clearTimeout(W.__gosLoadingKill); }} catch (e) {{}}
         W.__gosPendingNav = false;
-        navSawBusy = false;
+        S.sawBusy = false;
       }}
-
-      // Estado de la navegación en curso.
-      var navSawBusy = false;   // ¿vimos a Streamlit ocupado desde el click?
-      var navShownAt = 0;       // cuándo se pintó el telón
-      var navLastAct = 0;       // última señal de actividad (script o DOM)
 
       function startNav(label) {{
         W.__gosPendingNav = true;
-        navSawBusy = false;
-        navShownAt = Date.now();
-        navLastAct = navShownAt;
+        S.sawBusy = false;
+        S.shownAt = Date.now();
+        S.lastAct = S.shownAt;
         buildOverlay(label);
       }}
 
-      // ── 1. Pintar el telón EN EL CLICK, antes del rerun ──────────────
-      D.addEventListener('click', function(ev) {{
+      // ── Navegación por sidebar ─────────────────────────────────────────
+      function onNavClick(ev) {{
         try {{
           var btn = ev.target && ev.target.closest ? ev.target.closest('button') : null;
           if (!btn) return;
           var sidebar = D.querySelector('section[data-testid="stSidebar"]');
           if (!sidebar || !sidebar.contains(btn)) return;
-
-          // innerText puede venir vacío según cómo Streamlit arme el botón
-          // (spans internos, nodos ocultos); textContent es el respaldo fiable.
           var label = ((btn.innerText || btn.textContent) || '').trim();
           if (!label) return;
-
-          // Solo para botones que son navegación real.
           var page = null;
           for (var i = 0; i < PAGES.length; i++) {{
             if (label.indexOf(PAGES[i]) !== -1) {{ page = PAGES[i]; break; }}
           }}
           if (!page) return;
-
-          // Si ya estamos en esa página, no hay transición que cubrir.
-          if (btn.getAttribute('kind') === 'primary') return;
-
+          if (btn.getAttribute('kind') === 'primary') return;  // ya estamos ahí
           startNav(page);
         }} catch (e) {{}}
-      }}, true);  // capture: corre antes que el handler de Streamlit
+      }}
 
-      // ── 2. Loader del Brand Finder: se pinta al buscar una marca ─────
-      // Cubre Enter y también el commit por blur (click afuera con valor
-      // nuevo). Muestra el código que se está buscando.
+      // ── Brand Finder: telón con el código buscado ──────────────────────
       function isBrandSearchInput(t) {{
         if (!t || t.tagName !== 'INPUT') return false;
         var lbl = (t.getAttribute('aria-label') || '') + ' ' + (t.getAttribute('placeholder') || '');
         return /brand id/i.test(lbl);
       }}
-      D.addEventListener('keydown', function(ev) {{
+      function onBrandKey(ev) {{
         try {{
           if (ev.key !== 'Enter') return;
           if (!isBrandSearchInput(ev.target)) return;
           var v = (ev.target.value || '').trim();
           if (!v) return;
-          // Mismo código otra vez: Streamlit no rerenderiza, no hay carga que tapar.
-          if (ev.target.__gosLastSearched === v) return;
+          if (ev.target.__gosLastSearched === v) return;  // mismo código: no hay carga
           ev.target.__gosLastSearched = v;
           startNav('marca ' + v);
         }} catch (e) {{}}
-      }}, true);
-      D.addEventListener('focusin', function(ev) {{
+      }}
+      function onBrandFocusIn(ev) {{
         try {{ if (isBrandSearchInput(ev.target)) ev.target.__gosV0 = ev.target.value; }} catch (e) {{}}
-      }}, true);
-      D.addEventListener('focusout', function(ev) {{
+      }}
+      function onBrandFocusOut(ev) {{
         try {{
           var t = ev.target;
           if (!isBrandSearchInput(t)) return;
@@ -21940,9 +21932,9 @@ def _install_nav_loading_overlay():
           t.__gosLastSearched = v;
           startNav('marca ' + v);
         }} catch (e) {{}}
-      }}, true);
+      }}
 
-      // ── 3. Retirar el telón cuando Streamlit termina DE VERDAD ───────
+      // ── Detección de fin de carga ──────────────────────────────────────
       function streamlitBusy() {{
         try {{
           if (D.querySelector('[data-testid="stStatusWidget"]')) return true;
@@ -21954,34 +21946,55 @@ def _install_nav_loading_overlay():
         return false;
       }}
 
-      // El pintado del frontend también es actividad: en páginas grandes el
-      // DOM sigue mutando un rato después de que el script Python terminó.
-      try {{
-        var _navMO = new W.MutationObserver(function() {{
-          if (W.__gosPendingNav) navLastAct = Date.now();
-        }});
-        var _navRoot = D.querySelector('[data-testid="stAppViewContainer"]') ||
-                       D.querySelector('.stApp') || D.body;
-        _navMO.observe(_navRoot, {{ childList: true, subtree: true }});
-      }} catch (e) {{}}
-
-      setInterval(function() {{
+      function navTick() {{
         if (!W.__gosPendingNav) return;
         var now = Date.now();
-        if (streamlitBusy()) {{ navSawBusy = true; navLastAct = now; return; }}
-        if (now - navShownAt < 450) return;              // mínimo en pantalla
-        if (now - navLastAct < 650) return;              // DOM aún pintando
-        // Si nunca vimos a Streamlit "corriendo" (viaje websocket lento, o los
-        // selectores de estado cambiaron en esta versión), damos 5s de gracia
+        if (streamlitBusy()) {{ S.sawBusy = true; S.lastAct = now; return; }}
+        if (now - S.shownAt < 450) return;               // mínimo en pantalla
+        if (now - S.lastAct < 650) return;               // script o DOM aún activos
+        // Si nunca vimos a Streamlit "corriendo" (viaje websocket lento, o
+        // selectores de estado distintos en esta versión), 5s de gracia
         // apoyados en la actividad del DOM antes de rendirnos.
-        if (!navSawBusy && now - navShownAt < 5000) return;
-        // Reposo real: un frame extra para que el navegador pinte la página
-        // nueva ANTES de levantar el telón.
+        if (!S.sawBusy && now - S.shownAt < 5000) return;
         W.__gosPendingNav = false;   // evita doble disparo mientras esperan los rAF
         W.requestAnimationFrame(function() {{
-          W.requestAnimationFrame(function() {{ setTimeout(removeOverlay, 60); }});
+          W.requestAnimationFrame(function() {{ W.setTimeout(removeOverlay, 60); }});
         }});
-      }}, 100);
+      }}
+
+      // ── Re-enganche total en CADA ejecución ────────────────────────────
+      try {{
+        var old = W.__gosNavHandlers;
+        if (old) {{
+          D.removeEventListener('click', old.click, true);
+          D.removeEventListener('keydown', old.key, true);
+          D.removeEventListener('focusin', old.fin, true);
+          D.removeEventListener('focusout', old.fout, true);
+        }}
+      }} catch (e) {{}}
+      var H = {{ click: onNavClick, key: onBrandKey, fin: onBrandFocusIn, fout: onBrandFocusOut }};
+      W.__gosNavHandlers = H;
+      D.addEventListener('click', H.click, true);      // capture: antes que Streamlit
+      D.addEventListener('keydown', H.key, true);
+      D.addEventListener('focusin', H.fin, true);
+      D.addEventListener('focusout', H.fout, true);
+
+      // El pintado del frontend también es actividad: en páginas grandes el
+      // DOM sigue mutando después de que el script Python terminó.
+      try {{ if (W.__gosNavMO) W.__gosNavMO.disconnect(); }} catch (e) {{}}
+      try {{
+        var mo = new W.MutationObserver(function() {{
+          if (W.__gosPendingNav) S.lastAct = Date.now();
+        }});
+        var root = D.querySelector('[data-testid="stAppViewContainer"]') ||
+                   D.querySelector('.stApp') || D.body;
+        mo.observe(root, {{ childList: true, subtree: true }});
+        W.__gosNavMO = mo;
+      }} catch (e) {{}}
+
+      // Watcher SIEMPRE en el reloj del padre, re-armado en cada run.
+      try {{ if (W.__gosNavTick) W.clearInterval(W.__gosNavTick); }} catch (e) {{}}
+      W.__gosNavTick = W.setInterval(navTick, 100);
     }})();
     </script>
     """, height=0)
