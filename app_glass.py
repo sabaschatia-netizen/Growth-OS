@@ -6907,24 +6907,6 @@ section[data-testid="stSidebar"] > div:first-child {
     transition: width 0.25s cubic-bezier(.4,0,.2,1) !important;
 }
 
-.nav-toggle-btn {
-    background: rgba(255,255,255,0.95);
-    border: 1px solid #E5ECFA;
-    border-radius: 10px;
-    color: #111827;
-    cursor: pointer;
-    font-size: 16px;
-    padding: 7px 10px;
-    transition: background 0.18s, border-color 0.18s;
-    width: 100%;
-    text-align: center;
-    margin-bottom: 4px;
-}
-.nav-toggle-btn:hover {
-    background: #E5ECFA;
-    border-color: rgba(37,99,235,0.20);
-}
-
 .nav-section-label {
     font-size: 9px;
     font-weight: 800;
@@ -7012,25 +6994,16 @@ def _nav_set_page(page_name):
     st.session_state["active_page"] = page_name
 
 
-def _nav_toggle_collapse():
-    st.session_state["nav_collapsed"] = not st.session_state.get("nav_collapsed", False)
-
-
 def _nav_toggle_dark():
     st.session_state["dark_mode"] = not st.session_state.get("dark_mode", False)
 
 
 with st.sidebar:
-    # Toggle button — botón chico y centrado, NO la pill larga que usan los demás
-    # botones del sidebar (por eso no lleva use_container_width y tiene su propio
-    # CSS más abajo, con key="nav_toggle" para no afectar al resto de botones).
-    toggle_label = "◀" if not collapsed else "▶"
-    _tgl_col_l, _tgl_col_c, _tgl_col_r = st.columns([1, 1, 1])
-    with _tgl_col_c:
-        st.button(toggle_label, key="nav_toggle", help="Colapsar / expandir navegación",
-                  on_click=_nav_toggle_collapse)
-
-    collapsed = st.session_state["nav_collapsed"]
+    # El botón de colapsar navegación se eliminó (ocupaba espacio y no se usaba).
+    # nav_collapsed queda fijo en False: el sidebar siempre renderiza expandido
+    # y todas las ramas `if not collapsed` siguen funcionando sin tocarlas.
+    st.session_state["nav_collapsed"] = False
+    collapsed = False
 
     if not collapsed:
         # Logo expanded
@@ -8171,7 +8144,6 @@ if DARK_MODE:
     .nav-item:hover { background: rgba(255,255,255,0.06) !important; color: #FFFFFF !important; }
     .nav-item.active { background: rgba(249,115,22,0.16) !important; color: #FFFFFF !important; }
     .nav-logo-text, .nav-section-label { color: #E5E7EB !important; }
-    .nav-toggle-btn { background: #20232A !important; color: #E5E7EB !important; border-color: rgba(255,255,255,0.10) !important; }
     /* Header de página = mismo color que el sidebar (#080808) para formar la "L" */
     .app-header { background: #080808 !important; box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important; }
     /* sticky header dark strip */
